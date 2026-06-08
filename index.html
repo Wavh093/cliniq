@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OH Dental Studio — Krugersdorp</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+  <!-- Tailwind config — Serene Blush design system -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: "#9b0044",
+            "primary-container": "#c2185b",
+            "on-primary": "#ffffff",
+            "on-primary-fixed": "#3f0018",
+            "primary-fixed": "#ffd9df",
+            "primary-fixed-dim": "#ffb1c2",
+            secondary: "#705763",
+            "secondary-container": "#f8d7e5",
+            "on-secondary": "#ffffff",
+            "on-secondary-fixed-variant": "#57404b",
+            "secondary-fixed": "#fbdae8",
+            "secondary-fixed-dim": "#debecc",
+            tertiary: "#544a50",
+            "tertiary-fixed": "#eddfe6",
+            "tertiary-fixed-dim": "#d1c3ca",
+            "on-tertiary": "#ffffff",
+            "on-tertiary-container": "#eddfe6",
+            surface: "#fff8f8",
+            "surface-bright": "#fff8f8",
+            "surface-cream": "#FDF9F8",
+            "surface-dim": "#fccde3",
+            "surface-variant": "#ffd8ea",
+            "surface-container": "#ffe8f1",
+            "surface-container-low": "#fff0f5",
+            "surface-container-high": "#ffe0ed",
+            "surface-container-highest": "#ffd8ea",
+            "surface-container-lowest": "#ffffff",
+            "on-surface": "#2e1222",
+            "on-surface-variant": "#594045",
+            background: "#fff8f8",
+            outline: "#8d6f75",
+            "outline-variant": "#e1bec4",
+            "soft-blush": "#FDEEF5",
+            "deep-plum": "#2A0F1F",
+            "inverse-surface": "#452738",
+            "inverse-primary": "#ffb1c2",
+            error: "#ba1a1a",
+            "error-container": "#ffdad6",
+            "on-error": "#ffffff",
+          },
+          fontFamily: {
+            headline: ['"Plus Jakarta Sans"', "system-ui", "sans-serif"],
+            sans: ['"DM Sans"', "system-ui", "sans-serif"],
+          },
+          fontSize: {
+            "headline-xl": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "700" }],
+            "headline-lg": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600" }],
+            "headline-md": ["24px", { lineHeight: "32px", fontWeight: "600" }],
+            "body-lg": ["18px", { lineHeight: "28px" }],
+            "body-md": ["16px", { lineHeight: "24px" }],
+            "label-sm": ["14px", { lineHeight: "20px", letterSpacing: "0.05em", fontWeight: "500" }],
+          },
+          spacing: {
+            "section-gap": "120px",
+            "margin-desktop": "64px",
+            "margin-mobile": "20px",
+            "container-max": "1280px",
+            gutter: "24px",
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+            lg: "0.75rem",
+            xl: "1rem",
+            "2xl": "1.5rem",
+            "3xl": "2rem",
+            "4xl": "3rem",
+            full: "9999px",
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body { background-color: #fff8f8; color: #2e1222; -webkit-font-smoothing: antialiased; }
+    * { box-sizing: border-box; }
+    p { margin: 0; }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .glass-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    section[id] { scroll-margin-top: 80px; }
+
+    /* ── Booking calendar ── */
+    .booking-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+    .cal-head { font-size: 10px; letter-spacing: 0.08em; color: #8d6f75; text-align: center; padding: 4px 0; text-transform: uppercase; }
+    .cal-day {
+      aspect-ratio: 1; border: 1px solid #e1bec4; background: white; border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      cursor: pointer; color: #2e1222; transition: all .15s ease; padding: 2px; font-family: inherit;
+    }
+    .cal-day:hover:not(:disabled) { border-color: #9b0044; background: #FDEEF5; }
+    .cal-day:disabled { opacity: 0.3; cursor: not-allowed; }
+    .cal-day.muted { background: transparent; border-color: transparent; cursor: default; }
+    .cal-day.selected { background: #9b0044; color: white; border-color: #9b0044; }
+    .cal-num { font-size: 14px; font-weight: 500; line-height: 1; }
+    .cal-m { font-size: 9px; opacity: 0.6; }
+
+    /* ── Time slots ── */
+    .slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 14px; }
+    @media (max-width: 480px) { .slot-grid { grid-template-columns: repeat(3, 1fr); } }
+    .slot {
+      padding: 10px 6px; border: 1px solid #e1bec4; background: white;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; color: #2e1222;
+      border-radius: 10px; cursor: pointer; transition: all .15s ease; text-align: center;
+    }
+    .slot:hover:not(:disabled) { border-color: #9b0044; background: #FDEEF5; }
+    .slot:disabled { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+    .slot.selected { background: #9b0044; color: white; border-color: #9b0044; }
+
+    /* ── Mobile responsive helpers ── */
+    @media (max-width: 640px) {
+      .hero-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .booking-sidebar { display: none; }
+    }
+  </style>
+</head>
+<body class="font-sans text-on-surface selection:bg-primary/20">
+  <div id="app"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel">
+
+    /* ─── Data ─────────────────────────────────────────────────────────────── */
+
+    const SERVICES = [
+      { id: 'checkup',   name: 'Checkup & Clean',     meta: '45 min · From R650',          apiName: 'Checkup & Clean',    duration: 45 },
+      { id: 'whitening', name: 'Teeth Whitening',      meta: '60 min · From R3 200',        apiName: 'Teeth Whitening',    duration: 60 },
+      { id: 'veneers',   name: 'Porcelain Veneers',    meta: 'Consult · From R5 800/tooth', apiName: 'Porcelain Veneers',  duration: 90 },
+      { id: 'crowns',    name: 'Crown & Bridge',        meta: 'Consult · 2 visits',          apiName: 'Crown & Bridge',     duration: 90 },
+      { id: 'root',      name: 'Root Canal Therapy',   meta: '90 min · From R3 900',        apiName: 'Root Canal',         duration: 90 },
+      { id: 'pediatric', name: 'Paediatric Dentistry', meta: '30 min · From R450',          apiName: 'Paediatric',         duration: 30 },
+      { id: 'dentures',  name: 'Removable Dentures',   meta: 'Consult · Custom fit',        apiName: 'Removable Dentures', duration: 60 },
+      { id: 'emergency', name: 'Emergency Visit',       meta: 'Same-day · See terms',        apiName: 'Emergency Visit',    duration: 30 },
+    ];
+
+    const PATIENT_TYPES = [
+      { id: 'new',       name: 'New patient',       meta: 'First visit with us — welcome.' },
+      { id: 'returning', name: 'Returning patient', meta: 'Already on file with OH Dental.' },
+    ];
+
+    const STEP_LABELS = ['Service', 'Patient', 'Date & time', 'Your details', 'Confirm'];
+
+    /* ─── Helpers ──────────────────────────────────────────────────────────── */
+
+    function toDateStr(d) {
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    function formatDate(d) {
+      if (!d) return '—';
+      return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+
+    const PROFANITY = ['fuck','shit','cunt','bitch','asshole','bastard','dick','cock','pussy','wank','twat','piss','arse','poes','doos','naai'];
+    function hasProfanity(str) {
+      return PROFANITY.some(w => new RegExp('\\b' + w + '\\b', 'i').test(str));
+    }
+    function isValidPhone(p) { const d = p.replace(/\D/g,''); return d.length >= 9 && d.length <= 12; }
+    function sanitisePhone(v) { return v.replace(/[^\d\s+()\-]/g,''); }
+
+    /* ─── CalendarPicker ───────────────────────────────────────────────────── */
+
+    function CalendarPicker({ value, onChange, emergency = false }) {
+      const today = React.useMemo(() => { const t = new Date(); t.setHours(0,0,0,0); return t; }, []);
+      const tomorrow = React.useMemo(() => { const t = new Date(today); t.setDate(today.getDate()+1); return t; }, [today]);
+
+      const dayOfWeek = (today.getDay() + 6) % 7;
+      const cells = [];
+      for (let i = 0; i < dayOfWeek; i++) cells.push(null);
+      for (let i = 0; i < 28; i++) { const d = new Date(today); d.setDate(today.getDate()+i); cells.push(d); }
+      while (cells.length % 7 !== 0) cells.push(null);
+
+      const heads = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const mon = d => d.toLocaleString('en-GB', { month: 'short' });
+
+      return (
+        <div>
+          {emergency && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700 leading-relaxed">
+              Emergency slots available <strong>today and tomorrow only</strong>. Life-threatening: call <strong>011 660 2400</strong>.
+            </div>
+          )}
+          <div className="booking-cal">
+            {heads.map(h => <div key={h} className="cal-head">{h}</div>)}
+            {cells.map((d, i) => {
+              if (!d) return <div key={i} className="cal-day muted" aria-hidden="true" />;
+              const isSel = value && d.getTime() === value.getTime();
+              const isSun = d.getDay() === 0;
+              const isBlocked = emergency && d.getTime() > tomorrow.getTime();
+              return (
+                <button key={i} className={`cal-day ${isSel ? 'selected' : ''}`} disabled={isSun || isBlocked} onClick={() => onChange(d)}>
+                  <span className="cal-num">{d.getDate()}</span>
+                  <span className="cal-m">{mon(d)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── SlotPicker ───────────────────────────────────────────────────────── */
+
+    function SlotPicker({ value, onChange, date, duration = 30 }) {
+      const [slots, setSlots] = React.useState([]);
+      const [loading, setLoading] = React.useState(false);
+      const [err, setErr] = React.useState(null);
+
+      React.useEffect(() => {
+        if (!date) return;
+        setLoading(true); setErr(null); setSlots([]);
+        fetch(`/api/bookings?date=${toDateStr(date)}&duration=${duration}`)
+          .then(r => r.json())
+          .then(b => { setSlots(b.slots || []); setLoading(false); })
+          .catch(() => { setErr('Could not load available times — please check your connection and try again.'); setLoading(false); });
+      }, [date, duration]);
+
+      if (loading) return (
+        <div className="flex items-center gap-2 py-4">
+          <svg className="animate-spin w-4 h-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <p className="text-on-surface-variant text-sm">Checking live availability…</p>
+        </div>
+      );
+      if (err) return (
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{err}</div>
+      );
+      // Filter out past slots when booking for today
+      const todayStr = toDateStr(new Date());
+      const isToday  = date && toDateStr(date) === todayStr;
+      const now      = new Date();
+      const nowHHMM  = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      // Add a small buffer: don't allow booking within 30 min of current time
+      const nowPlusBuf = (() => {
+        const d = new Date(now.getTime() + 30 * 60 * 1000);
+        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      })();
+      const visibleSlots = isToday ? slots.filter(t => t > nowPlusBuf) : slots;
+
+      if (!visibleSlots.length) return (
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+          {isToday
+            ? 'No more available times for today — please choose a different date.'
+            : 'No available times for this day — please choose a different date.'}
+        </div>
+      );
+      return (
+        <div>
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"></span>
+            <span className="text-xs text-on-surface-variant">Live availability — {visibleSlots.length} slot{visibleSlots.length !== 1 ? 's' : ''} open</span>
+          </div>
+          <div className="slot-grid">
+            {visibleSlots.map(t => (
+              <button key={t} className={`slot ${value === t ? 'selected' : ''}`} onClick={() => onChange(t)}>{t}</button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── BookingFlow ──────────────────────────────────────────────────────── */
+
+    function BookingFlow() {
+      const [step, setStep] = React.useState(0);
+      const [data, setData] = React.useState({ service:null, patientType:null, date:null, time:null, firstName:'', lastName:'', email:'', phone:'', notes:'' });
+      const [errors, setErrors] = React.useState({});
+      const [submitting, setSubmitting] = React.useState(false);
+      const [submitErr, setSubmitErr] = React.useState(null);
+
+      const set = patch => setData(d => ({ ...d, ...patch }));
+
+      const validateDetails = (silent = false) => {
+        const e = {};
+        const fn = data.firstName.trim();
+        if (!fn) e.firstName = 'Required';
+        else if (fn.length < 2) e.firstName = 'Too short';
+        else if (fn.length > 50) e.firstName = 'Name is too long';
+        else if (!/^[a-zA-ZÀ-ÿ\s\-'.]+$/.test(fn)) e.firstName = 'Letters only please';
+        else if (hasProfanity(fn)) e.firstName = 'Please use appropriate language';
+
+        const ln = data.lastName.trim();
+        if (!ln) e.lastName = 'Required';
+        else if (ln.length < 2) e.lastName = 'Too short';
+        else if (ln.length > 50) e.lastName = 'Name is too long';
+        else if (!/^[a-zA-ZÀ-ÿ\s\-'.]+$/.test(ln)) e.lastName = 'Letters only please';
+        else if (hasProfanity(ln)) e.lastName = 'Please use appropriate language';
+
+        if (!data.email.trim()) e.email = 'Required';
+        else if (data.email.trim().length > 100) e.email = 'Email is too long';
+        else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) e.email = 'Enter a valid email';
+
+        if (!data.phone.trim()) e.phone = 'Required';
+        else if (!isValidPhone(data.phone)) e.phone = 'Enter a valid SA number (e.g. 082 555 0123)';
+
+        if (data.notes && hasProfanity(data.notes)) e.notes = 'Please use appropriate language';
+
+        if (!silent) setErrors(e);
+        return Object.keys(e).length === 0 ? null : e;
+      };
+
+      const canAdvance = () => {
+        if (step === 0) return !!data.service;
+        if (step === 1) return !!data.patientType;
+        if (step === 2) return !!data.date && !!data.time;
+        if (step === 3) return validateDetails(true) === null;
+        return true;
+      };
+
+      const next = async () => {
+        if (step === 3 && validateDetails()) return;
+        if (step === STEP_LABELS.length - 1) {
+          setSubmitting(true); setSubmitErr(null);
+          try {
+            const svc = SERVICES.find(s => s.id === data.service);
+            const res = await fetch('/api/bookings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                service: svc?.apiName || svc?.name,
+                patientType: data.patientType,
+                date: toDateStr(data.date),
+                time: data.time,
+                firstName: data.firstName.trim(),
+                lastName: data.lastName.trim(),
+                email: data.email.trim(),
+                phone: data.phone.trim(),
+                notes: data.notes?.trim() || null,
+              }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error || 'Booking failed. Please try again.');
+            setStep(STEP_LABELS.length);
+          } catch (err) {
+            setSubmitErr(err.message);
+          } finally {
+            setSubmitting(false);
+          }
+          return;
+        }
+        setStep(s => Math.min(s + 1, STEP_LABELS.length));
+      };
+
+      const back = () => { setSubmitErr(null); setStep(s => Math.max(s - 1, 0)); };
+      const reset = () => {
+        setStep(0);
+        setData({ service:null, patientType:null, date:null, time:null, firstName:'', lastName:'', email:'', phone:'', notes:'' });
+        setErrors({}); setSubmitErr(null);
+      };
+
+      const isConfirmed = step === STEP_LABELS.length;
+      const activeStep = isConfirmed ? STEP_LABELS.length - 1 : step;
+      const selectedService = SERVICES.find(s => s.id === data.service);
+      const selectedPatient = PATIENT_TYPES.find(p => p.id === data.patientType);
+
+      const stageTitle = s => ['What brings you in?', 'Have we met before?', 'Pick a day that suits you', 'A few details', 'Looks good?'][s];
+
+      const inputCls = (err) =>
+        `w-full bg-soft-blush border-none rounded-xl p-3.5 text-sm text-on-surface outline-none transition-all focus:bg-white focus:ring-2 focus:ring-primary/30 ${err ? 'ring-2 ring-error' : ''}`;
+
+      return (
+        <div className="bg-white rounded-3xl shadow-[0_4px_30px_rgba(194,24,91,0.07)] border border-soft-blush overflow-hidden grid grid-cols-1 lg:grid-cols-[290px_1fr]">
+
+          {/* Sidebar */}
+          <aside className="booking-sidebar bg-deep-plum text-white p-10 flex flex-col gap-6">
+            <span className="text-xs font-medium uppercase tracking-widest text-primary-fixed-dim">Book your visit</span>
+            <h3 className="font-headline text-2xl font-semibold leading-snug">
+              A calm, <span className="italic text-primary-fixed-dim">unhurried</span> appointment.
+            </h3>
+            <div className="flex flex-col gap-0.5 mt-2">
+              {STEP_LABELS.map((label, i) => {
+                const isDone = i < activeStep || isConfirmed;
+                const isActive = i === activeStep && !isConfirmed;
+                return (
+                  <div key={label} className={`flex items-center gap-3 py-2.5 text-sm transition-colors ${isActive ? 'text-white' : isDone ? 'text-white/70' : 'text-white/35'}`}>
+                    <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs flex-shrink-0 transition-all font-medium ${isActive ? 'border-primary-fixed-dim bg-primary-fixed-dim text-deep-plum' : isDone ? 'border-white/50' : 'border-white/20'}`}>
+                      {isDone ? '✓' : String(i + 1).padStart(2, '0')}
+                    </span>
+                    {label}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-auto pt-6 border-t border-white/10 text-xs text-white/45 leading-relaxed">
+              Open Mon–Fri 08:00–17:00 · Sat 09:00–13:00<br />
+              Dental emergencies: <strong className="text-white/70">011 660 2400</strong>
+            </div>
+          </aside>
+
+          {/* Stage */}
+          <div className="p-8 md:p-12 flex flex-col min-h-[520px]">
+            {isConfirmed ? (
+              <div className="flex flex-col items-center justify-center flex-1 text-center gap-5 py-8">
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl">✓</div>
+                <h4 className="font-headline text-3xl font-semibold">You're <span className="italic text-primary">booked</span>.</h4>
+                <p className="text-on-surface-variant max-w-sm text-sm leading-relaxed">
+                  We'll see you on <strong>{formatDate(data.date)}</strong> at <strong>{data.time}</strong>.
+                  A confirmation has been sent to <strong>{data.email}</strong>.
+                </p>
+                <button onClick={reset} className="mt-2 border-2 border-primary text-primary px-8 py-3 rounded-full font-semibold text-sm hover:bg-primary hover:text-white transition-all">
+                  Book another visit
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="mb-7">
+                  <span className="text-xs font-medium text-on-surface-variant uppercase tracking-widest">Step {step + 1} of {STEP_LABELS.length}</span>
+                  <h4 className="font-headline text-2xl font-semibold text-on-surface mt-1">{stageTitle(step)}</h4>
+                </div>
+
+                <div className="flex-1">
+
+                  {/* Step 0: Service */}
+                  {step === 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {SERVICES.map(s => (
+                        <button key={s.id} onClick={() => set({ service: s.id, date: null, time: null })}
+                          className={`text-left p-4 border rounded-2xl transition-all hover:-translate-y-0.5 ${data.service === s.id ? 'border-primary bg-soft-blush shadow-sm shadow-primary/10' : 'border-outline-variant bg-white hover:border-primary/50'}`}>
+                          <div className="font-headline font-semibold text-on-surface text-sm">{s.name}</div>
+                          <div className="text-xs text-on-surface-variant mt-1">{s.meta}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Step 1: Patient type */}
+                  {step === 1 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {PATIENT_TYPES.map(p => (
+                        <button key={p.id} onClick={() => set({ patientType: p.id })}
+                          className={`text-left p-6 border rounded-2xl transition-all hover:-translate-y-0.5 ${data.patientType === p.id ? 'border-primary bg-soft-blush shadow-sm shadow-primary/10' : 'border-outline-variant bg-white hover:border-primary/50'}`}>
+                          <div className="font-headline font-semibold text-on-surface text-lg">{p.name}</div>
+                          <div className="text-sm text-on-surface-variant mt-1">{p.meta}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Step 2: Date + time */}
+                  {step === 2 && (
+                    <div>
+                      <CalendarPicker value={data.date} onChange={d => set({ date: d, time: null })} emergency={data.service === 'emergency'} />
+                      {data.date ? (
+                        <div className="mt-6">
+                          <div className="flex justify-between items-baseline mb-3">
+                            <span className="font-headline font-semibold text-on-surface">{formatDate(data.date)}</span>
+                            <span className="text-xs text-on-surface-variant">SAST</span>
+                          </div>
+                          <SlotPicker value={data.time} onChange={t => set({ time: t })} date={data.date}
+                            duration={SERVICES.find(s => s.id === data.service)?.duration || 30} />
+                        </div>
+                      ) : (
+                        <p className="text-on-surface-variant text-sm mt-4">← Select a date above to see available times.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Step 3: Details */}
+                  {step === 3 && (
+                    <div className="space-y-4">
+                      {data.patientType === 'returning' && (
+                        <div className="p-3 bg-secondary-container/60 border border-outline-variant rounded-xl text-sm text-on-surface-variant leading-relaxed">
+                          Our team will call to confirm your existing record before the appointment — no extra details needed here.
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">First name</label>
+                          <input value={data.firstName} onChange={e => set({ firstName: e.target.value })} placeholder="Lerato" maxLength={50} className={inputCls(errors.firstName)} />
+                          {errors.firstName && <span className="text-xs text-error">{errors.firstName}</span>}
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Last name</label>
+                          <input value={data.lastName} onChange={e => set({ lastName: e.target.value })} placeholder="Mokoena" maxLength={50} className={inputCls(errors.lastName)} />
+                          {errors.lastName && <span className="text-xs text-error">{errors.lastName}</span>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Email</label>
+                          <input type="email" value={data.email} onChange={e => set({ email: e.target.value })} placeholder="you@email.com" maxLength={100} className={inputCls(errors.email)} />
+                          {errors.email && <span className="text-xs text-error">{errors.email}</span>}
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Phone</label>
+                          <input type="tel" value={data.phone} onChange={e => set({ phone: sanitisePhone(e.target.value) })} placeholder="082 555 0123" maxLength={15} className={inputCls(errors.phone)} />
+                          {errors.phone && <span className="text-xs text-error">{errors.phone}</span>}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Anything we should know? (optional)</label>
+                        <textarea rows="3" value={data.notes} onChange={e => set({ notes: e.target.value })} placeholder="Sensitivity, anxiety, medication, etc." maxLength={500} className={`${inputCls(errors.notes)} resize-none`} />
+                        {errors.notes && <span className="text-xs text-error">{errors.notes}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 4: Confirm */}
+                  {step === 4 && (
+                    <div className="bg-soft-blush border border-outline-variant/50 rounded-2xl p-6 grid grid-cols-2 gap-x-8 gap-y-5">
+                      {[
+                        ['Service', selectedService?.name],
+                        ['Patient type', selectedPatient?.name],
+                        ['Date', formatDate(data.date)],
+                        ['Time', data.time],
+                        ['Name', `${data.firstName} ${data.lastName}`],
+                        ['Contact', `${data.email}`],
+                      ].map(([label, val]) => (
+                        <div key={label}>
+                          <div className="text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-1">{label}</div>
+                          <div className="text-sm font-medium text-on-surface">{val}</div>
+                        </div>
+                      ))}
+                      {data.notes && (
+                        <div className="col-span-2">
+                          <div className="text-xs font-medium text-on-surface-variant uppercase tracking-wide mb-1">Notes</div>
+                          <div className="text-sm text-on-surface">{data.notes}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {submitErr && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-error">{submitErr}</div>
+                )}
+
+                <div className="mt-6 flex items-center justify-between">
+                  <button onClick={back} disabled={submitting || step === 0}
+                    className={`text-on-surface-variant text-sm flex items-center gap-2 hover:text-on-surface transition-colors ${step === 0 ? 'invisible' : ''}`}>
+                    <span className="material-symbols-outlined text-base">arrow_back</span> Back
+                  </button>
+                  <button onClick={next} disabled={!canAdvance() || submitting}
+                    className="bg-primary text-white px-8 py-3 rounded-full font-semibold text-sm hover:bg-primary-container transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:pointer-events-none">
+                    {submitting ? 'Booking…' : step === STEP_LABELS.length - 1 ? 'Confirm booking' : 'Continue'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── ContactSection ───────────────────────────────────────────────────── */
+
+    const TOPIC_PLACEHOLDERS = {
+      general:     "Hi, I was wondering about…",
+      appointment: "I'd like to book a time for… (preferred days/times work too)",
+      cosmetic:    "I'm interested in… (whitening / veneers / smile makeover)",
+      emergency:   "I'm experiencing pain / a broken tooth / swelling in…",
+      medical:     "My medical aid is… and I'd like to know about cover for…",
+    };
+
+    const TOPIC_LABELS = {
+      general:     "General question",
+      appointment: "An appointment",
+      cosmetic:    "Cosmetic consult",
+      emergency:   "Dental emergency",
+      medical:     "Medical aid / billing",
+    };
+
+    const MSG_MAX = 1000;
+
+    function ContactSection() {
+      const [form, setForm] = React.useState({ name:'', email:'', phone:'', topic:'general', message:'' });
+      const [errors, setErrors] = React.useState({});
+      const [sent, setSent] = React.useState(false);
+      const [sentName, setSentName] = React.useState('');
+      const [submitting, setSubmitting] = React.useState(false);
+      const [submitErr, setSubmitErr] = React.useState(null);
+
+      const set = patch => setForm(f => ({ ...f, ...patch }));
+      const msgLen = form.message.length;
+      const msgNearLimit = msgLen > MSG_MAX * 0.85;
+
+      const validate = () => {
+        const e = {};
+        const n = form.name.trim();
+        if (!n) e.name = 'Required';
+        else if (n.length < 2) e.name = 'Too short';
+        else if (n.length > 100) e.name = 'Name is too long';
+        else if (hasProfanity(n)) e.name = 'Please use appropriate language';
+
+        if (!form.email.trim()) e.email = 'Required';
+        else if (form.email.trim().length > 100) e.email = 'Email is too long';
+        else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) e.email = 'Enter a valid email';
+
+        if (form.phone.trim() && !isValidPhone(form.phone)) e.phone = 'Enter a valid SA number (e.g. 082 555 0123)';
+
+        if (!form.message.trim()) e.message = 'Tell us how we can help';
+        else if (form.message.trim().length < 10) e.message = 'A little more detail, please';
+        else if (form.message.trim().length > MSG_MAX) e.message = `Please keep your message under ${MSG_MAX} characters`;
+        else if (hasProfanity(form.message)) e.message = 'Please use appropriate language';
+
+        setErrors(e);
+        return Object.keys(e).length === 0;
+      };
+
+      const submit = async ev => {
+        ev.preventDefault();
+        if (!validate()) return;
+        setSubmitting(true); setSubmitErr(null);
+        try {
+          const res = await fetch('/api/contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: form.name.trim(), email: form.email.trim(),
+              phone: form.phone.trim() || null, topic: form.topic,
+              message: form.message.trim(),
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Could not send message. Please try again.');
+          setSentName(form.name.trim().split(' ')[0]);
+          setSent(true);
+          setForm({ name:'', email:'', phone:'', topic:'general', message:'' });
+          setErrors({});
+        } catch (err) {
+          setSubmitErr(err.message);
+        } finally {
+          setSubmitting(false);
+        }
+      };
+
+      const inputCls = err =>
+        `w-full bg-soft-blush border-none rounded-xl p-3.5 text-sm text-on-surface outline-none transition-all focus:bg-white focus:ring-2 focus:ring-primary/30 ${err ? 'ring-2 ring-error' : ''}`;
+
+      return (
+        <section id="contact" className="py-section-gap bg-surface-container-low">
+          <div className="max-w-container-max mx-auto px-margin-desktop">
+            <div className="text-center mb-16">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-4">Visit us</span>
+              <h2 className="font-headline text-headline-lg text-on-surface mb-4">Find us in <span className="italic text-primary">Krugersdorp</span>.</h2>
+              <p className="text-on-surface-variant max-w-xl mx-auto text-body-md">
+                Pop in for a coffee and a consult, send us a question, or call ahead — whichever feels easiest. We answer every message ourselves.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+              {/* Map + info */}
+              <div className="lg:col-span-7 space-y-gutter">
+                <div className="rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(194,24,91,0.06)] border border-soft-blush bg-white">
+                  <div className="relative" style={{ aspectRatio: '16/10' }}>
+                    <iframe
+                      src="https://maps.google.com/maps?q=23+Voortrekker+Road,+Krugersdorp+North,+1739,+South+Africa&t=&z=16&ie=UTF8&iwloc=&output=embed"
+                      title="OH Dental Studio on Google Maps"
+                      style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', border:0 }}
+                      allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                    />
+                    <a
+                      href="https://www.google.com/maps/dir/?api=1&destination=23+Voortrekker+Road,+Krugersdorp+North,+1739,+South+Africa"
+                      target="_blank" rel="noopener noreferrer"
+                      className="absolute top-3 right-3 bg-white border border-outline-variant rounded-xl px-4 py-2 text-xs font-medium text-on-surface flex items-center gap-2 shadow-md hover:bg-soft-blush transition-all z-10"
+                    >
+                      Get directions <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    </a>
+                  </div>
+                  <div className="p-6 grid grid-cols-3 gap-4 border-t border-outline-variant/30">
+                    <div>
+                      <div className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Address</div>
+                      <div className="text-sm text-on-surface leading-relaxed">23 Voortrekker Road<br />Krugersdorp North, 1739</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Hours</div>
+                      <div className="text-sm text-on-surface leading-relaxed">Mon–Fri 08:00–17:00<br />Sat 09:00–13:00<br />Sun — Closed</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-2">Reach us</div>
+                      <div className="text-sm leading-relaxed">
+                        <a href="tel:+27116602400" className="text-primary hover:underline block">011 660 2400</a>
+                        <a href="https://wa.me/27116602400" target="_blank" rel="noopener" className="text-primary hover:underline flex items-center gap-1">
+                          <span className="material-symbols-outlined" style={{fontSize:14}}>chat</span> WhatsApp us
+                        </a>
+                        <a href="mailto:hello@ohdental.co.za" className="text-primary hover:underline block">hello@ohdental.co.za</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact form / confirmation card */}
+              <div className="lg:col-span-5">
+                {sent ? (
+                  /* ── Success confirmation card ── */
+                  <div className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(194,24,91,0.06)] border border-soft-blush flex flex-col items-center text-center gap-6">
+                    <div className="w-16 h-16 rounded-full bg-secondary-container flex items-center justify-center">
+                      <span className="material-symbols-outlined text-primary" style={{ fontSize:36, fontVariationSettings:"'FILL' 1" }}>mark_email_read</span>
+                    </div>
+                    <div>
+                      <h3 className="font-headline text-2xl font-bold text-on-surface mb-2">
+                        Got it, {sentName}!
+                      </h3>
+                      <p className="text-sm text-on-surface-variant leading-relaxed max-w-xs mx-auto">
+                        Your message is safely with us. We read every note personally and reply within one working day.
+                      </p>
+                    </div>
+                    <div className="w-full space-y-3 pt-2 border-t border-outline-variant/30">
+                      <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                        <span className="material-symbols-outlined text-primary" style={{fontSize:18}}>schedule</span>
+                        Response within 1 working day
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                        <span className="material-symbols-outlined text-primary" style={{fontSize:18}}>phone_enabled</span>
+                        Urgent? Call <a href="tel:+27116602400" className="text-primary font-medium hover:underline">011 660 2400</a>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                        <span className="material-symbols-outlined text-primary" style={{fontSize:18}}>chat</span>
+                        Or <a href="https://wa.me/27116602400" target="_blank" rel="noopener" className="text-primary font-medium hover:underline">WhatsApp us</a> for a faster reply
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSent(false)}
+                      className="text-sm text-on-surface-variant hover:text-primary transition-colors underline underline-offset-2">
+                      Send another message
+                    </button>
+                  </div>
+                ) : (
+                  /* ── Contact form ── */
+                  <form onSubmit={submit} noValidate className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(194,24,91,0.06)] border border-soft-blush space-y-5">
+                    <div>
+                      <h3 className="font-headline text-2xl font-semibold text-on-surface">Send us a <span className="italic text-primary">note</span>.</h3>
+                      <p className="text-sm text-on-surface-variant mt-1">We reply within one working day.</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Your name</label>
+                      <input value={form.name} onChange={e => set({ name: e.target.value })} placeholder="Lerato Mokoena" maxLength={100} className={inputCls(errors.name)} />
+                      {errors.name && <span className="text-xs text-error">{errors.name}</span>}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Email</label>
+                        <input type="email" value={form.email} onChange={e => set({ email: e.target.value })} placeholder="you@email.com" maxLength={100} className={inputCls(errors.email)} />
+                        {errors.email && <span className="text-xs text-error">{errors.email}</span>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Phone (optional)</label>
+                        <input type="tel" value={form.phone} onChange={e => set({ phone: sanitisePhone(e.target.value) })} placeholder="082 555 0123" maxLength={15} className={inputCls(errors.phone)} />
+                        {errors.phone && <span className="text-xs text-error">{errors.phone}</span>}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">I'm asking about</label>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(TOPIC_LABELS).map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => set({ topic: val })}
+                            className={`px-3.5 py-2 rounded-full text-xs font-medium transition-all border ${
+                              form.topic === val
+                                ? 'bg-primary text-white border-primary shadow-sm'
+                                : 'bg-soft-blush text-on-surface-variant border-transparent hover:border-outline-variant'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-baseline">
+                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Message</label>
+                        <span className={`text-xs tabular-nums transition-colors ${msgNearLimit ? (msgLen >= MSG_MAX ? 'text-error font-semibold' : 'text-amber-500') : 'text-on-surface-variant/50'}`}>
+                          {msgLen}/{MSG_MAX}
+                        </span>
+                      </div>
+                      <textarea
+                        rows="4"
+                        value={form.message}
+                        onChange={e => set({ message: e.target.value })}
+                        placeholder={TOPIC_PLACEHOLDERS[form.topic]}
+                        maxLength={MSG_MAX}
+                        className={`${inputCls(errors.message)} resize-none`}
+                      />
+                      {errors.message && <span className="text-xs text-error">{errors.message}</span>}
+                    </div>
+
+                    <button type="submit" disabled={submitting || msgLen > MSG_MAX}
+                      className="w-full bg-primary text-white py-4 rounded-full font-headline font-semibold hover:bg-primary-container transition-all shadow-lg shadow-primary/20 disabled:opacity-55 flex items-center justify-center gap-2">
+                      {submitting
+                        ? <><span className="material-symbols-outlined animate-spin" style={{fontSize:18}}>progress_activity</span> Sending…</>
+                        : <><span className="material-symbols-outlined" style={{fontSize:18}}>send</span> Send message</>
+                      }
+                    </button>
+
+                    {submitErr && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-error flex items-start gap-2">
+                        <span className="material-symbols-outlined text-error flex-shrink-0" style={{fontSize:16,marginTop:1}}>error</span>
+                        {submitErr}
+                      </div>
+                    )}
+
+                    <p className="text-xs text-on-surface-variant/60 text-center">
+                      By sending, you agree to our{' '}
+                      <a href="#" className="underline hover:text-primary transition-colors">Privacy Policy</a>.
+                      Your info is never shared.
+                    </p>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── Nav ──────────────────────────────────────────────────────────────── */
+
+    function Nav({ onBook }) {
+      const [scrolled,  setScrolled]  = React.useState(false);
+      const [active,    setActive]    = React.useState('home');
+      const [menuOpen,  setMenuOpen]  = React.useState(false);
+
+      React.useEffect(() => {
+        const onScroll = () => {
+          setScrolled(window.scrollY > 40);
+          const ids = ['home', 'about', 'services', 'reviews', 'book', 'contact'];
+          let cur = 'home';
+          for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el && el.getBoundingClientRect().top <= 110) cur = id;
+          }
+          setActive(cur);
+        };
+        onScroll();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+      }, []);
+
+      const links = [
+        { id: 'home', label: 'Home' },
+        { id: 'about', label: 'About' },
+        { id: 'services', label: 'Services' },
+        { id: 'reviews', label: 'Reviews' },
+        { id: 'faq', label: 'FAQs' },
+        { id: 'contact', label: 'Contact' },
+      ];
+
+      return (
+        <>
+          <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-surface-bright/85 glass-nav shadow-[0_4px_20px_rgba(194,24,91,0.06)]' : 'bg-transparent'}`}>
+            <div className="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
+              <a href="#home" className="font-headline text-xl font-bold text-primary tracking-tight">OH Dental Studio</a>
+              <div className="hidden md:flex items-center gap-8">
+                {links.map(l => (
+                  <a key={l.id} href={`#${l.id}`}
+                    className={`text-sm font-medium transition-colors duration-200 ${active === l.id ? 'text-primary border-b-2 border-primary pb-0.5' : 'text-on-surface-variant hover:text-primary'}`}>
+                    {l.label}
+                  </a>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={onBook}
+                  className="bg-primary text-white px-5 sm:px-6 py-2.5 rounded-full font-semibold text-sm hover:scale-105 transition-transform shadow-lg shadow-primary/20">
+                  Book Now
+                </button>
+                <button
+                  className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl text-on-surface hover:bg-secondary-container transition-colors"
+                  onClick={() => setMenuOpen(o => !o)}
+                  aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                >
+                  <span className="material-symbols-outlined" style={{fontSize:22}}>
+                    {menuOpen ? 'close' : 'menu'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </nav>
+
+          {/* Mobile dropdown menu */}
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)} />
+              <div className="fixed top-20 left-0 right-0 z-50 md:hidden bg-surface-bright/96 backdrop-blur-xl border-b border-outline-variant/30 shadow-xl">
+                <div className="max-w-container-max mx-auto px-6 py-4 flex flex-col gap-1">
+                  {links.map(l => (
+                    <a key={l.id} href={`#${l.id}`}
+                      className={`block px-4 py-3 rounded-xl font-medium text-sm transition-colors ${active === l.id ? 'bg-primary/10 text-primary' : 'text-on-surface hover:bg-secondary-container'}`}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {l.label}
+                    </a>
+                  ))}
+                  <button onClick={() => { onBook(); setMenuOpen(false); }}
+                    className="mt-2 bg-primary text-white px-6 py-3 rounded-full font-semibold text-sm w-full">
+                    Book an appointment
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      );
+    }
+
+    /* ─── Hero ─────────────────────────────────────────────────────────────── */
+
+    function Hero({ onBook }) {
+      return (
+        <section id="home" className="relative min-h-screen flex items-center overflow-hidden">
+          <div className="absolute inset-0 z-0">
+            <img
+              alt="Modern dental studio reception with soft pink walls and warm lighting"
+              className="w-full h-full object-cover"
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdM_tOyDZWsHyAf8Ud-F4uHY4IWFuDTrv7Xn1oXt8x63zs73m00rVa7JJ7QJTaldmh_E4LIoZ9_T7-o0doh3x4LIVLMTxqghkZk3IWXmdsgCg86CMTD776FmG5JV4djMJx0clcxtnYUDLe077N2viuNT5Yk6kckuyUq2XNGzy18guzjQNRz7rXWWE9VseEWbFZ19GCnGIgamuDJ9C7zcFzl_ujdgWNCDFPDVEaE56vgg4VCPtEkkVculi6PU6ZG1ZZSIIL7TLrGWs"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-surface-bright/95 via-surface-bright/65 to-surface-bright/10" />
+          </div>
+          <div className="relative z-10 px-margin-desktop max-w-container-max mx-auto w-full pt-20 pb-16">
+            <div className="max-w-2xl">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-6">
+                Now welcoming new patients · Krugersdorp
+              </span>
+              <h1 className="font-headline text-headline-xl text-on-surface mb-6 leading-tight">
+                Where the best<br /><span className="italic text-primary">smiles</span> are made.
+              </h1>
+              <p className="text-body-lg text-on-surface-variant mb-10 max-w-lg leading-relaxed">
+                A calm, modern dental studio for the whole family — unhurried appointments, careful hands, and the kind of warmth that makes the chair feel a little less like a chair.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <button onClick={onBook}
+                  className="bg-primary text-white px-10 py-4 rounded-full font-semibold text-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 shadow-lg shadow-primary/20">
+                  Book Your Visit
+                </button>
+                <a href="#about"
+                  className="bg-soft-blush text-deep-plum px-10 py-4 rounded-full font-semibold text-lg hover:bg-surface-container-highest transition-all duration-300">
+                  About Us
+                </a>
+              </div>
+
+              <div className="hero-stats mt-16 pt-8 border-t border-outline-variant/40 grid grid-cols-4 gap-6">
+                {[
+                  { num: '12+', label: 'years in Krugersdorp' },
+                  { num: '4.9', label: 'average rating' },
+                  { num: '8', label: 'services offered' },
+                  { num: 'Same-day', label: 'emergency slots' },
+                ].map(s => (
+                  <div key={s.label}>
+                    <div className="font-headline text-2xl font-bold text-primary">{s.num}</div>
+                    <div className="text-xs text-on-surface-variant mt-1 leading-tight">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── About ────────────────────────────────────────────────────────────── */
+
+    function About() {
+      return (
+        <section id="about" className="py-section-gap px-margin-desktop max-w-container-max mx-auto">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-4">Our story</span>
+            <h2 className="font-headline text-headline-lg text-on-surface mb-4">Meet Your Care Team</h2>
+            <div className="h-1 w-20 bg-primary mx-auto rounded-full" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8">
+            <div className="md:col-span-7 bg-white p-10 rounded-3xl shadow-[0_10px_40px_rgba(194,24,91,0.04)] border border-soft-blush flex flex-col justify-center">
+              <h3 className="font-headline text-headline-md text-primary mb-6">A Shared Vision of Empathy</h3>
+              <p className="text-on-surface-variant text-body-lg leading-relaxed mb-4">
+                Founded by two passionate practitioners, OH Dental Studio was born from a desire to strip away the clinical coldness of traditional dentistry. Our approach is rooted in active listening and a deep respect for every patient's comfort.
+              </p>
+              <p className="text-on-surface-variant text-body-lg leading-relaxed mb-8">
+                We specialise in treating patients with dental anxiety, ensuring that every procedure is explained, every concern is heard, and every smile is nurtured — from a toddler's first visit to a full smile transformation.
+              </p>
+              <div className="flex items-center gap-6 flex-wrap">
+                <div>
+                  <div className="font-bold text-deep-plum text-sm">Our Practice Principal</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">General &amp; Cosmetic Dentistry · BChD (UP)</div>
+                </div>
+                <div className="w-px h-10 bg-outline-variant hidden sm:block" />
+                <div>
+                  <div className="font-bold text-deep-plum text-sm">Our Practice Principal</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">Paediatric &amp; Preventive · BChD (Wits)</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-5 relative group overflow-hidden rounded-3xl min-h-[360px]">
+              <img
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 absolute inset-0"
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDsFOwrgQm7MrJxgFlrL-YiY-ybqNlf3SA3ln2eCWzvnTYKUJsyiCuUSsj-l0GmaabjONjBCYX-SaCW1vAYr2EMfbTwLuacJlTRUf7hPKfhNdmfqpdw2pa3ooC4CJfpyJs7vhgXNaBJaKda_mfpS7KmH6OiW69N0z64GjkAvRNFNvOjodQAUdBRL40UpIuNc5VK2Sogq3Xx-Pd0a6v_C3_ulipiJMkUA0QLMATrUPGi73B-aqP3c4M2Bd3Gbbc_JLXLnQtIrS0Oas"
+                alt="Two professional female dentists smiling warmly in a bright, modern studio"
+              />
+              <div className="absolute bottom-6 left-6 right-6 bg-white/85 backdrop-blur-md p-5 rounded-2xl">
+                <p className="italic text-primary font-semibold">"Your comfort is our clinical priority."</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Three promise cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+            {[
+              { icon: 'schedule', bg: 'bg-soft-blush', title: 'Unhurried by Design', body: 'No conveyor-belt scheduling. We block longer appointments so we can listen, explain, and work without rushing.' },
+              { icon: 'visibility', bg: 'bg-deep-plum text-white', title: 'Transparent Pricing', body: 'A written quote before any treatment begins. We work with most medical aids and offer in-house payment plans.', dark: true },
+              { icon: 'volunteer_activism', bg: 'bg-secondary-container', title: 'Gentle Techniques', body: 'Numbing gel, noise-cancelling headphones, weighted blankets. The small things make the big things easier.' },
+            ].map(c => (
+              <div key={c.title} className={`${c.bg} p-8 rounded-3xl flex flex-col gap-4`}>
+                <div className={`w-12 h-12 ${c.dark ? 'bg-white/10' : 'bg-white'} rounded-2xl flex items-center justify-center ${c.dark ? '' : 'shadow-sm'}`}>
+                  <span className={`material-symbols-outlined ${c.dark ? 'text-primary-fixed-dim' : 'text-primary'}`}>{c.icon}</span>
+                </div>
+                <h4 className="font-headline font-semibold text-lg">{c.title}</h4>
+                <p className={`text-sm leading-relaxed ${c.dark ? 'opacity-75' : 'text-on-surface-variant'}`}>{c.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── Services ─────────────────────────────────────────────────────────── */
+
+    function Services({ onBook }) {
+      const cards = [
+        { icon: 'clean_hands',       title: 'Preventive',   desc: 'Routine wellness visits focused on long-term oral health and early detection.', chips: ['Cleanings', 'Digital Scans', 'Fluoride'] },
+        { icon: 'auto_awesome',      title: 'Cosmetic',     desc: 'Enhancing your natural beauty with veneers, bonding, and professional whitening.', chips: ['Whitening', 'Veneers', 'Bonding'] },
+        { icon: 'medical_services',  title: 'Restorative',  desc: 'Modern solutions for rebuilding strength, including crowns, bridges, and root canals.', chips: ['Crowns', 'Fillings', 'Root Canals'] },
+        { icon: 'child_care',        title: 'Paediatric',   desc: 'Gentle, fun first visits and preventive care that builds lifelong healthy habits.', chips: ['Kids\' Checkups', 'Sealants', 'Fluoride'] },
+        { icon: 'sentiment_satisfied', title: 'Anxiety Care', desc: 'Tailored comfort protocols for a stress-free dental experience every time.', chips: ['Sedation Options', 'Comfort Kit'] },
+        { icon: 'emergency',         title: 'Emergencies',  desc: 'Same-day emergency slots available Mon–Sat for urgent dental pain or trauma.', chips: ['Same-Day', 'Pain Relief'] },
+      ];
+
+      return (
+        <section id="services" className="py-section-gap bg-surface-container-low">
+          <div className="px-margin-desktop max-w-container-max mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
+              <div className="max-w-xl">
+                <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-4">What we offer</span>
+                <h2 className="font-headline text-headline-lg text-on-surface mb-4">Holistic Smile Care</h2>
+                <p className="text-on-surface-variant text-body-lg">From preventive care to high-end aesthetic transformations, a full spectrum of dental wellness tailored to your unique needs.</p>
+              </div>
+              <button onClick={onBook} className="text-primary font-semibold flex items-center gap-2 group whitespace-nowrap hover:text-primary-container transition-colors text-sm">
+                Book a visit
+                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter">
+              {cards.map(c => (
+                <div key={c.title} className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgba(194,24,91,0.03)] hover:-translate-y-2 transition-all duration-300">
+                  <div className="w-14 h-14 bg-soft-blush rounded-2xl flex items-center justify-center mb-6">
+                    <span className="material-symbols-outlined text-primary text-3xl">{c.icon}</span>
+                  </div>
+                  <h4 className="font-headline text-xl font-semibold text-on-surface mb-3">{c.title}</h4>
+                  <p className="text-on-surface-variant text-sm leading-relaxed mb-5">{c.desc}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {c.chips.map(ch => (
+                      <span key={ch} className="bg-secondary-container text-on-secondary-fixed-variant px-3 py-1 rounded-full text-xs font-medium">{ch}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── Comfort Section ──────────────────────────────────────────────────── */
+
+    function ComfortSection({ onBook }) {
+      return (
+        <section className="py-section-gap overflow-hidden">
+          <div className="px-margin-desktop max-w-container-max mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            <div className="relative">
+              <div className="absolute -top-10 -left-10 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+              <div className="relative grid grid-cols-2 gap-4">
+                <div className="space-y-4 pt-12">
+                  <div className="rounded-3xl overflow-hidden aspect-[3/4]">
+                    <img className="w-full h-full object-cover"
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLMGS2jseOyXiMTSlMYHJmWwJC4ngcrtSAAskiR8YozDmpWJ5iu-NfPBaRfonr5f9cFu1CeM_r8j6nWC99KfYKPGrncmsRyxr3ah5mSZof7IlCnaurBoFjHuoxRsvTbm7Dp9iQPK_2aIhVi8y1ICQP8i61shzBaYXbicb3HUfys4RQGdMG5R6odLbosFwPin5HM_J-QmsGQnA5UQEkrGyLHOe7SK-KjUQhdfdwSyvQivE8qx9DagpDeSaMs3OoUlNWN1yH9A9M4ws"
+                      alt="Dental studio detail" />
+                  </div>
+                  <div className="bg-primary-container p-8 rounded-3xl text-white">
+                    <span className="font-headline text-4xl font-bold block mb-2">98%</span>
+                    <p className="text-sm opacity-90">Of patients report a significant reduction in dental anxiety.</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-secondary p-8 rounded-3xl text-white">
+                    <h5 className="font-headline font-semibold text-lg mb-2">Modern Tech</h5>
+                    <p className="text-sm opacity-90">Digital scans and quiet handpieces for a better experience.</p>
+                  </div>
+                  <div className="rounded-3xl overflow-hidden aspect-square">
+                    <img className="w-full h-full object-cover"
+                      src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4S1-nad9yE9RPzNSxZLgWck8sQAPuhEpbpQ5Ehsf7wGekzgngtVjzbNfecElsHHUcL2Pw1V3pfNR5H3SQNkw1HKwIWlO5QTNZH_InDCDDF5nxh67jIwWhK4CFlNByK9aEfV0RYX_v2Vz_alyOP3B5Xr1QRm9pX5LOzGmQto-N4ixI4r5vXnajMo2NJXvJGIg-z_HFd1aHnPW_zFbU3EwmFyuhCu9PPS9xCYqo4Tz5Oktr22gOx8DcL3TeUVZMtcV7d1B37x__TRE"
+                      alt="Serene dental consultation room" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="font-headline text-headline-lg text-on-surface mb-8 leading-tight">
+                Your Comfort is Built Into <span className="italic text-primary">Every Detail</span>
+              </h2>
+              <ul className="space-y-6">
+                {[
+                  { title: 'Noise-Canceling Experience',    body: 'Premium headphones and curated playlists to help you drift away during your visit.' },
+                  { title: 'Aromatherapy & Comfort Linens', body: 'Calming lavender scents and weighted blankets available in every treatment suite.' },
+                  { title: 'Transparent Pricing',           body: 'No hidden fees or medical jargon. We discuss every treatment plan clearly before we begin.' },
+                  { title: 'HPCSA Registered',              body: 'Both practitioners are registered with the Health Professions Council of South Africa.' },
+                ].map(item => (
+                  <li key={item.title} className="flex items-start gap-4">
+                    <span className="material-symbols-outlined text-primary mt-0.5 flex-shrink-0" style={{ fontVariationSettings:"'FILL' 1" }}>check_circle</span>
+                    <div>
+                      <h6 className="font-headline font-bold text-deep-plum mb-1">{item.title}</h6>
+                      <p className="text-on-surface-variant text-sm leading-relaxed">{item.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <button onClick={onBook} className="mt-10 bg-primary text-white px-10 py-4 rounded-full font-semibold hover:bg-primary-container transition-all shadow-lg shadow-primary/20">
+                Schedule Consultation
+              </button>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── Reviews Section ─────────────────────────────────────────────────── */
+
+    const REVIEWS = [
+      {
+        name: "Anika van der Berg",
+        suburb: "Krugersdorp North",
+        rating: 5,
+        date: "March 2024",
+        text: "I've been coming here for years and the team never disappoints. Professional, gentle, and always on time. My kids actually look forward to their check-ups!",
+      },
+      {
+        name: "Sipho Dlamini",
+        suburb: "Randfontein",
+        rating: 5,
+        date: "January 2024",
+        text: "Had an emergency extraction on short notice and they fitted me in the same morning. Pain-free procedure and excellent aftercare advice. Highly recommend.",
+      },
+      {
+        name: "Priya Naidoo",
+        suburb: "Roodepoort",
+        rating: 5,
+        date: "November 2023",
+        text: "Got composite veneers done here and the result is incredible — completely natural-looking. The dentist took the time to explain every step. Worth every rand.",
+      },
+      {
+        name: "Marco Joubert",
+        suburb: "Kagiso",
+        rating: 5,
+        date: "September 2023",
+        text: "Friendly staff, spotless rooms, and the online booking makes life easy. First dental practice where I don't feel nervous walking in.",
+      },
+      {
+        name: "Naledi Khumalo",
+        suburb: "Krugersdorp",
+        rating: 5,
+        date: "July 2023",
+        text: "Brought my 6-year-old for her first ever check-up. The dentist was so patient and made it fun for her. She's already asking when we go back!",
+      },
+      {
+        name: "Hendrik Grobler",
+        suburb: "Luipaardsvlei",
+        rating: 5,
+        date: "May 2023",
+        text: "Quality of care is exceptional. They remembered details from my previous visit and followed up after a crown fitting. Old-fashioned good service.",
+      },
+    ];
+
+    function StarRating({ n = 5 }) {
+      return (
+        <div className="flex gap-0.5">
+          {Array.from({ length: n }).map((_, i) => (
+            <span key={i} className="material-symbols-outlined text-amber-400" style={{ fontSize: 16, fontVariationSettings: "'FILL' 1" }}>star</span>
+          ))}
+        </div>
+      );
+    }
+
+    function ReviewsSection() {
+      return (
+        <section id="reviews" className="py-section-gap bg-surface-bright">
+          <div className="max-w-container-max mx-auto px-margin-desktop">
+            <div className="text-center mb-16">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-4">
+                Patient stories
+              </span>
+              <h2 className="font-headline text-headline-lg text-on-surface mb-4">
+                Kind words from <span className="italic text-primary">our patients</span>.
+              </h2>
+              <p className="text-on-surface-variant max-w-xl mx-auto text-body-md">
+                We've been trusted by families across Krugersdorp and the West Rand for over a decade.
+                Here's what they say.
+              </p>
+            </div>
+
+            {/* Review cards grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              {REVIEWS.map((r, i) => (
+                <div key={i} className="bg-white rounded-3xl p-7 shadow-[0_4px_20px_rgba(194,24,91,0.06)] border border-soft-blush flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <StarRating n={r.rating} />
+                    <span className="text-xs text-on-surface-variant">{r.date}</span>
+                  </div>
+                  <p className="text-on-surface text-sm leading-relaxed flex-1">"{r.text}"</p>
+                  <div className="flex items-center gap-3 pt-2 border-t border-outline-variant/30">
+                    <div className="w-9 h-9 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0">
+                      <span className="font-headline font-bold text-sm text-primary">{r.name[0]}</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-on-surface">{r.name}</div>
+                      <div className="text-xs text-on-surface-variant">{r.suburb}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Google Reviews CTA */}
+            <div className="text-center">
+              <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-3xl px-8 py-6 shadow-[0_4px_20px_rgba(194,24,91,0.06)] border border-soft-blush">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-0.5">
+                    {[1,2,3,4,5].map(i => (
+                      <span key={i} className="material-symbols-outlined text-amber-400" style={{fontSize:22, fontVariationSettings:"'FILL' 1"}}>star</span>
+                    ))}
+                  </div>
+                  <div className="text-left">
+                    <div className="font-headline font-bold text-on-surface text-lg">5.0</div>
+                    <div className="text-xs text-on-surface-variant">on Google Reviews</div>
+                  </div>
+                </div>
+                <div className="hidden sm:block w-px h-10 bg-outline-variant/40" />
+                <div className="text-sm text-on-surface-variant max-w-xs text-center sm:text-left">
+                  Real patients, real experiences. Read all our reviews on Google.
+                </div>
+                <a
+                  href="https://g.page/r/OH-Dental-Studio-Krugersdorp/review"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-primary text-white px-6 py-3 rounded-full font-semibold text-sm hover:bg-primary-container transition-all shadow-lg shadow-primary/20 whitespace-nowrap flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined" style={{fontSize:16}}>open_in_new</span>
+                  Read on Google
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+
+    /* ─── Booking Section ──────────────────────────────────────────────────── */
+
+    function BookingSection() {
+      return (
+        <section id="book" className="py-section-gap bg-surface-container-low">
+          <div className="px-margin-desktop max-w-container-max mx-auto">
+            <div className="text-center mb-16">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-4">Book a visit</span>
+              <h2 className="font-headline text-headline-lg text-on-surface mb-4">
+                A chair, when <span className="italic text-primary">you</span> need it.
+              </h2>
+              <p className="text-on-surface-variant max-w-xl mx-auto text-body-md">
+                Pick a service, find a time that works, and tell us a little about yourself. Most new patients are seen within the same week.
+              </p>
+            </div>
+            <BookingFlow />
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── FAQ ─────────────────────────────────────────────────────────────── */
+
+    function FAQSection() {
+      const [open, setOpen] = React.useState(null);
+      const toggle = i => setOpen(p => p === i ? null : i);
+
+      const FAQS = [
+        {
+          q: 'Do you accept medical aid?',
+          a: 'Yes — we are registered with most major medical aids including Discovery, Bonitas, Medihelp, Momentum, and many others. Please bring your medical aid card to your first appointment. We will submit claims on your behalf and let you know of any co-payments before treatment begins.',
+        },
+        {
+          q: 'How do I book an appointment?',
+          a: 'You can book online using the form on this page, call us on 011 660 2400 (Mon–Fri 08:00–17:00, Sat 09:00–13:00), or send us a WhatsApp message. We typically see new patients within the same week.',
+        },
+        {
+          q: 'What do I bring to my first visit?',
+          a: 'Please bring your medical aid card and membership number, a valid ID or passport, and any X-rays or records from your previous dentist if you have them. Arriving 10 minutes early to complete your intake form is appreciated.',
+        },
+        {
+          q: 'Do you see children?',
+          a: 'Yes! We welcome children from age 3 onwards. Our team is trained in paediatric dentistry and takes extra care to make each visit calm, gentle, and even fun. We recommend a first visit by age 3, or as soon as the first teeth appear.',
+        },
+        {
+          q: 'What happens during an emergency?',
+          a: 'We keep same-day emergency slots available Monday to Saturday. Call us on 011 660 2400 as early as possible. If you are in severe pain or have a dental trauma outside of business hours, please go to your nearest emergency room.',
+        },
+        {
+          q: 'Is teeth whitening safe?',
+          a: 'Professional teeth whitening at our practice is completely safe when performed on healthy teeth and gums. We use clinically approved whitening agents and will assess your suitability before starting. Results last 12–24 months with good oral hygiene.',
+        },
+        {
+          q: 'How often should I come for a check-up?',
+          a: 'We recommend a check-up and professional clean every 6 months for most patients. Some patients with gum disease or a higher cavity risk may benefit from more frequent visits — we will advise you based on your specific needs.',
+        },
+        {
+          q: 'What payment methods do you accept?',
+          a: 'We accept cash, all major debit and credit cards (Visa, Mastercard), EFT, and medical aid direct billing. Payment is due on the day of treatment unless you have made other arrangements with our reception team.',
+        },
+        {
+          q: 'Will my treatment be painful?',
+          a: 'We use modern techniques and local anaesthetic to ensure procedures are as comfortable as possible. We also offer happy gas (nitrous oxide) for anxious patients. If you are nervous, please let us know — our team is experienced in gentle, anxiety-free dentistry.',
+        },
+        {
+          q: 'Where are you located and is there parking?',
+          a: 'We are at 23 Voortrekker Road, Krugersdorp. There is parking available directly outside the practice and on surrounding streets. We are also accessible by taxi and bus from the Krugersdorp CBD.',
+        },
+      ];
+
+      return (
+        <section id="faq" className="py-section-gap bg-surface">
+          <div className="px-margin-desktop max-w-container-max mx-auto">
+            <div className="text-center mb-14">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant text-xs font-medium uppercase tracking-widest mb-4">FAQs</span>
+              <h2 className="font-headline text-headline-lg text-on-surface mb-4">
+                Questions we hear <span className="italic text-primary">every day</span>
+              </h2>
+              <p className="text-on-surface-variant max-w-xl mx-auto text-body-md">
+                Can not find your answer here? Call us on <strong>011 660 2400</strong> or send a message below.
+              </p>
+            </div>
+
+            <div style={{maxWidth:720, margin:'0 auto'}}>
+              {FAQS.map((f, i) => (
+                <div key={i} style={{
+                  borderBottom: '1px solid rgba(155,0,68,0.12)',
+                  marginBottom: 0,
+                }}>
+                  <button
+                    onClick={() => toggle(i)}
+                    style={{
+                      width:'100%', background:'none', border:'none', cursor:'pointer',
+                      padding:'20px 4px', display:'flex', justifyContent:'space-between',
+                      alignItems:'center', gap:16, textAlign:'left',
+                    }}
+                  >
+                    <span style={{
+                      fontFamily:'Plus Jakarta Sans, sans-serif',
+                      fontWeight:600, fontSize:16, color:'#2A0F1F', lineHeight:1.4,
+                    }}>{f.q}</span>
+                    <span style={{
+                      fontSize:22, color:'#9b0044', flexShrink:0,
+                      transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
+                      transition:'transform .2s', lineHeight:1,
+                    }}>+</span>
+                  </button>
+                  {open === i && (
+                    <div style={{
+                      padding:'0 4px 20px',
+                      fontSize:15, color:'#524346', lineHeight:1.7,
+                    }}>
+                      {f.a}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{textAlign:'center', marginTop:48}}>
+              <p style={{color:'#857376', marginBottom:16, fontSize:15}}>Still have a question?</p>
+              <a href="#contact"
+                style={{
+                  display:'inline-flex', alignItems:'center', gap:8,
+                  background:'#9b0044', color:'#fff',
+                  padding:'14px 32px', borderRadius:9999,
+                  fontWeight:700, fontSize:15, textDecoration:'none',
+                  transition:'background .15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background='#7a0036'}
+                onMouseLeave={e => e.currentTarget.style.background='#9b0044'}
+              >
+                Send us a message →
+              </a>
+            </div>
+          </div>
+        </section>
+      );
+    }
+
+    /* ─── Footer ───────────────────────────────────────────────────────────── */
+
+    function Footer() {
+      return (
+        <footer className="bg-deep-plum text-white py-section-gap">
+          <div className="max-w-container-max mx-auto px-margin-desktop">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-16 border-b border-white/10">
+              <div>
+                <div className="font-headline text-xl font-bold text-primary-fixed-dim mb-4">OH Dental Studio</div>
+                <p className="text-white/55 text-sm leading-relaxed">A small, modern dental practice in Krugersdorp, caring for families across the West Rand since 2013.</p>
+              </div>
+              <div>
+                <h5 className="text-xs font-medium uppercase tracking-widest text-primary-fixed-dim mb-5">Practice</h5>
+                <ul className="space-y-3 text-sm text-white/55">
+                  {[['Home','#home'],['About Us','#about'],['Services','#services'],['Reviews','#reviews'],['FAQs','#faq'],['Book a Visit','#book'],['Contact','#contact']].map(([l,h]) => (
+                    <li key={l}><a href={h} className="hover:text-white transition-colors">{l}</a></li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h5 className="text-xs font-medium uppercase tracking-widest text-primary-fixed-dim mb-5">Services</h5>
+                <ul className="space-y-3 text-sm text-white/55">
+                  {['Checkups & Cleaning','Teeth Whitening','Porcelain Veneers','Crowns & Bridges','Paediatric','Emergencies'].map(s => (
+                    <li key={s}><a href="#book" className="hover:text-white transition-colors">{s}</a></li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h5 className="text-xs font-medium uppercase tracking-widest text-primary-fixed-dim mb-5">Visit</h5>
+                <div className="space-y-3 text-sm text-white/55">
+                  <p>23 Voortrekker Road<br />Krugersdorp North, 1739</p>
+                  <p>Mon–Fri 08:00–17:00<br />Sat 09:00–13:00</p>
+                  <a href="tel:+27116602400" className="hover:text-white transition-colors block">011 660 2400</a>
+                  <a href="https://wa.me/27116602400" target="_blank" rel="noopener" className="hover:text-white transition-colors block">WhatsApp</a>
+                  <a href="mailto:hello@ohdental.co.za" className="hover:text-white transition-colors block">hello@ohdental.co.za</a>
+                </div>
+              </div>
+            </div>
+            <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-white/35">
+              <span>© {new Date().getFullYear()} OH Dental Studio · HPCSA registered · Krugersdorp, South Africa</span>
+              <span className="flex gap-3">
+                <a href="#" className="hover:text-white/60 transition-colors">Privacy</a>
+                <span className="text-white/20">·</span>
+                <a href="#" className="hover:text-white/60 transition-colors">Terms</a>
+                <span className="text-white/20">·</span>
+                <a href="#" className="hover:text-white/60 transition-colors">POPIA</a>
+              </span>
+            </div>
+          </div>
+        </footer>
+      );
+    }
+
+    /* ─── App ──────────────────────────────────────────────────────────────── */
+
+    function App() {
+      const goToBook = () => {
+        const el = document.getElementById('book');
+        if (el) window.scrollTo({ top: el.offsetTop - 60, behavior: 'smooth' });
+      };
+
+      React.useEffect(() => {
+        const observer = new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              entry.target.style.opacity = '1';
+              entry.target.style.transform = 'translateY(0)';
+            }
+          });
+        }, { threshold: 0.08 });
+
+        document.querySelectorAll('section').forEach(s => {
+          if (s.id === 'home') return;
+          s.style.opacity = '0';
+          s.style.transform = 'translateY(24px)';
+          s.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+          observer.observe(s);
+        });
+
+        return () => observer.disconnect();
+      }, []);
+
+      return (
+        <>
+          <Nav onBook={goToBook} />
+          <main>
+            <Hero onBook={goToBook} />
+            <About />
+            <Services onBook={goToBook} />
+            <ComfortSection onBook={goToBook} />
+            <ReviewsSection />
+            <FAQSection />
+            <BookingSection />
+            <ContactSection />
+          </main>
+          <Footer />
+        </>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('app'));
+    root.render(<App />);
+
+  </script>
+</body>
+</html>

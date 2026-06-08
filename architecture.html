@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OH Dental Studio — System Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #080D14;
+      color: #E6EDF3;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 56px 32px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .hd {
+      text-align: center;
+      margin-bottom: 52px;
+    }
+    .hd .eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+    .hd h1 {
+      font-size: 30px;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+      color: #E6EDF3;
+    }
+    .hd h1 em { font-style: italic; color: #60A5FA; }
+    .wrap { width: 100%; max-width: 1000px; }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="eyebrow">OH Dental Studio</div>
+  <h1>System <em>Architecture</em></h1>
+</div>
+
+<div class="wrap">
+<svg viewBox="0 0 960 800" xmlns="http://www.w3.org/2000/svg" font-family="'DM Sans', system-ui, sans-serif">
+<defs>
+  <marker id="a-blue"   viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 1.5 L8.5 5 L0 8.5Z" fill="#3B82F6"/></marker>
+  <marker id="a-violet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 1.5 L8.5 5 L0 8.5Z" fill="#7C3AED"/></marker>
+  <marker id="a-violet-sm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 1.5 L8.5 5 L0 8.5Z" fill="#6D28D9"/></marker>
+  <marker id="a-green"  viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 1.5 L8.5 5 L0 8.5Z" fill="#10B981"/></marker>
+  <marker id="a-amber"  viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 1.5 L8.5 5 L0 8.5Z" fill="#F59E0B"/></marker>
+  <marker id="a-pink"   viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 1.5 L8.5 5 L0 8.5Z" fill="#EC4899"/></marker>
+</defs>
+
+
+<!-- ╔══════════════════════════════════════════════════════════════╗ -->
+<!-- ║  LAYER 1 — USERS                                            ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+<!-- Patient -->
+<circle cx="210" cy="38" r="24" fill="#0D2040" stroke="#3B82F6" stroke-width="1.5"/>
+<!-- person silhouette -->
+<circle cx="210" cy="31" r="8" fill="#60A5FA"/>
+<path d="M192 56 Q192 44 210 42 Q228 44 228 56" fill="#60A5FA"/>
+<text x="210" y="80" text-anchor="middle" font-size="11" fill="#60A5FA" font-family="'JetBrains Mono', monospace" letter-spacing="0.08em">PATIENT</text>
+
+<!-- Practice Staff -->
+<circle cx="750" cy="38" r="24" fill="#1A0930" stroke="#7C3AED" stroke-width="1.5"/>
+<!-- person silhouette -->
+<circle cx="750" cy="31" r="8" fill="#A78BFA"/>
+<path d="M732 56 Q732 44 750 42 Q768 44 768 56" fill="#A78BFA"/>
+<!-- cross badge -->
+<rect x="756" y="17" width="12" height="4" rx="1" fill="#A78BFA"/>
+<rect x="760" y="13" width="4" height="12" rx="1" fill="#A78BFA"/>
+<text x="750" y="80" text-anchor="middle" font-size="11" fill="#A78BFA" font-family="'JetBrains Mono', monospace" letter-spacing="0.08em">PRACTICE STAFF</text>
+
+
+<!-- ╔══════════════════════════════════════════════════════════════╗ -->
+<!-- ║  LAYER 2 — FRONTEND (Vercel CDN)                           ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+<rect x="36" y="98"  width="888" height="154" rx="10"
+      fill="rgba(255,255,255,0.012)" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="5,4"/>
+<text x="52" y="116" font-size="10" fill="#374151" font-family="'JetBrains Mono', monospace" letter-spacing="0.12em">VERCEL CDN</text>
+
+<!-- index.html -->
+<rect x="56"  y="124" width="296" height="114" rx="8" fill="#091729" stroke="#2563EB" stroke-width="1.5"/>
+<rect x="56"  y="124" width="296" height="30"  rx="8" fill="#0D2040"/>
+<rect x="56"  y="144" width="296" height="10"       fill="#0D2040"/>
+<text x="72"  y="144" font-size="10" fill="#60A5FA" font-family="'JetBrains Mono', monospace" letter-spacing="0.08em">PATIENT-FACING SITE</text>
+<text x="72"  y="174" font-size="17" fill="#DBEAFE" font-weight="500">index.html</text>
+<text x="72"  y="196" font-size="12" fill="#3B82F6">Booking flow · Contact · Services</text>
+<text x="72"  y="214" font-size="12" fill="#1E3A6E">React 18 + Babel · No build step needed</text>
+
+<!-- admin.html -->
+<rect x="608" y="124" width="296" height="114" rx="8" fill="#110820" stroke="#6D28D9" stroke-width="1.5"/>
+<rect x="608" y="124" width="296" height="30"  rx="8" fill="#1A0D36"/>
+<rect x="608" y="144" width="296" height="10"       fill="#1A0D36"/>
+<text x="624" y="144" font-size="10" fill="#A78BFA" font-family="'JetBrains Mono', monospace" letter-spacing="0.08em">ADMIN DASHBOARD — AUTH GATED</text>
+<text x="624" y="174" font-size="17" fill="#EDE9FE" font-weight="500">admin.html</text>
+<text x="624" y="196" font-size="12" fill="#7C3AED">Analytics · Patients · Bookings · Inventory</text>
+<text x="624" y="214" font-size="12" fill="#3B0764">Practice staff only · JWT session required</text>
+
+
+<!-- ╔══════════════════════════════════════════════════════════════╗ -->
+<!-- ║  LAYER 3 — API (Vercel Serverless Functions)               ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+<rect x="36" y="278" width="888" height="156" rx="10"
+      fill="rgba(16,185,129,0.03)" stroke="rgba(16,185,129,0.18)" stroke-width="1"/>
+<text x="52" y="296" font-size="10" fill="#065F46" font-family="'JetBrains Mono', monospace" letter-spacing="0.12em">VERCEL SERVERLESS FUNCTIONS   /api/*</text>
+
+<!-- chip helper: each is 196×112, gap=4 -->
+<!-- /api/bookings — x=56 -->
+<rect x="56"  y="304" width="196" height="116" rx="6" fill="#06110A" stroke="#059669" stroke-width="1"/>
+<text x="72"  y="322" font-size="10" fill="#34D399" font-family="'JetBrains Mono', monospace">/api/bookings</text>
+<line x1="56" y1="328" x2="252" y2="328" stroke="#059669" stroke-width="0.5" opacity="0.35"/>
+<text x="72"  y="347" font-size="12" fill="#6EE7B7">Check availability</text>
+<text x="72"  y="364" font-size="12" fill="#6EE7B7">Create appointment</text>
+<text x="72"  y="381" font-size="12" fill="#6EE7B7">Cancel / reschedule</text>
+<text x="72"  y="398" font-size="12" fill="#6EE7B7">Trigger confirm email</text>
+
+<!-- /api/contact — x=260 -->
+<rect x="260" y="304" width="196" height="116" rx="6" fill="#06110A" stroke="#059669" stroke-width="1"/>
+<text x="276" y="322" font-size="10" fill="#34D399" font-family="'JetBrains Mono', monospace">/api/contact</text>
+<line x1="260" y1="328" x2="456" y2="328" stroke="#059669" stroke-width="0.5" opacity="0.35"/>
+<text x="276" y="347" font-size="12" fill="#6EE7B7">Submit enquiry</text>
+<text x="276" y="364" font-size="12" fill="#6EE7B7">Store in DB</text>
+<text x="276" y="381" font-size="12" fill="#6EE7B7">Email to practice</text>
+<text x="276" y="398" font-size="12" fill="#6EE7B7">Auto-reply to sender</text>
+
+<!-- /api/patients — x=464 -->
+<rect x="464" y="304" width="196" height="116" rx="6" fill="#06110A" stroke="#059669" stroke-width="1"/>
+<text x="480" y="322" font-size="10" fill="#34D399" font-family="'JetBrains Mono', monospace">/api/patients</text>
+<line x1="464" y1="328" x2="660" y2="328" stroke="#059669" stroke-width="0.5" opacity="0.35"/>
+<text x="480" y="347" font-size="12" fill="#6EE7B7">Create profile</text>
+<text x="480" y="364" font-size="12" fill="#6EE7B7">Update intake form</text>
+<text x="480" y="381" font-size="12" fill="#6EE7B7">Search / lookup</text>
+<text x="480" y="398" font-size="12" fill="#6EE7B7">Demographics CRUD</text>
+
+<!-- /api/inventory — x=668 -->
+<rect x="668" y="304" width="220" height="116" rx="6" fill="#06110A" stroke="#059669" stroke-width="1"/>
+<text x="684" y="322" font-size="10" fill="#34D399" font-family="'JetBrains Mono', monospace">/api/inventory</text>
+<line x1="668" y1="328" x2="888" y2="328" stroke="#059669" stroke-width="0.5" opacity="0.35"/>
+<text x="684" y="347" font-size="12" fill="#6EE7B7">Stock in / out / adjust</text>
+<text x="684" y="364" font-size="12" fill="#6EE7B7">Procedure linkage</text>
+<text x="684" y="381" font-size="12" fill="#6EE7B7">Reorder forecasting</text>
+<text x="684" y="398" font-size="12" fill="#6EE7B7">Consumption analytics</text>
+
+
+<!-- ╔══════════════════════════════════════════════════════════════╗ -->
+<!-- ║  LAYER 4 — EXTERNAL SERVICES                               ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+<!-- ── Supabase ── -->
+<rect x="56"  y="460" width="548" height="238" rx="8" fill="#090F00" stroke="#A16207" stroke-width="1.5"/>
+<rect x="56"  y="460" width="548" height="32"  rx="8" fill="#111A00"/>
+<rect x="56"  y="482" width="548" height="10"       fill="#111A00"/>
+<text x="72"  y="480" font-size="10" fill="#FBBF24" font-family="'JetBrains Mono', monospace" letter-spacing="0.1em">SUPABASE — DATABASE + AUTH + ROW-LEVEL SECURITY</text>
+
+<!-- 3 service chips -->
+<rect x="72"  y="500" width="160" height="56" rx="5" fill="rgba(161,98,7,0.12)" stroke="rgba(161,98,7,0.3)" stroke-width="1"/>
+<text x="152" y="525" text-anchor="middle" font-size="13" fill="#FDE68A" font-weight="500">Postgres</text>
+<text x="152" y="542" text-anchor="middle" font-size="11" fill="#92400E">Relational data store</text>
+
+<rect x="248" y="500" width="160" height="56" rx="5" fill="rgba(161,98,7,0.12)" stroke="rgba(161,98,7,0.3)" stroke-width="1"/>
+<text x="328" y="525" text-anchor="middle" font-size="13" fill="#FDE68A" font-weight="500">Auth</text>
+<text x="328" y="542" text-anchor="middle" font-size="11" fill="#92400E">Staff login / JWT</text>
+
+<rect x="424" y="500" width="160" height="56" rx="5" fill="rgba(161,98,7,0.12)" stroke="rgba(161,98,7,0.3)" stroke-width="1"/>
+<text x="504" y="525" text-anchor="middle" font-size="13" fill="#FDE68A" font-weight="500">Row-Level Security</text>
+<text x="504" y="542" text-anchor="middle" font-size="11" fill="#92400E">Per-practice data isolation</text>
+
+<!-- Table list -->
+<text x="72" y="580" font-size="10" fill="#713F12" font-family="'JetBrains Mono', monospace" letter-spacing="0.1em">TABLES</text>
+<text x="72" y="600" font-size="12" fill="#D97706">practices · staff · patients · appointments · services</text>
+<text x="72" y="618" font-size="12" fill="#D97706">inventory_items · inventory_transactions · service_inventory_map</text>
+<text x="72" y="636" font-size="12" fill="#D97706">appointment_actuals · contact_submissions</text>
+<text x="72" y="658" font-size="11" fill="#713F12">Every table carries practice_id — multi-tenant from day one</text>
+<text x="72" y="674" font-size="11" fill="#713F12">Soft deletes + audit log on all destructive actions</text>
+<text x="72" y="690" font-size="11" fill="#713F12">RLS policies restrict each staff member to their own practice's rows</text>
+
+<!-- ── Resend ── -->
+<rect x="620" y="460" width="296" height="238" rx="8" fill="#0F060D" stroke="#9D174D" stroke-width="1.5"/>
+<rect x="620" y="460" width="296" height="32"  rx="8" fill="#1A0818"/>
+<rect x="620" y="482" width="296" height="10"       fill="#1A0818"/>
+<text x="636" y="480" font-size="10" fill="#F472B6" font-family="'JetBrains Mono', monospace" letter-spacing="0.1em">RESEND — EMAIL</text>
+
+<rect x="636" y="500" width="264" height="56" rx="5" fill="rgba(157,23,77,0.1)" stroke="rgba(157,23,77,0.28)" stroke-width="1"/>
+<text x="768" y="524" text-anchor="middle" font-size="12" fill="#F9A8D4" font-weight="500">Patient confirmation</text>
+<text x="768" y="542" text-anchor="middle" font-size="11" fill="#9D174D">Booking · date · time · service</text>
+
+<rect x="636" y="566" width="264" height="56" rx="5" fill="rgba(157,23,77,0.1)" stroke="rgba(157,23,77,0.28)" stroke-width="1"/>
+<text x="768" y="590" text-anchor="middle" font-size="12" fill="#F9A8D4" font-weight="500">Practice alert</text>
+<text x="768" y="608" text-anchor="middle" font-size="11" fill="#9D174D">New booking or contact received</text>
+
+<text x="636" y="640" font-size="11" fill="#831843">Shared domain until ohdental.co.za goes live</text>
+<text x="636" y="657" font-size="11" fill="#831843">Free tier: 3,000 emails / month</text>
+<text x="636" y="674" font-size="11" fill="#831843">Custom domain: ~2 DNS records once email is set up</text>
+<text x="636" y="691" font-size="11" fill="#831843">3k/mo free · upgrade is ~$20/mo</text>
+
+
+<!-- ╔══════════════════════════════════════════════════════════════╗ -->
+<!-- ║  ARROWS                                                     ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+<!-- Patient → index.html -->
+<line x1="210" y1="64" x2="210" y2="122" stroke="#3B82F6" stroke-width="1.5" marker-end="url(#a-blue)" opacity="0.8"/>
+
+<!-- Staff → admin.html -->
+<line x1="750" y1="64" x2="756" y2="122" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#a-violet)" opacity="0.8"/>
+
+<!-- index.html → API (book · contact) -->
+<line x1="196" y1="240" x2="168" y2="276" stroke="#3B82F6" stroke-width="1.5" marker-end="url(#a-blue)" opacity="0.65"/>
+<text x="54"  y="272" font-size="10" fill="#3B82F6" font-family="'JetBrains Mono', monospace" opacity="0.9">book · contact</text>
+
+<!-- admin.html → API (patients · inventory) -->
+<line x1="762" y1="240" x2="790" y2="276" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#a-violet)" opacity="0.65"/>
+<text x="798" y="272" font-size="10" fill="#7C3AED" font-family="'JetBrains Mono', monospace" opacity="0.9">patients · inv</text>
+
+<!-- API → Supabase -->
+<line x1="330" y1="422" x2="330" y2="458" stroke="#F59E0B" stroke-width="1.5" marker-end="url(#a-amber)" opacity="0.85"/>
+<text x="338" y="446" font-size="10" fill="#F59E0B" font-family="'JetBrains Mono', monospace" opacity="0.9">read / write</text>
+
+<!-- API → Resend -->
+<line x1="768" y1="422" x2="768" y2="458" stroke="#EC4899" stroke-width="1.5" marker-end="url(#a-pink)" opacity="0.85"/>
+<text x="776" y="446" font-size="10" fill="#EC4899" font-family="'JetBrains Mono', monospace" opacity="0.9">send email</text>
+
+<!-- admin.html → Supabase Auth (dashed, direct bypass to Auth) -->
+<path d="M 624 188 Q 460 320 400 458" stroke="#6D28D9" stroke-width="1.2" stroke-dasharray="5,3" fill="none" marker-end="url(#a-violet-sm)" opacity="0.4"/>
+<!-- label along the path -->
+<text x="490" y="295" font-size="10" fill="#6D28D9" font-family="'JetBrains Mono', monospace" opacity="0.55" transform="rotate(-50 490 295)">Supabase Auth (JWT)</text>
+
+
+<!-- ╔══════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SAAS NOTE                                                  ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+<rect x="56" y="716" width="848" height="66" rx="6"
+      fill="rgba(255,255,255,0.016)" stroke="rgba(255,255,255,0.048)" stroke-width="1"/>
+<text x="76" y="737" font-size="10" fill="#374151" font-family="'JetBrains Mono', monospace" letter-spacing="0.1em">SAAS READINESS</text>
+<text x="76" y="756" font-size="12" fill="#4B5563">Every table carries practice_id · RLS locks each tenant at DB layer · Adding client #2 = one INSERT into practices · Zero code changes</text>
+<text x="76" y="773" font-size="12" fill="#374151">OH Dental Studio is practice_id = 1 · Future clients share the same codebase and infrastructure</text>
+
+</svg>
+</div>
+
+</body>
+</html>

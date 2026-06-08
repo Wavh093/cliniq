@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Patient Check-In — OH Dental Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  :root {
+    --sage: #9b0044; --sage-deep: #7a0036;
+    --ink: #2A0F1F; --ink-soft: #524346; --muted: #857376;
+    --bg: #fff8f8; --bg-3: #FDEEF5; --card: #ffffff;
+    --border: rgba(155,0,68,0.15); --border-2: rgba(155,0,68,0.28);
+    --green: #16a34a; --amber: #d97706; --danger: #ba1a1a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; background: var(--bg); color: var(--ink);
+    font-family: 'DM Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased; }
+
+  .wrap { max-width: 620px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 36px; padding-top: 12px; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .logo-circle { width: 48px; height: 48px; border-radius: 50%;
+    background: var(--bg-3); display: flex; align-items: center; justify-content: center;
+    font-size: 24px; }
+  .logo-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 20px;
+    font-weight: 700; color: var(--sage); }
+  .header h1 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 28px;
+    font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+  .header p { color: var(--muted); font-size: 15px; }
+
+  /* Progress */
+  .progress { display: flex; align-items: center; margin-bottom: 32px; gap: 0; }
+  .prog-step { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 6px; }
+  .prog-circle { width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; border: 2px solid var(--border);
+    background: var(--card); color: var(--muted); transition: all .2s; }
+  .prog-circle.active { background: var(--sage); border-color: var(--sage); color: #fff; }
+  .prog-circle.done   { background: var(--green); border-color: var(--green); color: #fff; }
+  .prog-label { font-size: 11px; color: var(--muted); text-align: center; white-space: nowrap; }
+  .prog-label.active { color: var(--sage); font-weight: 600; }
+  .prog-line { flex: 1; height: 2px; background: var(--border); margin: 0; margin-bottom: 18px; }
+  .prog-line.done { background: var(--green); }
+
+  /* Card */
+  .card { background: var(--card); border-radius: 20px; padding: 28px 28px;
+    box-shadow: 0 4px 24px rgba(155,0,68,0.06); margin-bottom: 20px; }
+  .card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px;
+    font-weight: 700; margin-bottom: 4px; }
+  .card-sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  /* Form fields */
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } .card { padding: 20px 16px; } }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  label .req { color: var(--sage); margin-left: 2px; }
+  input, select { width: 100%; padding: 13px 14px; border-radius: 12px;
+    border: 1.5px solid var(--border); background: var(--bg);
+    font-family: inherit; font-size: 15px; color: var(--ink);
+    outline: none; transition: border-color .15s; -webkit-appearance: none; }
+  input:focus, select:focus { border-color: var(--sage); background: #fff; }
+  input::placeholder { color: var(--muted); }
+  .field-err { font-size: 12px; color: var(--danger); }
+
+  /* Consent checkbox */
+  .consent-box { display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px; border-radius: 14px; border: 1.5px solid var(--border);
+    background: var(--bg-3); cursor: pointer; margin-bottom: 14px;
+    transition: border-color .15s; }
+  .consent-box:hover { border-color: var(--sage); }
+  .consent-check { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+    margin-top: 1px; border: 2px solid var(--border-2); background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; cursor: pointer; }
+  .consent-check.ticked { background: var(--sage); border-color: var(--sage); }
+  .consent-text { flex: 1; }
+  .consent-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+  .consent-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Medical aid toggle */
+  .med-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
+  .med-btn { flex: 1; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 600;
+    border: 2px solid var(--border); background: var(--bg); color: var(--muted);
+    cursor: pointer; transition: all .15s; }
+  .med-btn.selected { border-color: var(--sage); background: rgba(155,0,68,0.07); color: var(--sage); }
+
+  /* Buttons */
+  .btn-row { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+  .btn-row.has-back { justify-content: space-between; }
+  .btn { padding: 14px 28px; border-radius: 9999px; font-family: inherit;
+    font-size: 15px; font-weight: 600; cursor: pointer; border: none;
+    transition: all .15s; }
+  .btn-primary { background: var(--sage); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--sage-deep); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-ghost { background: transparent; color: var(--muted);
+    border: 1.5px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--sage); color: var(--sage); }
+
+  /* Success */
+  .success { text-align: center; padding: 20px 0; }
+  .success-circle { width: 80px; height: 80px; border-radius: 50%;
+    background: rgba(22,163,74,0.1); border: 3px solid rgba(22,163,74,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; margin: 0 auto 24px; }
+  .success h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px;
+    font-weight: 700; margin-bottom: 12px; }
+  .success p { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 360px; margin: 0 auto; }
+  .ref-badge { display: inline-block; margin-top: 20px; padding: 8px 18px;
+    background: var(--bg-3); border-radius: 9999px; font-size: 13px;
+    font-weight: 600; color: var(--sage); letter-spacing: 0.05em; }
+
+  /* Alert */
+  .alert { padding: 12px 16px; border-radius: 10px; font-size: 13px;
+    margin-bottom: 16px; border: 1px solid; }
+  .alert-error { background: rgba(186,26,26,0.06); border-color: rgba(186,26,26,0.25); color: var(--danger); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useCallback } = React;
+
+const PROVINCES = [
+  'Eastern Cape','Free State','Gauteng','KwaZulu-Natal',
+  'Limpopo','Mpumalanga','North West','Northern Cape','Western Cape',
+];
+const GENDERS = [
+  { value:'male',          label:'Male' },
+  { value:'female',        label:'Female' },
+  { value:'non_binary',    label:'Non-binary' },
+  { value:'prefer_not',    label:'Prefer not to say' },
+];
+
+/* ── Checkbox ─────────────────────────────────────────────────────── */
+function Checkbox({ checked, onChange, title, desc, required }) {
+  return (
+    <div className={`consent-box${required && !checked ? '' : ''}`}
+      onClick={() => onChange(!checked)}>
+      <div className={`consent-check${checked ? ' ticked' : ''}`}>
+        {checked && <span style={{color:'#fff',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
+      </div>
+      <div className="consent-text">
+        <div className="consent-title">{title}{required && <span style={{color:'var(--sage)',marginLeft:4}}>*</span>}</div>
+        {desc && <div className="consent-desc">{desc}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+function Progress({ step, total = 3 }) {
+  const labels = ['Personal details', 'Medical aid', 'Finish up'];
+  return (
+    <div className="progress">
+      {labels.map((l, i) => (
+        <React.Fragment key={i}>
+          <div className="prog-step">
+            <div className={`prog-circle${i < step ? ' done' : i === step ? ' active' : ''}`}>
+              {i < step ? '✓' : i + 1}
+            </div>
+            <div className={`prog-label${i === step ? ' active' : ''}`}>{l}</div>
+          </div>
+          {i < labels.length - 1 && (
+            <div className={`prog-line${i < step ? ' done' : ''}`} />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+/* ── Main app ─────────────────────────────────────────────────────── */
+function OnboardingApp() {
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({
+    first_name: '', last_name: '', phone: '', email: '',
+    dob: '', gender: '', id_number: '',
+    hasMedAid: null,   // null=not chosen, true/false
+    medical_aid_name: '', medical_aid_number: '', medical_aid_plan: '',
+    suburb: '', province: '',
+    popia_consent: false, marketing_consent: false,
+  });
+  const [errors, setErrors] = useState({});
+  const [saving,  setSaving]  = useState(false);
+  const [patientId, setPatientId] = useState(null);
+
+  const set = patch => setForm(f => ({...f, ...patch}));
+  const fieldErr = key => errors[key]
+    ? <div className="field-err">{errors[key]}</div>
+    : null;
+
+  /* ── Validation ── */
+  const validateStep0 = () => {
+    const e = {};
+    if (!form.first_name.trim()) e.first_name = 'Please enter your first name';
+    if (!form.last_name.trim())  e.last_name  = 'Please enter your surname';
+    if (!form.phone.trim())      e.phone      = 'Please enter your phone number';
+    else if (form.phone.trim().replace(/\D/g,'').length < 7) {
+      e.phone = 'Please enter a valid phone number';
+    }
+    if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) {
+      e.email = 'Please enter a valid email address';
+    }
+    return e;
+  };
+
+  const validateStep2 = () => {
+    const e = {};
+    if (!form.popia_consent) {
+      e.popia_consent = 'Please tick this box to continue — it is required by law';
+    }
+    return e;
+  };
+
+  /* ── Navigation ── */
+  const next = () => {
+    if (step === 0) {
+      const e = validateStep0();
+      if (Object.keys(e).length) { setErrors(e); return; }
+    }
+    setErrors({});
+    setStep(s => s + 1);
+  };
+
+  const back = () => { setErrors({}); setStep(s => s - 1); };
+
+  /* ── Submit ── */
+  const submit = async () => {
+    const e = validateStep2();
+    if (Object.keys(e).length) { setErrors(e); return; }
+
+    setSaving(true);
+    try {
+      const payload = { ...form };
+      if (!form.hasMedAid) {
+        payload.medical_aid_name   = null;
+        payload.medical_aid_number = null;
+        payload.medical_aid_plan   = null;
+      }
+      delete payload.hasMedAid;
+
+      const res = await fetch('/api/patients?onboarding=true', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Something went wrong — please try again.');
+      setPatientId(json.patient_id);
+      setStep(3);
+    } catch (err) {
+      setErrors({ submit: err.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ── Success screen ── */
+  if (step === 3) {
+    return (
+      <div className="wrap">
+        <div className="header">
+          <div className="logo">
+            <div className="logo-circle">🦷</div>
+            <span className="logo-name">OH Dental Studio</span>
+          </div>
+        </div>
+        <div className="card">
+          <div className="success">
+            <div className="success-circle">✓</div>
+            <h2>Thank you, {form.first_name}!</h2>
+            <p>Your details have been saved. Please hand the tablet back to the receptionist — we will take it from here.</p>
+            {patientId && (
+              <div className="ref-badge">
+                Ref: {patientId.slice(0, 8).toUpperCase()}
+              </div>
+            )}
+            <p style={{marginTop:24, fontSize:13, color:'var(--muted)'}}>
+              23 Voortrekker Road, Krugersdorp &nbsp;·&nbsp; 011 660 2400
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Form ── */
+  return (
+    <div className="wrap">
+      {/* Header */}
+      <div className="header">
+        <div className="logo">
+          <div className="logo-circle">🦷</div>
+          <span className="logo-name">OH Dental Studio</span>
+        </div>
+        <h1>Welcome! Please fill in your details.</h1>
+        <p>This only takes about 2 minutes. Your information is kept private and secure.</p>
+      </div>
+
+      {/* Progress */}
+      <Progress step={step} />
+
+      {/* ── Step 0: Personal details ── */}
+      {step === 0 && (
+        <div className="card">
+          <div className="card-title">Personal details</div>
+          <div className="card-sub">Fields marked with * are required.</div>
+
+          <div className="row">
+            <div className="field">
+              <label>First name <span className="req">*</span></label>
+              <input value={form.first_name} onChange={e => set({first_name: e.target.value})}
+                placeholder="e.g. Thandi" autoFocus />
+              {fieldErr('first_name')}
+            </div>
+            <div className="field">
+              <label>Surname <span className="req">*</span></label>
+              <input value={form.last_name} onChange={e => set({last_name: e.target.value})}
+                placeholder="e.g. Nkosi" />
+              {fieldErr('last_name')}
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="field">
+              <label>Phone number <span className="req">*</span></label>
+              <input type="tel" value={form.phone} onChange={e => set({phone: e.target.value})}
+                placeholder="e.g. 082 555 1234" />
+              {fieldErr('phone')}
+            </div>
+            <div className="field">
+              <label>Email address</label>
+              <input type="email" value={form.email} onChange={e => set({email: e.target.value})}
+                placeholder="optional" />
+              {fieldErr('email')}
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="field">
+              <label>Date of birth</label>
+              <input type="date" value={form.dob} onChange={e => set({dob: e.target.value})}
+                max={new Date().toISOString().slice(0,10)} />
+            </div>
+            <div className="field">
+              <label>Gender</label>
+              <select value={form.gender} onChange={e => set({gender: e.target.value})}
+                style={{color: form.gender ? 'var(--ink)' : 'var(--muted)'}}>
+                <option value="">Select…</option>
+                {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="field">
+            <label>ID or Passport number <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+            <input value={form.id_number} onChange={e => set({id_number: e.target.value})}
+              placeholder="South African ID or passport number" />
+          </div>
+
+          <div className="btn-row">
+            <button className="btn btn-primary" onClick={next}>
+              Next: Medical aid →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 1: Medical aid ── */}
+      {step === 1 && (
+        <div className="card">
+          <div className="card-title">Medical aid</div>
+          <div className="card-sub">Do you have medical aid cover?</div>
+
+          <div className="med-toggle">
+            <button className={`med-btn${form.hasMedAid === true ? ' selected' : ''}`}
+              onClick={() => set({hasMedAid: true})}>
+              Yes, I have medical aid
+            </button>
+            <button className={`med-btn${form.hasMedAid === false ? ' selected' : ''}`}
+              onClick={() => set({hasMedAid: false})}>
+              No — I am paying cash
+            </button>
+          </div>
+
+          {form.hasMedAid && (
+            <>
+              <div className="row">
+                <div className="field">
+                  <label>Medical aid scheme name</label>
+                  <input value={form.medical_aid_name}
+                    onChange={e => set({medical_aid_name: e.target.value})}
+                    placeholder="e.g. Discovery, Bonitas, Medihelp" />
+                </div>
+                <div className="field">
+                  <label>Membership number</label>
+                  <input value={form.medical_aid_number}
+                    onChange={e => set({medical_aid_number: e.target.value})}
+                    placeholder="Your membership number" />
+                </div>
+              </div>
+              <div className="field">
+                <label>Plan / Option name <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+                <input value={form.medical_aid_plan}
+                  onChange={e => set({medical_aid_plan: e.target.value})}
+                  placeholder="e.g. Essential Saver, Hospital Plan" />
+              </div>
+            </>
+          )}
+
+          {form.hasMedAid === null && (
+            <div style={{padding:'16px',borderRadius:12,background:'var(--bg-3)',
+              fontSize:14,color:'var(--muted)',textAlign:'center',marginTop:8}}>
+              Please select one of the options above to continue.
+            </div>
+          )}
+
+          <div className="btn-row has-back">
+            <button className="btn btn-ghost" onClick={back}>← Back</button>
+            <button className="btn btn-primary"
+              disabled={form.hasMedAid === null}
+              onClick={next}>
+              Next: Finish up →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: Address + consent ── */}
+      {step === 2 && (
+        <div className="card">
+          <div className="card-title">Almost done!</div>
+          <div className="card-sub">Just a few more optional details, then your consent.</div>
+
+          <div className="row">
+            <div className="field">
+              <label>Suburb <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+              <input value={form.suburb} onChange={e => set({suburb: e.target.value})}
+                placeholder="e.g. Krugersdorp North" />
+            </div>
+            <div className="field">
+              <label>Province <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+              <select value={form.province} onChange={e => set({province: e.target.value})}
+                style={{color: form.province ? 'var(--ink)' : 'var(--muted)'}}>
+                <option value="">Select…</option>
+                {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{marginTop:8,marginBottom:4,fontSize:13,fontWeight:600,color:'var(--ink-soft)'}}>
+            Consent
+          </div>
+
+          <Checkbox
+            checked={form.popia_consent}
+            onChange={v => { set({popia_consent: v}); setErrors(p => ({...p, popia_consent: null})); }}
+            title="I agree to OH Dental Studio storing my personal information"
+            desc="In accordance with the Protection of Personal Information Act (POPIA), we need your consent to record and use your details for your dental care."
+            required
+          />
+          {errors.popia_consent && (
+            <div className="field-err" style={{marginTop:-8,marginBottom:12}}>{errors.popia_consent}</div>
+          )}
+
+          <Checkbox
+            checked={form.marketing_consent}
+            onChange={v => set({marketing_consent: v})}
+            title="Send me appointment reminders and dental health tips"
+            desc="Optional — we may send occasional emails or SMS messages. You can unsubscribe at any time."
+          />
+
+          {errors.submit && (
+            <div className="alert alert-error">{errors.submit}</div>
+          )}
+
+          <div className="btn-row has-back">
+            <button className="btn btn-ghost" onClick={back}>← Back</button>
+            <button className="btn btn-primary" onClick={submit} disabled={saving}>
+              {saving ? 'Saving your details…' : 'Submit my details'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p style={{textAlign:'center',fontSize:12,color:'var(--muted)',marginTop:8}}>
+        Your information is stored securely and only used for your dental care.
+      </p>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<OnboardingApp />);
+</script>
+</body>
+</html>

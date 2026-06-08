@@ -1,0 +1,21 @@
+{
+  "name": "oh-dental-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OH Dental Studio — patient site + practice management platform",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "resend": "^4.5.1"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "vercel": "^54.4.1"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}

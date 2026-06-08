@@ -1,0 +1,62 @@
+# ─── Secrets — NEVER commit these ────────────────────────────────────────────
+.env
+.env.local
+.env*.local
+.env.production
+
+# Claude Code local settings contain Supabase tokens in the allow list
+.claude/settings.local.json
+
+# MCP config contains API keys (Google Stitch, etc.)
+.mcp.json
+
+# Handoff docs contain admin credentials and are for internal use only
+HANDOFF.md
+PROJECT_HANDOFF.md
+
+# ─── Node dependencies ────────────────────────────────────────────────────────
+node_modules/
+mobile/node_modules/
+
+# ─── Vercel ───────────────────────────────────────────────────────────────────
+.vercel/
+
+# ─── Expo / React Native ──────────────────────────────────────────────────────
+mobile/.expo/
+mobile/android/
+mobile/ios/
+
+# Signing keys and provisioning profiles
+mobile/*.jks
+mobile/*.p8
+mobile/*.p12
+mobile/*.key
+mobile/*.mobileprovision
+mobile/google-services.json
+mobile/GoogleService-Info.plist
+
+# ─── Supabase ─────────────────────────────────────────────────────────────────
+supabase/.temp/
+
+# ─── Build artifacts ──────────────────────────────────────────────────────────
+dist/
+build/
+.next/
+out/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── OS / Editor ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
