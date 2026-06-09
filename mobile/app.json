@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "OH Dental",
+    "slug": "oh-dental",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "oh-dental",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FDEEF5"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "co.za.ohdental.app"
+    },
+    "android": {
+      "package": "co.za.ohdental.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#FDEEF5"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#EC4899"
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseUrl": "https://hkmxsbopmvlprzktppzq.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrbXhzYm9wbXZscHJ6a3RwcHpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDMxOTksImV4cCI6MjA5NTExOTE5OX0.BGhqmHJ4V7TXLgTNO2LaNTBQJRf68LYgtTqyduzwU30",
+      "apiBaseUrl": "https://oh-dental-studio.vercel.app",
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}
