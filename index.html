@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OH Dental Studio — Krugersdorp</title>
+  <title>Kliniq — Krugersdorp</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -18,42 +18,42 @@
       theme: {
         extend: {
           colors: {
-            primary: "#9b0044",
-            "primary-container": "#c2185b",
+            primary: "#0a4a5c",
+            "primary-container": "#1a7a8c",
             "on-primary": "#ffffff",
-            "on-primary-fixed": "#3f0018",
-            "primary-fixed": "#ffd9df",
-            "primary-fixed-dim": "#ffb1c2",
-            secondary: "#705763",
-            "secondary-container": "#f8d7e5",
+            "on-primary-fixed": "#001f29",
+            "primary-fixed": "#b0e8f6",
+            "primary-fixed-dim": "#86d2e6",
+            secondary: "#4a7a8c",
+            "secondary-container": "#c8edf5",
             "on-secondary": "#ffffff",
-            "on-secondary-fixed-variant": "#57404b",
-            "secondary-fixed": "#fbdae8",
-            "secondary-fixed-dim": "#debecc",
-            tertiary: "#544a50",
-            "tertiary-fixed": "#eddfe6",
-            "tertiary-fixed-dim": "#d1c3ca",
+            "on-secondary-fixed-variant": "#2d5f6f",
+            "secondary-fixed": "#d6eef5",
+            "secondary-fixed-dim": "#b8d8e4",
+            tertiary: "#4a5a60",
+            "tertiary-fixed": "#ddeef5",
+            "tertiary-fixed-dim": "#c1d8e2",
             "on-tertiary": "#ffffff",
-            "on-tertiary-container": "#eddfe6",
-            surface: "#fff8f8",
-            "surface-bright": "#fff8f8",
-            "surface-cream": "#FDF9F8",
-            "surface-dim": "#fccde3",
-            "surface-variant": "#ffd8ea",
-            "surface-container": "#ffe8f1",
-            "surface-container-low": "#fff0f5",
-            "surface-container-high": "#ffe0ed",
-            "surface-container-highest": "#ffd8ea",
+            "on-tertiary-container": "#ddeef5",
+            surface: "#f4fafc",
+            "surface-bright": "#f4fafc",
+            "surface-cream": "#f4fafc",
+            "surface-dim": "#b0dce8",
+            "surface-variant": "#c8e6f0",
+            "surface-container": "#e0f2f8",
+            "surface-container-low": "#eef8fc",
+            "surface-container-high": "#d6eef8",
+            "surface-container-highest": "#c8e6f0",
             "surface-container-lowest": "#ffffff",
-            "on-surface": "#2e1222",
-            "on-surface-variant": "#594045",
-            background: "#fff8f8",
-            outline: "#8d6f75",
-            "outline-variant": "#e1bec4",
-            "soft-blush": "#FDEEF5",
-            "deep-plum": "#2A0F1F",
-            "inverse-surface": "#452738",
-            "inverse-primary": "#ffb1c2",
+            "on-surface": "#0a1f26",
+            "on-surface-variant": "#3a5a65",
+            background: "#f4fafc",
+            outline: "#567a85",
+            "outline-variant": "#b0d2dc",
+            "soft-blush": "#e8f4f7",
+            "deep-plum": "#0a1f26",
+            "inverse-surface": "#0a2a36",
+            "inverse-primary": "#86d2e6",
             error: "#ba1a1a",
             "error-container": "#ffdad6",
             "on-error": "#ffffff",
@@ -92,7 +92,7 @@
   </script>
 
   <style>
-    body { background-color: #fff8f8; color: #2e1222; -webkit-font-smoothing: antialiased; }
+    body { background-color: #f4fafc; color: #0a1f26; -webkit-font-smoothing: antialiased; }
     * { box-sizing: border-box; }
     p { margin: 0; }
 
@@ -106,16 +106,16 @@
 
     /* ── Booking calendar ── */
     .booking-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-    .cal-head { font-size: 10px; letter-spacing: 0.08em; color: #8d6f75; text-align: center; padding: 4px 0; text-transform: uppercase; }
+    .cal-head { font-size: 10px; letter-spacing: 0.08em; color: #567a85; text-align: center; padding: 4px 0; text-transform: uppercase; }
     .cal-day {
-      aspect-ratio: 1; border: 1px solid #e1bec4; background: white; border-radius: 10px;
+      aspect-ratio: 1; border: 1px solid #b0d2dc; background: white; border-radius: 10px;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-      cursor: pointer; color: #2e1222; transition: all .15s ease; padding: 2px; font-family: inherit;
+      cursor: pointer; color: #0a1f26; transition: all .15s ease; padding: 2px; font-family: inherit;
     }
-    .cal-day:hover:not(:disabled) { border-color: #9b0044; background: #FDEEF5; }
+    .cal-day:hover:not(:disabled) { border-color: #0a4a5c; background: #e8f4f7; }
     .cal-day:disabled { opacity: 0.3; cursor: not-allowed; }
     .cal-day.muted { background: transparent; border-color: transparent; cursor: default; }
-    .cal-day.selected { background: #9b0044; color: white; border-color: #9b0044; }
+    .cal-day.selected { background: #0a4a5c; color: white; border-color: #0a4a5c; }
     .cal-num { font-size: 14px; font-weight: 500; line-height: 1; }
     .cal-m { font-size: 9px; opacity: 0.6; }
 
@@ -123,13 +123,13 @@
     .slot-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 14px; }
     @media (max-width: 480px) { .slot-grid { grid-template-columns: repeat(3, 1fr); } }
     .slot {
-      padding: 10px 6px; border: 1px solid #e1bec4; background: white;
-      font-family: 'DM Sans', sans-serif; font-size: 13px; color: #2e1222;
+      padding: 10px 6px; border: 1px solid #b0d2dc; background: white;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; color: #0a1f26;
       border-radius: 10px; cursor: pointer; transition: all .15s ease; text-align: center;
     }
-    .slot:hover:not(:disabled) { border-color: #9b0044; background: #FDEEF5; }
+    .slot:hover:not(:disabled) { border-color: #0a4a5c; background: #e8f4f7; }
     .slot:disabled { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
-    .slot.selected { background: #9b0044; color: white; border-color: #9b0044; }
+    .slot.selected { background: #0a4a5c; color: white; border-color: #0a4a5c; }
 
     /* ── Mobile responsive helpers ── */
     @media (max-width: 640px) {
@@ -164,7 +164,7 @@
 
     const PATIENT_TYPES = [
       { id: 'new',       name: 'New patient',       meta: 'First visit with us — welcome.' },
-      { id: 'returning', name: 'Returning patient', meta: 'Already on file with OH Dental.' },
+      { id: 'returning', name: 'Returning patient', meta: 'Already on file with Kliniq.' },
     ];
 
     const STEP_LABELS = ['Service', 'Patient', 'Date & time', 'Your details', 'Confirm'];
@@ -391,7 +391,7 @@
         `w-full bg-soft-blush border-none rounded-xl p-3.5 text-sm text-on-surface outline-none transition-all focus:bg-white focus:ring-2 focus:ring-primary/30 ${err ? 'ring-2 ring-error' : ''}`;
 
       return (
-        <div className="bg-white rounded-3xl shadow-[0_4px_30px_rgba(194,24,91,0.07)] border border-soft-blush overflow-hidden grid grid-cols-1 lg:grid-cols-[290px_1fr]">
+        <div className="bg-white rounded-3xl shadow-[0_4px_30px_rgba(10,74,92,0.07)] border border-soft-blush overflow-hidden grid grid-cols-1 lg:grid-cols-[290px_1fr]">
 
           {/* Sidebar */}
           <aside className="booking-sidebar bg-deep-plum text-white p-10 flex flex-col gap-6">
@@ -673,11 +673,11 @@
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
               {/* Map + info */}
               <div className="lg:col-span-7 space-y-gutter">
-                <div className="rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(194,24,91,0.06)] border border-soft-blush bg-white">
+                <div className="rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(10,74,92,0.06)] border border-soft-blush bg-white">
                   <div className="relative" style={{ aspectRatio: '16/10' }}>
                     <iframe
                       src="https://maps.google.com/maps?q=23+Voortrekker+Road,+Krugersdorp+North,+1739,+South+Africa&t=&z=16&ie=UTF8&iwloc=&output=embed"
-                      title="OH Dental Studio on Google Maps"
+                      title="Kliniq on Google Maps"
                       style={{ position:'absolute', top:0, left:0, width:'100%', height:'100%', border:0 }}
                       allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
                     />
@@ -705,7 +705,7 @@
                         <a href="https://wa.me/27116602400" target="_blank" rel="noopener" className="text-primary hover:underline flex items-center gap-1">
                           <span className="material-symbols-outlined" style={{fontSize:14}}>chat</span> WhatsApp us
                         </a>
-                        <a href="mailto:hello@ohdental.co.za" className="text-primary hover:underline block">hello@ohdental.co.za</a>
+                        <a href="mailto:hello@kliniq.co.za" className="text-primary hover:underline block">hello@kliniq.co.za</a>
                       </div>
                     </div>
                   </div>
@@ -716,7 +716,7 @@
               <div className="lg:col-span-5">
                 {sent ? (
                   /* ── Success confirmation card ── */
-                  <div className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(194,24,91,0.06)] border border-soft-blush flex flex-col items-center text-center gap-6">
+                  <div className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(10,74,92,0.06)] border border-soft-blush flex flex-col items-center text-center gap-6">
                     <div className="w-16 h-16 rounded-full bg-secondary-container flex items-center justify-center">
                       <span className="material-symbols-outlined text-primary" style={{ fontSize:36, fontVariationSettings:"'FILL' 1" }}>mark_email_read</span>
                     </div>
@@ -750,7 +750,7 @@
                   </div>
                 ) : (
                   /* ── Contact form ── */
-                  <form onSubmit={submit} noValidate className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(194,24,91,0.06)] border border-soft-blush space-y-5">
+                  <form onSubmit={submit} noValidate className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(10,74,92,0.06)] border border-soft-blush space-y-5">
                     <div>
                       <h3 className="font-headline text-2xl font-semibold text-on-surface">Send us a <span className="italic text-primary">note</span>.</h3>
                       <p className="text-sm text-on-surface-variant mt-1">We reply within one working day.</p>
@@ -876,9 +876,19 @@
 
       return (
         <>
-          <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-surface-bright/85 glass-nav shadow-[0_4px_20px_rgba(194,24,91,0.06)]' : 'bg-transparent'}`}>
+          <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-surface-bright/85 glass-nav shadow-[0_4px_20px_rgba(10,74,92,0.06)]' : 'bg-transparent'}`}>
             <div className="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
-              <a href="#home" className="font-headline text-xl font-bold text-primary tracking-tight">OH Dental Studio</a>
+              <a href="#home" className="flex items-center gap-2 font-headline text-xl font-bold text-primary tracking-tight">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="32" height="32">
+                  <circle cx="40" cy="40" r="40" fill="#0a4a5c"/>
+                  <path d="M40 57 C35 52 18 42 18 30 C18 24 23 19 29 19 C33 19 36.5 21.5 40 25.5 C43.5 21.5 47 19 51 19 C57 19 62 24 62 30 C62 42 45 52 40 57Z" fill="none" stroke="white" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
+                  <line x1="40" y1="26.5" x2="40" y2="35.5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                  <line x1="35.5" y1="31" x2="44.5" y2="31" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+                  <path d="M14 62 L14 54 C14 51 16 49 18.5 49 L18.5 43 C18.5 41.5 20.5 41 21 42.5 L21.5 48.5 C22.5 48 24 49 24 50.5 L24 53.5 C26 54.5 26.5 57 25.5 59 L25.5 62 Z" fill="none" stroke="white" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
+                  <path d="M66 62 L66 54 C66 51 64 49 61.5 49 L61.5 43 C61.5 41.5 59.5 41 59 42.5 L58.5 48.5 C57.5 48 56 49 56 50.5 L56 53.5 C54 54.5 53.5 57 54.5 59 L54.5 62 Z" fill="none" stroke="white" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
+                </svg>
+                Kliniq
+              </a>
               <div className="hidden md:flex items-center gap-8">
                 {links.map(l => (
                   <a key={l.id} href={`#${l.id}`}
@@ -997,10 +1007,10 @@
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8">
-            <div className="md:col-span-7 bg-white p-10 rounded-3xl shadow-[0_10px_40px_rgba(194,24,91,0.04)] border border-soft-blush flex flex-col justify-center">
+            <div className="md:col-span-7 bg-white p-10 rounded-3xl shadow-[0_10px_40px_rgba(10,74,92,0.04)] border border-soft-blush flex flex-col justify-center">
               <h3 className="font-headline text-headline-md text-primary mb-6">A Shared Vision of Empathy</h3>
               <p className="text-on-surface-variant text-body-lg leading-relaxed mb-4">
-                Founded by two passionate practitioners, OH Dental Studio was born from a desire to strip away the clinical coldness of traditional dentistry. Our approach is rooted in active listening and a deep respect for every patient's comfort.
+                Founded by two passionate practitioners, Kliniq was born from a desire to strip away the clinical coldness of traditional dentistry. Our approach is rooted in active listening and a deep respect for every patient's comfort.
               </p>
               <p className="text-on-surface-variant text-body-lg leading-relaxed mb-8">
                 We specialise in treating patients with dental anxiety, ensuring that every procedure is explained, every concern is heard, and every smile is nurtured — from a toddler's first visit to a full smile transformation.
@@ -1079,7 +1089,7 @@
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter">
               {cards.map(c => (
-                <div key={c.title} className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgba(194,24,91,0.03)] hover:-translate-y-2 transition-all duration-300">
+                <div key={c.title} className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgba(10,74,92,0.03)] hover:-translate-y-2 transition-all duration-300">
                   <div className="w-14 h-14 bg-soft-blush rounded-2xl flex items-center justify-center mb-6">
                     <span className="material-symbols-outlined text-primary text-3xl">{c.icon}</span>
                   </div>
@@ -1238,7 +1248,7 @@
             {/* Review cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
               {REVIEWS.map((r, i) => (
-                <div key={i} className="bg-white rounded-3xl p-7 shadow-[0_4px_20px_rgba(194,24,91,0.06)] border border-soft-blush flex flex-col gap-4">
+                <div key={i} className="bg-white rounded-3xl p-7 shadow-[0_4px_20px_rgba(10,74,92,0.06)] border border-soft-blush flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <StarRating n={r.rating} />
                     <span className="text-xs text-on-surface-variant">{r.date}</span>
@@ -1259,7 +1269,7 @@
 
             {/* Google Reviews CTA */}
             <div className="text-center">
-              <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-3xl px-8 py-6 shadow-[0_4px_20px_rgba(194,24,91,0.06)] border border-soft-blush">
+              <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-3xl px-8 py-6 shadow-[0_4px_20px_rgba(10,74,92,0.06)] border border-soft-blush">
                 <div className="flex items-center gap-3">
                   <div className="flex gap-0.5">
                     {[1,2,3,4,5].map(i => (
@@ -1378,7 +1388,7 @@
             <div style={{maxWidth:720, margin:'0 auto'}}>
               {FAQS.map((f, i) => (
                 <div key={i} style={{
-                  borderBottom: '1px solid rgba(155,0,68,0.12)',
+                  borderBottom: '1px solid rgba(10,74,92,0.12)',
                   marginBottom: 0,
                 }}>
                   <button
@@ -1391,10 +1401,10 @@
                   >
                     <span style={{
                       fontFamily:'Plus Jakarta Sans, sans-serif',
-                      fontWeight:600, fontSize:16, color:'#2A0F1F', lineHeight:1.4,
+                      fontWeight:600, fontSize:16, color:'#0a1f26', lineHeight:1.4,
                     }}>{f.q}</span>
                     <span style={{
-                      fontSize:22, color:'#9b0044', flexShrink:0,
+                      fontSize:22, color:'#0a4a5c', flexShrink:0,
                       transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
                       transition:'transform .2s', lineHeight:1,
                     }}>+</span>
@@ -1402,7 +1412,7 @@
                   {open === i && (
                     <div style={{
                       padding:'0 4px 20px',
-                      fontSize:15, color:'#524346', lineHeight:1.7,
+                      fontSize:15, color:'#2d5a6b', lineHeight:1.7,
                     }}>
                       {f.a}
                     </div>
@@ -1412,17 +1422,17 @@
             </div>
 
             <div style={{textAlign:'center', marginTop:48}}>
-              <p style={{color:'#857376', marginBottom:16, fontSize:15}}>Still have a question?</p>
+              <p style={{color:'#6a9aa8', marginBottom:16, fontSize:15}}>Still have a question?</p>
               <a href="#contact"
                 style={{
                   display:'inline-flex', alignItems:'center', gap:8,
-                  background:'#9b0044', color:'#fff',
+                  background:'#0a4a5c', color:'#fff',
                   padding:'14px 32px', borderRadius:9999,
                   fontWeight:700, fontSize:15, textDecoration:'none',
                   transition:'background .15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background='#7a0036'}
-                onMouseLeave={e => e.currentTarget.style.background='#9b0044'}
+                onMouseEnter={e => e.currentTarget.style.background='#072e3a'}
+                onMouseLeave={e => e.currentTarget.style.background='#0a4a5c'}
               >
                 Send us a message →
               </a>
@@ -1440,7 +1450,7 @@
           <div className="max-w-container-max mx-auto px-margin-desktop">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-10 pb-16 border-b border-white/10">
               <div>
-                <div className="font-headline text-xl font-bold text-primary-fixed-dim mb-4">OH Dental Studio</div>
+                <div className="font-headline text-xl font-bold text-primary-fixed-dim mb-4">Kliniq</div>
                 <p className="text-white/55 text-sm leading-relaxed">A small, modern dental practice in Krugersdorp, caring for families across the West Rand since 2013.</p>
               </div>
               <div>
@@ -1466,12 +1476,12 @@
                   <p>Mon–Fri 08:00–17:00<br />Sat 09:00–13:00</p>
                   <a href="tel:+27116602400" className="hover:text-white transition-colors block">011 660 2400</a>
                   <a href="https://wa.me/27116602400" target="_blank" rel="noopener" className="hover:text-white transition-colors block">WhatsApp</a>
-                  <a href="mailto:hello@ohdental.co.za" className="hover:text-white transition-colors block">hello@ohdental.co.za</a>
+                  <a href="mailto:hello@kliniq.co.za" className="hover:text-white transition-colors block">hello@kliniq.co.za</a>
                 </div>
               </div>
             </div>
             <div className="pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-white/35">
-              <span>© {new Date().getFullYear()} OH Dental Studio · HPCSA registered · Krugersdorp, South Africa</span>
+              <span>© {new Date().getFullYear()} Kliniq · HPCSA registered · Krugersdorp, South Africa</span>
               <span className="flex gap-3">
                 <a href="#" className="hover:text-white/60 transition-colors">Privacy</a>
                 <span className="text-white/20">·</span>

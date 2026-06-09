@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Leave a Review — OH Dental Studio</title>
+<title>Leave a Review — Kliniq</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -11,10 +11,10 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
   :root {
-    --sage: #9b0044; --sage-deep: #7a0036; --amber: #f59e0b;
-    --ink: #2A0F1F; --ink-soft: #524346; --muted: #857376;
-    --bg: #fff8f8; --bg-3: #FDEEF5; --card: #ffffff;
-    --border: rgba(155,0,68,0.14); --green: #16a34a;
+    --sage: #0a4a5c; --sage-deep: #072e3a; --amber: #f59e0b;
+    --ink: #0a1f26; --ink-soft: #2d5a6b; --muted: #6a9aa8;
+    --bg: #f4fafc; --bg-3: #e8f4f7; --card: #ffffff;
+    --border: rgba(10,74,92,0.14); --green: #16a34a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100%; background: var(--bg); color: var(--ink);
@@ -34,7 +34,7 @@
   .header p { color: var(--muted); font-size: 14px; }
 
   .card { background: var(--card); border-radius: 20px; padding: 28px;
-    box-shadow: 0 4px 24px rgba(155,0,68,0.06); }
+    box-shadow: 0 4px 24px rgba(10,74,92,0.06); }
 
   /* Star rating */
   .stars { display: flex; justify-content: center; gap: 8px; margin: 8px 0 4px; }
@@ -42,7 +42,7 @@
     line-height: 1; user-select: none; -webkit-user-select: none; }
   .star:hover { transform: scale(1.15); }
   .star.filled { color: var(--amber); }
-  .star.empty  { color: rgba(155,0,68,0.12); }
+  .star.empty  { color: rgba(10,74,92,0.12); }
   .star-label { text-align: center; font-size: 14px; font-weight: 600;
     color: var(--sage); min-height: 22px; margin-bottom: 16px; }
 
@@ -71,7 +71,7 @@
     border: 2px solid var(--border); background: var(--bg); color: var(--muted);
     cursor: pointer; transition: all .15s; text-align: center; }
   .rec-btn.yes.sel { border-color: var(--green); background: rgba(22,163,74,0.08); color: var(--green); }
-  .rec-btn.no.sel  { border-color: rgba(155,0,68,0.4); background: rgba(155,0,68,0.06); color: var(--sage); }
+  .rec-btn.no.sel  { border-color: rgba(10,74,92,0.4); background: rgba(10,74,92,0.06); color: var(--sage); }
   .rec-btn:hover:not(.sel) { border-color: var(--sage); color: var(--sage); }
 
   /* Submit */
@@ -92,7 +92,7 @@
   .success p { color: var(--muted); font-size: 15px; line-height: 1.6;
     max-width: 380px; margin: 0 auto; }
   .google-btn { display: block; margin: 24px auto 0; padding: 14px 28px;
-    border-radius: 9999px; background: #fff; border: 2px solid rgba(155,0,68,0.2);
+    border-radius: 9999px; background: #fff; border: 2px solid rgba(10,74,92,0.2);
     font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink);
     cursor: pointer; text-decoration: none; transition: all .15s; text-align: center; }
   .google-btn:hover { border-color: var(--sage); color: var(--sage); }
@@ -187,8 +187,15 @@ function ReviewApp() {
       <div className="wrap">
         <div className="header">
           <div className="logo">
-            <div className="logo-circle">🦷</div>
-            <span className="logo-name">OH Dental Studio</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="40" height="40" style={{flexShrink:0}}>
+              <circle cx="40" cy="40" r="40" fill="#0a4a5c"/>
+              <path d="M40 57 C35 52 18 42 18 30 C18 24 23 19 29 19 C33 19 36.5 21.5 40 25.5 C43.5 21.5 47 19 51 19 C57 19 62 24 62 30 C62 42 45 52 40 57Z" fill="none" stroke="white" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
+              <line x1="40" y1="26.5" x2="40" y2="35.5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+              <line x1="35.5" y1="31" x2="44.5" y2="31" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
+              <path d="M14 62 L14 54 C14 51 16 49 18.5 49 L18.5 43 C18.5 41.5 20.5 41 21 42.5 L21.5 48.5 C22.5 48 24 49 24 50.5 L24 53.5 C54 54.5 53.5 57 54.5 59 L54.5 62 Z" fill="none" stroke="white" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
+              <path d="M66 62 L66 54 C66 51 64 49 61.5 49 L61.5 43 C61.5 41.5 59.5 41 59 42.5 L58.5 48.5 C57.5 48 56 49 56 50.5 L56 53.5 C54 54.5 53.5 57 54.5 59 L54.5 62 Z" fill="none" stroke="white" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round"/>
+            </svg>
+            <span className="logo-name">Kliniq</span>
           </div>
         </div>
         <div className="card">
@@ -199,7 +206,7 @@ function ReviewApp() {
             <a href={GOOGLE_URL} target="_blank" rel="noopener" className="google-btn">
               🌐 &nbsp;Share on Google Reviews too →
             </a>
-            <a href="/" className="done-link">Back to OH Dental Studio</a>
+            <a href="/" className="done-link">Back to Kliniq</a>
           </div>
         </div>
       </div>
@@ -211,7 +218,7 @@ function ReviewApp() {
       <div className="header">
         <div className="logo">
           <div className="logo-circle">🦷</div>
-          <span className="logo-name">OH Dental Studio</span>
+          <span className="logo-name">Kliniq</span>
         </div>
         <h1>How was your visit today?</h1>
         <p>Your feedback helps us keep smiles looking great.</p>
