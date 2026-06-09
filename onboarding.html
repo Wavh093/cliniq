@@ -11,10 +11,10 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
   :root {
-    --sage: #1a7a8c; --sage-deep: #0d4a58;
+    --sage: #0a4a5c; --sage-deep: #072e3a;
     --ink: #0d2d3e; --ink-soft: #2c5f70; --muted: #7bbdc8;
-    --bg: #f7f0e6; --bg-3: #c5eeec; --card: #ffffff;
-    --border: rgba(26,122,140,0.15); --border-2: rgba(26,122,140,0.28);
+    --bg: #f7f0e6; --bg-3: #e8f4f7; --card: #ffffff;
+    --border: rgba(10,74,92,0.15); --border-2: rgba(10,74,92,0.28);
     --green: #16a34a; --amber: #d97706; --danger: #ba1a1a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,7 +52,7 @@
 
   /* Card */
   .card { background: var(--card); border-radius: 20px; padding: 28px 28px;
-    box-shadow: 0 4px 24px rgba(26,122,140,0.06); margin-bottom: 20px; }
+    box-shadow: 0 4px 24px rgba(10,74,92,0.06); margin-bottom: 20px; }
   .card-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px;
     font-weight: 700; margin-bottom: 4px; }
   .card-sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
@@ -92,7 +92,7 @@
   .med-btn { flex: 1; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 600;
     border: 2px solid var(--border); background: var(--bg); color: var(--muted);
     cursor: pointer; transition: all .15s; }
-  .med-btn.selected { border-color: var(--sage); background: rgba(26,122,140,0.07); color: var(--sage); }
+  .med-btn.selected { border-color: var(--sage); background: rgba(10,74,92,0.07); color: var(--sage); }
 
   /* Buttons */
   .btn-row { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
@@ -273,7 +273,7 @@ function OnboardingApp() {
         <div className="header">
           <div className="logo">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="44" height="44" style={{flexShrink:0}}>
-              <circle cx="40" cy="40" r="40" fill="#1a7a8c"/>
+              <circle cx="40" cy="40" r="40" fill="#0a4a5c"/>
               <path d="M40 57 C35 52 18 42 18 30 C18 24 23 19 29 19 C33 19 36.5 21.5 40 25.5 C43.5 21.5 47 19 51 19 C57 19 62 24 62 30 C62 42 45 52 40 57Z" fill="none" stroke="white" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
               <line x1="40" y1="26.5" x2="40" y2="35.5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
               <line x1="35.5" y1="31" x2="44.5" y2="31" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>

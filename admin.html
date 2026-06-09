@@ -16,17 +16,17 @@
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root {
-    --sage:      #1a7a8c;
-    --sage-deep: #0d4a58;
+    --sage:      #0a4a5c;
+    --sage-deep: #072e3a;
     --ink:       #0d2d3e;
     --ink-soft:  #2c5f70;
     --muted:     #7bbdc8;
     --bg:        #f7f0e6;
     --bg-2:      #ffffff;
-    --bg-3:      #c5eeec;
+    --bg-3:      #e8f4f7;
     --card:      #ffffff;
-    --border:    rgba(26,122,140,0.13);
-    --border-2:  rgba(26,122,140,0.24);
+    --border:    rgba(10,74,92,0.13);
+    --border-2:  rgba(10,74,92,0.24);
     --teal:      #1a8fa0;
     --green:     #16a34a;
     --amber:     #d97706;
@@ -175,7 +175,7 @@
   .card {
     background: var(--card);
     border-radius: 1.5rem;
-    box-shadow: 0 8px 24px rgba(26,122,140,0.05);
+    box-shadow: 0 8px 24px rgba(10,74,92,0.05);
     padding: 24px;
   }
   .card-title {
@@ -185,7 +185,7 @@
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
   .stat-card {
     background: var(--card); border-radius: 1.5rem;
-    box-shadow: 0 8px 24px rgba(26,122,140,0.05);
+    box-shadow: 0 8px 24px rgba(10,74,92,0.05);
     padding: 20px 22px;
   }
   .stat-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
@@ -202,32 +202,32 @@
   }
   td {
     padding: 13px 14px;
-    border-bottom: 1px solid rgba(26,122,140,0.08);
+    border-bottom: 1px solid rgba(10,74,92,0.08);
     font-size: 13px; color: var(--ink-soft);
     vertical-align: middle;
   }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(26,122,140,0.04); }
+  tr:hover td { background: rgba(10,74,92,0.04); }
   .td-main { color: var(--ink); font-weight: 500; }
 
   /* ── Forms ────────────────────────────────────────────────── */
   .field { display: flex; flex-direction: column; gap: 6px; }
   .field label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
   .field input, .field select, .field textarea {
-    background: #c5eeec; border: 2px solid transparent;
+    background: #e8f4f7; border: 2px solid transparent;
     border-radius: 10px; padding: 10px 14px; color: var(--ink);
     transition: background .15s, border-color .15s, box-shadow .15s;
     width: 100%;
   }
   .field select {
     appearance: none; -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%231a7a8c' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%230a4a5c' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 14px center;
     padding-right: 36px;
   }
   .field input:focus, .field select:focus, .field textarea:focus {
-    outline: none; background: #fff; border-color: #1a7a8c;
-    box-shadow: 0 0 0 2px rgba(26,122,140,0.10);
+    outline: none; background: #fff; border-color: #0a4a5c;
+    box-shadow: 0 0 0 2px rgba(10,74,92,0.10);
   }
   .field input::placeholder { color: var(--muted); }
 
@@ -239,8 +239,8 @@
     cursor: pointer;
   }
   .btn:disabled { opacity: 0.45; pointer-events: none; }
-  .btn-primary { background: #1a7a8c; color: #fff; }
-  .btn-primary:hover { background: #0d4a58; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,122,140,0.25); }
+  .btn-primary { background: #0a4a5c; color: #fff; }
+  .btn-primary:hover { background: #072e3a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(10,74,92,0.25); }
   .btn-ghost { background: transparent; color: var(--ink-soft); border: 1.5px solid #d8c2c4; }
   .btn-ghost:hover { border-color: var(--border-2); color: var(--ink); }
   .btn-danger { background: rgba(186,26,26,0.08); color: var(--danger); border: 1px solid rgba(186,26,26,0.28); }
@@ -251,18 +251,18 @@
     display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
   }
   .search-bar input {
-    background: #c5eeec; border: 2px solid transparent; border-radius: 9999px;
+    background: #e8f4f7; border: 2px solid transparent; border-radius: 9999px;
     padding: 9px 16px; color: var(--ink); font-size: 13px; flex: 1;
     max-width: 380px;
     transition: background .15s, border-color .15s, box-shadow .15s;
   }
-  .search-bar input:focus { outline: none; background: #fff; border-color: #1a7a8c; box-shadow: 0 0 0 2px rgba(26,122,140,0.10); }
+  .search-bar input:focus { outline: none; background: #fff; border-color: #0a4a5c; box-shadow: 0 0 0 2px rgba(10,74,92,0.10); }
   .search-bar select {
-    background: #c5eeec; border: 2px solid transparent; border-radius: 9999px;
+    background: #e8f4f7; border: 2px solid transparent; border-radius: 9999px;
     padding: 9px 16px; color: var(--ink-soft); font-size: 13px;
     transition: background .15s, border-color .15s;
   }
-  .search-bar select:focus { outline: none; background: #fff; border-color: #1a7a8c; }
+  .search-bar select:focus { outline: none; background: #fff; border-color: #0a4a5c; }
 
   /* ── Alert banner ─────────────────────────────────────────── */
   .alert {
@@ -303,7 +303,7 @@
   /* ── Login page ───────────────────────────────────────────── */
   .login-page {
     min-height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center;
-    background: #c5eeec; position: relative; overflow: hidden;
+    background: #e8f4f7; position: relative; overflow: hidden;
   }
   .login-page::before {
     content: ''; position: absolute; top: -10%; left: -10%;
@@ -317,11 +317,11 @@
   }
   .login-box {
     background: #ffffff; border-radius: 2rem; padding: 48px 44px; width: 100%; max-width: 400px;
-    box-shadow: 0 20px 40px rgba(26,122,140,0.10); position: relative; z-index: 1;
+    box-shadow: 0 20px 40px rgba(10,74,92,0.10); position: relative; z-index: 1;
   }
   .login-logo { margin-bottom: 32px; display: flex; flex-direction: column; align-items: center; text-align: center; }
   .login-logo-icon {
-    width: 64px; height: 64px; border-radius: 50%; background: #c5eeec;
+    width: 64px; height: 64px; border-radius: 50%; background: #e8f4f7;
     display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
   }
   .login-logo-mark { font-family:'Plus Jakarta Sans',sans-serif; font-size:24px; font-weight:700; color:var(--ink); }
@@ -354,7 +354,7 @@
   .tag {
     display: inline-flex; align-items: center;
     padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 500;
-    background: #c5eeec; color: #3e0019;
+    background: #e8f4f7; color: #3e0019;
   }
 
   /* ── Custom scrollbars ───────────────────────────────────── */
@@ -638,7 +638,7 @@ function LoginPage({ supabase, onLogin }) {
         <div className="login-logo">
           <div className="login-logo-icon" style={{background:'transparent'}}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="60" height="60">
-              <circle cx="40" cy="40" r="40" fill="#1a7a8c"/>
+              <circle cx="40" cy="40" r="40" fill="#0a4a5c"/>
               <path d="M40 57 C35 52 18 42 18 30 C18 24 23 19 29 19 C33 19 36.5 21.5 40 25.5 C43.5 21.5 47 19 51 19 C57 19 62 24 62 30 C62 42 45 52 40 57Z" fill="none" stroke="white" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
               <line x1="40" y1="26.5" x2="40" y2="35.5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
               <line x1="35.5" y1="31" x2="44.5" y2="31" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
@@ -797,10 +797,10 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
 
   // Status bar colour
   const statusBarColor = s =>
-    s==='completed'?'var(--green)': s==='confirmed'?'var(--sage)': s==='pending'?'var(--amber)':'rgba(26,122,140,0.15)';
+    s==='completed'?'var(--green)': s==='confirmed'?'var(--sage)': s==='pending'?'var(--amber)':'rgba(10,74,92,0.15)';
 
   const QUICK_ACTIONS = [
-    { icon:'calendar_add_on', label:'Book appointment', color:'#1a7a8c', bg:'rgba(26,122,140,0.08)', action:() => setShowCreate(true) },
+    { icon:'calendar_add_on', label:'Book appointment', color:'#0a4a5c', bg:'rgba(10,74,92,0.08)', action:() => setShowCreate(true) },
     { icon:'person_add',      label:'Add patient',      color:'#0d9488', bg:'rgba(13,148,136,0.08)', action:() => onNavigate('patients') },
     { icon:'mail',            label:'Messages',         color:'#7c3aed', bg:'rgba(124,58,237,0.08)', badge: unreadMsgs, action:() => onNavigate('messages') },
     { icon:'search',          label:'Find patient',     color:'#d97706', bg:'rgba(217,119,6,0.08)', action:() => onNavigate('patients') },
@@ -828,7 +828,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
               display:'flex', flexDirection:'column', alignItems:'center', gap:10,
               position:'relative', outline:'none',
             }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow='0 8px 28px rgba(26,122,140,0.13)'; e.currentTarget.style.transform='translateY(-2px)'; }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow='0 8px 28px rgba(10,74,92,0.13)'; e.currentTarget.style.transform='translateY(-2px)'; }}
             onMouseLeave={e => { e.currentTarget.style.boxShadow=''; e.currentTarget.style.transform=''; }}
           >
             {q.badge > 0 && (
@@ -871,7 +871,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
             </div>
           )}
           {unreadMsgs > 0 && (
-            <div style={alertRow('var(--sage)','rgba(26,122,140,0.05)','rgba(26,122,140,0.2)')}
+            <div style={alertRow('var(--sage)','rgba(10,74,92,0.05)','rgba(10,74,92,0.2)')}
               onClick={() => onNavigate('messages')}>
               <span className="material-symbols-outlined" style={{fontSize:20,color:'var(--sage)',flexShrink:0}}>mark_unread_chat_alt</span>
               <span style={{flex:1,color:'var(--ink)',fontSize:13,fontWeight:500}}>
@@ -959,7 +959,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
             <div style={{padding:'20px 20px'}}>
               {[1,2,3].map(i => (
                 <div key={i} style={{display:'flex',gap:14,alignItems:'center',padding:'12px 0',
-                  borderBottom:i<3?'1px solid rgba(26,122,140,0.07)':'none'}}>
+                  borderBottom:i<3?'1px solid rgba(10,74,92,0.07)':'none'}}>
                   <div className="skel" style={{width:44,height:18,flexShrink:0}} />
                   <div style={{flex:1}}>
                     <div className="skel" style={{width:'55%',height:14,marginBottom:6}} />
@@ -987,9 +987,9 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
                   style={{
                     display:'flex', alignItems:'center', gap:14,
                     padding:'14px 20px',
-                    borderBottom: idx < appts.length-1 ? '1px solid rgba(26,122,140,0.07)' : 'none',
+                    borderBottom: idx < appts.length-1 ? '1px solid rgba(10,74,92,0.07)' : 'none',
                     cursor:'pointer',
-                    background: quickEdit?.id===a.id ? 'rgba(26,122,140,0.04)' : '',
+                    background: quickEdit?.id===a.id ? 'rgba(10,74,92,0.04)' : '',
                     opacity: (a.status==='cancelled'||a.status==='no_show') ? 0.45 : 1,
                     transition:'background .12s',
                   }}
@@ -2421,7 +2421,7 @@ function Appointments({ onNavigate }) {
                 )}
                 {/* ── Medical Aid indicator (MA patients only) ── */}
                 {selected.patients?.has_medical_aid && (
-                  <div style={{marginBottom:16,display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(26,122,140,0.04)',border:'1px solid var(--border)',borderRadius:10,flexWrap:'wrap'}}>
+                  <div style={{marginBottom:16,display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(10,74,92,0.04)',border:'1px solid var(--border)',borderRadius:10,flexWrap:'wrap'}}>
                     <span className="material-symbols-outlined" style={{fontSize:16,color:'var(--sage)'}}>health_and_safety</span>
                     <span style={{fontSize:12,color:'var(--ink-soft)'}}>
                       Medical aid
@@ -3621,7 +3621,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:500,fontSize:13,color:'var(--ink)',marginBottom:4}}>{plan.title}</div>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div style={{flex:1,height:5,borderRadius:3,background:'rgba(26,122,140,0.1)',overflow:'hidden',maxWidth:120}}>
+                          <div style={{flex:1,height:5,borderRadius:3,background:'rgba(10,74,92,0.1)',overflow:'hidden',maxWidth:120}}>
                             <div style={{height:'100%',borderRadius:3,
                               background: pct===100 ? 'var(--green)' : 'var(--sage)',
                               width:`${pct}%`, transition:'width .4s'}} />
@@ -3705,7 +3705,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                                   <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
                                     <span style={{color:'var(--ink)',fontWeight:500}}>{fmtR(s.amount_paid)}</span>
                                     <span> paid of {fmtR(s.amount_charged)}</span>
-                                    {s.payment_method && <span style={{marginLeft:4,background:'rgba(26,122,140,0.06)',padding:'1px 5px',borderRadius:999,textTransform:'capitalize'}}>{s.payment_method.replace('_',' ')}</span>}
+                                    {s.payment_method && <span style={{marginLeft:4,background:'rgba(10,74,92,0.06)',padding:'1px 5px',borderRadius:999,textTransform:'capitalize'}}>{s.payment_method.replace('_',' ')}</span>}
                                     {ch > 0 && pd >= ch && <span style={{marginLeft:4,color:'var(--green)',fontWeight:600}}>✓ Paid</span>}
                                     {ch > 0 && pd > 0 && pd < ch && <span style={{marginLeft:4,color:'var(--amber)',fontWeight:600}}>{fmtR(ch-pd)} owing</span>}
                                   </div>
@@ -4031,7 +4031,7 @@ function ApptDatePicker({ value, onChange, placeholder = 'Select date', disableP
     borderRadius:6, lineHeight:1, fontFamily:'inherit',
   };
   const hLabelStyle = active => ({
-    background: active ? 'rgba(26,122,140,0.10)' : 'none',
+    background: active ? 'rgba(10,74,92,0.10)' : 'none',
     border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
     padding:'5px 9px', borderRadius:7,
     color: active ? 'var(--sage)' : 'var(--ink)',
@@ -4103,13 +4103,13 @@ function ApptDatePicker({ value, onChange, placeholder = 'Select date', disableP
                         aspectRatio:'1/1', border:'none', borderRadius:6,
                         fontSize:12, cursor: day && !past ? 'pointer' : 'default',
                         background: isSel(day) ? 'var(--sage)'
-                          : isToday(day) ? 'rgba(26,122,140,0.10)' : 'transparent',
+                          : isToday(day) ? 'rgba(10,74,92,0.10)' : 'transparent',
                         color: !day ? 'transparent'
-                          : past ? 'rgba(26,122,140,0.25)'
+                          : past ? 'rgba(10,74,92,0.25)'
                           : isSel(day) ? '#fff' : 'var(--ink)',
                         fontWeight: isSel(day) ? 700 : 400,
                         textDecoration: past && day ? 'line-through' : 'none',
-                        outline: isToday(day) && !isSel(day) ? '1.5px solid rgba(26,122,140,0.35)' : 'none',
+                        outline: isToday(day) && !isSel(day) ? '1.5px solid rgba(10,74,92,0.35)' : 'none',
                         transition:'background 0.1s',
                       }}>
                       {day || ''}
@@ -4806,8 +4806,8 @@ function AnalyticsPage() {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { labels: { color:'#6B3050', font:{size:11} } } },
           scales: {
-            x: { stacked:true, ticks:{color:'#A0709A',font:{size:10}}, grid:{color:'rgba(26,122,140,0.08)'} },
-            y: { stacked:true, ticks:{color:'#A0709A',font:{size:10}}, grid:{color:'rgba(26,122,140,0.08)'} },
+            x: { stacked:true, ticks:{color:'#A0709A',font:{size:10}}, grid:{color:'rgba(10,74,92,0.08)'} },
+            y: { stacked:true, ticks:{color:'#A0709A',font:{size:10}}, grid:{color:'rgba(10,74,92,0.08)'} },
           },
         },
       });
@@ -4855,8 +4855,8 @@ function AnalyticsPage() {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { labels: { color:'#6B3050', font:{size:11} } } },
           scales: {
-            x: { ticks:{color:'#A0709A',font:{size:10}}, grid:{color:'rgba(26,122,140,0.08)'} },
-            y: { ticks:{color:'#A0709A',font:{size:10},callback:v=>`R${(v/1000).toFixed(0)}k`}, grid:{color:'rgba(26,122,140,0.08)'} },
+            x: { ticks:{color:'#A0709A',font:{size:10}}, grid:{color:'rgba(10,74,92,0.08)'} },
+            y: { ticks:{color:'#A0709A',font:{size:10},callback:v=>`R${(v/1000).toFixed(0)}k`}, grid:{color:'rgba(10,74,92,0.08)'} },
           },
         },
       });
@@ -5694,7 +5694,7 @@ function PaymentModal({ appt, onClose, onDone }) {
         <h3 className="modal-title">Record payment</h3>
         <p className="modal-sub">{appt.patient?.first_name} {appt.patient?.last_name} · {appt.service_name} · {fmtDateShort(appt.appointment_date)}</p>
         {isMA && schemeName && (
-          <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'rgba(26,122,140,0.05)',border:'1px solid var(--border)',borderRadius:8,marginBottom:16,fontSize:12,color:'var(--ink-soft)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'rgba(10,74,92,0.05)',border:'1px solid var(--border)',borderRadius:8,marginBottom:16,fontSize:12,color:'var(--ink-soft)'}}>
             <span className="material-symbols-outlined" style={{fontSize:14,color:'var(--sage)'}}>health_and_safety</span>
             Medical aid patient · <strong>{schemeName}</strong>
           </div>
@@ -6332,7 +6332,7 @@ function CreateClaimModal({ show, onClose, onCreated, prefill }) {
                         }
                       </div>
                       {pt.has_medical_aid
-                        ? <span style={{fontSize:10,fontWeight:600,color:'var(--sage)',background:'rgba(26,122,140,0.08)',padding:'2px 9px',borderRadius:10,flexShrink:0}}>MA</span>
+                        ? <span style={{fontSize:10,fontWeight:600,color:'var(--sage)',background:'rgba(10,74,92,0.08)',padding:'2px 9px',borderRadius:10,flexShrink:0}}>MA</span>
                         : <span style={{fontSize:10,color:'var(--muted)',background:'var(--bg-3)',padding:'2px 9px',borderRadius:10,flexShrink:0}}>Self-pay</span>
                       }
                     </div>
@@ -6636,7 +6636,7 @@ function PreAuthModal({ preAuth, patient: initPatient, onClose, onSaved }) {
                           }
                         </div>
                         {pt.has_medical_aid
-                          ? <span style={{fontSize:10,fontWeight:600,color:'var(--sage)',background:'rgba(26,122,140,0.08)',padding:'2px 9px',borderRadius:10,flexShrink:0}}>MA</span>
+                          ? <span style={{fontSize:10,fontWeight:600,color:'var(--sage)',background:'rgba(10,74,92,0.08)',padding:'2px 9px',borderRadius:10,flexShrink:0}}>MA</span>
                           : <span style={{fontSize:10,color:'var(--muted)',background:'var(--bg-3)',padding:'2px 9px',borderRadius:10,flexShrink:0}}>Self-pay</span>
                         }
                       </div>
@@ -7340,7 +7340,7 @@ function SettingsPage({ supabase, session }) {
                     <div style={{fontSize:11,color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.email || '—'}</div>
                   </div>
                   {isMe ? (
-                    <span style={{fontSize:11,color:'var(--sage)',fontWeight:600,background:'rgba(26,122,140,0.08)',padding:'3px 10px',borderRadius:20}}>You</span>
+                    <span style={{fontSize:11,color:'var(--sage)',fontWeight:600,background:'rgba(10,74,92,0.08)',padding:'3px 10px',borderRadius:20}}>You</span>
                   ) : (
                     <button className="btn btn-ghost btn-sm"
                       style={{fontSize:11,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
@@ -7520,7 +7520,7 @@ function ReviewsPage({ unreadCount = 0 }) {
 
   const StarRow = ({ n, size = 16 }) => (
     <span style={{letterSpacing:1, fontSize:size}}>
-      {'★'.repeat(n)}<span style={{color:'rgba(26,122,140,0.15)'}}>{'★'.repeat(5-n)}</span>
+      {'★'.repeat(n)}<span style={{color:'rgba(10,74,92,0.15)'}}>{'★'.repeat(5-n)}</span>
     </span>
   );
 
@@ -7619,11 +7619,11 @@ function ReviewsPage({ unreadCount = 0 }) {
                 padding:'16px 20px',
                 borderBottom: idx < reviews.length-1 ? '1px solid var(--border)' : 'none',
                 cursor:'pointer',
-                background: r.status === 'new' ? 'rgba(26,122,140,0.025)' : '',
+                background: r.status === 'new' ? 'rgba(10,74,92,0.025)' : '',
                 transition:'background .12s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(26,122,140,0.04)'}
-              onMouseLeave={e => e.currentTarget.style.background=r.status==='new'?'rgba(26,122,140,0.025)':''}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(10,74,92,0.04)'}
+              onMouseLeave={e => e.currentTarget.style.background=r.status==='new'?'rgba(10,74,92,0.025)':''}
             >
               {/* Rating circle */}
               <div style={{
@@ -7639,7 +7639,7 @@ function ReviewsPage({ unreadCount = 0 }) {
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
                   <span style={{color:'var(--amber)',fontSize:13,letterSpacing:1}}>
-                    {'★'.repeat(r.rating)}<span style={{color:'rgba(26,122,140,0.12)'}}>{'★'.repeat(5-r.rating)}</span>
+                    {'★'.repeat(r.rating)}<span style={{color:'rgba(10,74,92,0.12)'}}>{'★'.repeat(5-r.rating)}</span>
                   </span>
                   {r.treatment && (
                     <span style={{fontSize:11,color:'var(--muted)',background:'var(--bg-3)',
@@ -7649,7 +7649,7 @@ function ReviewsPage({ unreadCount = 0 }) {
                   )}
                   {r.status === 'new' && (
                     <span style={{fontSize:10,fontWeight:700,color:'var(--sage)',
-                      background:'rgba(26,122,140,0.1)',padding:'2px 8px',borderRadius:20,
+                      background:'rgba(10,74,92,0.1)',padding:'2px 8px',borderRadius:20,
                       letterSpacing:'0.05em'}}>NEW</span>
                   )}
                 </div>
@@ -7687,7 +7687,7 @@ function ReviewsPage({ unreadCount = 0 }) {
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
               <div>
                 <div style={{color:'var(--amber)',fontSize:20,letterSpacing:2,marginBottom:4}}>
-                  {'★'.repeat(selected.rating)}<span style={{color:'rgba(26,122,140,0.15)'}}>{'★'.repeat(5-selected.rating)}</span>
+                  {'★'.repeat(selected.rating)}<span style={{color:'rgba(10,74,92,0.15)'}}>{'★'.repeat(5-selected.rating)}</span>
                 </div>
                 <div className="modal-title" style={{marginBottom:0}}>
                   {selected.name || 'Anonymous reviewer'}
@@ -8183,7 +8183,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                 <span style={{fontSize:12,color:'var(--muted)',fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase'}}>Progress</span>
                 <span style={{fontSize:14,fontWeight:700,color:'var(--ink)'}}>{selected.sessions_done} / {selected.total_sessions} sessions</span>
               </div>
-              <div style={{height:8,borderRadius:4,background:'rgba(26,122,140,0.1)',overflow:'hidden'}}>
+              <div style={{height:8,borderRadius:4,background:'rgba(10,74,92,0.1)',overflow:'hidden'}}>
                 <div style={{height:'100%',borderRadius:4,
                   background: selected.sessions_done >= selected.total_sessions ? 'var(--green)' : 'var(--sage)',
                   width: `${selected.total_sessions > 0 ? Math.round((selected.sessions_done / selected.total_sessions)*100) : 0}%`,
@@ -8240,7 +8240,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                     ref={el => { if (el && s.id === highlightSessId) el.scrollIntoView({ behavior:'smooth', block:'nearest' }); }}
                     style={{
                       display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',
-                      background: s.id === highlightSessId ? 'rgba(26,122,140,0.05)' : 'var(--bg-3)',
+                      background: s.id === highlightSessId ? 'rgba(10,74,92,0.05)' : 'var(--bg-3)',
                       borderRadius:8, marginBottom:6,
                       outline: s.id === highlightSessId ? '2px solid var(--sage)' : '2px solid transparent',
                       transition:'background 0.8s, outline 0.8s',
@@ -8274,7 +8274,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                           <span style={{fontSize:11,color:'var(--muted)'}}>Paid: <strong style={{color:isPaid?'var(--green)':isPartial?'var(--amber)':'var(--danger)'}}>{fmtR(s.amount_paid)}</strong></span>
                           {isPartial && <span style={{fontSize:10,color:'var(--amber)',fontWeight:600}}>{fmtR(ch - pd)} outstanding</span>}
                           {isPaid    && <span style={{fontSize:10,color:'var(--green)',fontWeight:600}}>Paid in full</span>}
-                          {s.payment_method && <span style={{fontSize:10,color:'var(--muted)',background:'rgba(26,122,140,0.06)',padding:'1px 6px',borderRadius:999,textTransform:'capitalize'}}>{s.payment_method.replace('_',' ')}</span>}
+                          {s.payment_method && <span style={{fontSize:10,color:'var(--muted)',background:'rgba(10,74,92,0.06)',padding:'1px 6px',borderRadius:999,textTransform:'capitalize'}}>{s.payment_method.replace('_',' ')}</span>}
                         </div>
                       )}
                     </div>
@@ -8698,7 +8698,7 @@ function Shell({ session, supabase, onLogout }) {
           position:'fixed', bottom:24, right:24, zIndex:300,
           background:'var(--card)', border:'1px solid var(--border-2)',
           borderRadius:12, padding:'18px 20px', maxWidth:300,
-          boxShadow:'0 4px 24px rgba(26,122,140,0.14)',
+          boxShadow:'0 4px 24px rgba(10,74,92,0.14)',
           display:'flex', flexDirection:'column', gap:12,
         }}>
           <div style={{fontSize:13,fontWeight:600,color:'var(--ink)'}}>Session expiring</div>

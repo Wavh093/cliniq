@@ -11,10 +11,10 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
   :root {
-    --sage: #1a7a8c; --sage-deep: #0d4a58; --amber: #f59e0b;
+    --sage: #0a4a5c; --sage-deep: #072e3a; --amber: #f59e0b;
     --ink: #0d2d3e; --ink-soft: #2c5f70; --muted: #7bbdc8;
-    --bg: #f7f0e6; --bg-3: #c5eeec; --card: #ffffff;
-    --border: rgba(26,122,140,0.14); --green: #16a34a;
+    --bg: #f7f0e6; --bg-3: #e8f4f7; --card: #ffffff;
+    --border: rgba(10,74,92,0.14); --green: #16a34a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100%; background: var(--bg); color: var(--ink);
@@ -34,7 +34,7 @@
   .header p { color: var(--muted); font-size: 14px; }
 
   .card { background: var(--card); border-radius: 20px; padding: 28px;
-    box-shadow: 0 4px 24px rgba(26,122,140,0.06); }
+    box-shadow: 0 4px 24px rgba(10,74,92,0.06); }
 
   /* Star rating */
   .stars { display: flex; justify-content: center; gap: 8px; margin: 8px 0 4px; }
@@ -42,7 +42,7 @@
     line-height: 1; user-select: none; -webkit-user-select: none; }
   .star:hover { transform: scale(1.15); }
   .star.filled { color: var(--amber); }
-  .star.empty  { color: rgba(26,122,140,0.12); }
+  .star.empty  { color: rgba(10,74,92,0.12); }
   .star-label { text-align: center; font-size: 14px; font-weight: 600;
     color: var(--sage); min-height: 22px; margin-bottom: 16px; }
 
@@ -71,7 +71,7 @@
     border: 2px solid var(--border); background: var(--bg); color: var(--muted);
     cursor: pointer; transition: all .15s; text-align: center; }
   .rec-btn.yes.sel { border-color: var(--green); background: rgba(22,163,74,0.08); color: var(--green); }
-  .rec-btn.no.sel  { border-color: rgba(26,122,140,0.4); background: rgba(26,122,140,0.06); color: var(--sage); }
+  .rec-btn.no.sel  { border-color: rgba(10,74,92,0.4); background: rgba(10,74,92,0.06); color: var(--sage); }
   .rec-btn:hover:not(.sel) { border-color: var(--sage); color: var(--sage); }
 
   /* Submit */
@@ -92,7 +92,7 @@
   .success p { color: var(--muted); font-size: 15px; line-height: 1.6;
     max-width: 380px; margin: 0 auto; }
   .google-btn { display: block; margin: 24px auto 0; padding: 14px 28px;
-    border-radius: 9999px; background: #fff; border: 2px solid rgba(26,122,140,0.2);
+    border-radius: 9999px; background: #fff; border: 2px solid rgba(10,74,92,0.2);
     font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink);
     cursor: pointer; text-decoration: none; transition: all .15s; text-align: center; }
   .google-btn:hover { border-color: var(--sage); color: var(--sage); }
@@ -188,7 +188,7 @@ function ReviewApp() {
         <div className="header">
           <div className="logo">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="40" height="40" style={{flexShrink:0}}>
-              <circle cx="40" cy="40" r="40" fill="#1a7a8c"/>
+              <circle cx="40" cy="40" r="40" fill="#0a4a5c"/>
               <path d="M40 57 C35 52 18 42 18 30 C18 24 23 19 29 19 C33 19 36.5 21.5 40 25.5 C43.5 21.5 47 19 51 19 C57 19 62 24 62 30 C62 42 45 52 40 57Z" fill="none" stroke="white" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
               <line x1="40" y1="26.5" x2="40" y2="35.5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
               <line x1="35.5" y1="31" x2="44.5" y2="31" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
