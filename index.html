@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
   <meta charset="utf-8" />
@@ -18,42 +18,42 @@
       theme: {
         extend: {
           colors: {
-            primary: "#0a4a5c",
-            "primary-container": "#1a7a8c",
+            primary: "#1a7a8c",
+            "primary-container": "#c5eeec",
             "on-primary": "#ffffff",
-            "on-primary-fixed": "#001f29",
-            "primary-fixed": "#b0e8f6",
-            "primary-fixed-dim": "#86d2e6",
-            secondary: "#4a7a8c",
-            "secondary-container": "#c8edf5",
+            "on-primary-fixed": "#0d2d3e",
+            "primary-fixed": "#c5eeec",
+            "primary-fixed-dim": "#9dd8d8",
+            secondary: "#7bbdc8",
+            "secondary-container": "#e0f5f4",
             "on-secondary": "#ffffff",
-            "on-secondary-fixed-variant": "#2d5f6f",
-            "secondary-fixed": "#d6eef5",
-            "secondary-fixed-dim": "#b8d8e4",
-            tertiary: "#4a5a60",
-            "tertiary-fixed": "#ddeef5",
-            "tertiary-fixed-dim": "#c1d8e2",
+            "on-secondary-fixed-variant": "#2c5f70",
+            "secondary-fixed": "#e8f7f6",
+            "secondary-fixed-dim": "#c5eeec",
+            tertiary: "#5a8090",
+            "tertiary-fixed": "#edf7f5",
+            "tertiary-fixed-dim": "#c5eeec",
             "on-tertiary": "#ffffff",
-            "on-tertiary-container": "#ddeef5",
-            surface: "#f4fafc",
-            "surface-bright": "#f4fafc",
-            "surface-cream": "#f4fafc",
-            "surface-dim": "#b0dce8",
-            "surface-variant": "#c8e6f0",
-            "surface-container": "#e0f2f8",
-            "surface-container-low": "#eef8fc",
-            "surface-container-high": "#d6eef8",
-            "surface-container-highest": "#c8e6f0",
+            "on-tertiary-container": "#0d2d3e",
+            surface: "#f7f0e6",
+            "surface-bright": "#fdf8f2",
+            "surface-cream": "#f7f0e6",
+            "surface-dim": "#e8ddd0",
+            "surface-variant": "#eddfd0",
+            "surface-container": "#f0e8da",
+            "surface-container-low": "#f7f0e6",
+            "surface-container-high": "#e8ddd0",
+            "surface-container-highest": "#dfd4c4",
             "surface-container-lowest": "#ffffff",
-            "on-surface": "#0a1f26",
+            "on-surface": "#0d2d3e",
             "on-surface-variant": "#3a5a65",
-            background: "#f4fafc",
-            outline: "#567a85",
-            "outline-variant": "#b0d2dc",
-            "soft-blush": "#e8f4f7",
-            "deep-plum": "#0a1f26",
-            "inverse-surface": "#0a2a36",
-            "inverse-primary": "#86d2e6",
+            background: "#f7f0e6",
+            outline: "#7bbdc8",
+            "outline-variant": "#c5eeec",
+            "soft-blush": "#c5eeec",
+            "deep-plum": "#0d2d3e",
+            "inverse-surface": "#0d4a58",
+            "inverse-primary": "#c5eeec",
             error: "#ba1a1a",
             "error-container": "#ffdad6",
             "on-error": "#ffffff",
@@ -92,7 +92,7 @@
   </script>
 
   <style>
-    body { background-color: #f4fafc; color: #0a1f26; -webkit-font-smoothing: antialiased; }
+    body { background-color: #f7f0e6; color: #0d2d3e; -webkit-font-smoothing: antialiased; }
     * { box-sizing: border-box; }
     p { margin: 0; }
 
@@ -110,12 +110,12 @@
     .cal-day {
       aspect-ratio: 1; border: 1px solid #b0d2dc; background: white; border-radius: 10px;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-      cursor: pointer; color: #0a1f26; transition: all .15s ease; padding: 2px; font-family: inherit;
+      cursor: pointer; color: #0d2d3e; transition: all .15s ease; padding: 2px; font-family: inherit;
     }
-    .cal-day:hover:not(:disabled) { border-color: #0a4a5c; background: #e8f4f7; }
+    .cal-day:hover:not(:disabled) { border-color: #1a7a8c; background: #c5eeec; }
     .cal-day:disabled { opacity: 0.3; cursor: not-allowed; }
     .cal-day.muted { background: transparent; border-color: transparent; cursor: default; }
-    .cal-day.selected { background: #0a4a5c; color: white; border-color: #0a4a5c; }
+    .cal-day.selected { background: #1a7a8c; color: white; border-color: #1a7a8c; }
     .cal-num { font-size: 14px; font-weight: 500; line-height: 1; }
     .cal-m { font-size: 9px; opacity: 0.6; }
 
@@ -124,12 +124,12 @@
     @media (max-width: 480px) { .slot-grid { grid-template-columns: repeat(3, 1fr); } }
     .slot {
       padding: 10px 6px; border: 1px solid #b0d2dc; background: white;
-      font-family: 'DM Sans', sans-serif; font-size: 13px; color: #0a1f26;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; color: #0d2d3e;
       border-radius: 10px; cursor: pointer; transition: all .15s ease; text-align: center;
     }
-    .slot:hover:not(:disabled) { border-color: #0a4a5c; background: #e8f4f7; }
+    .slot:hover:not(:disabled) { border-color: #1a7a8c; background: #c5eeec; }
     .slot:disabled { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
-    .slot.selected { background: #0a4a5c; color: white; border-color: #0a4a5c; }
+    .slot.selected { background: #1a7a8c; color: white; border-color: #1a7a8c; }
 
     /* ── Mobile responsive helpers ── */
     @media (max-width: 640px) {
@@ -391,7 +391,7 @@
         `w-full bg-soft-blush border-none rounded-xl p-3.5 text-sm text-on-surface outline-none transition-all focus:bg-white focus:ring-2 focus:ring-primary/30 ${err ? 'ring-2 ring-error' : ''}`;
 
       return (
-        <div className="bg-white rounded-3xl shadow-[0_4px_30px_rgba(10,74,92,0.07)] border border-soft-blush overflow-hidden grid grid-cols-1 lg:grid-cols-[290px_1fr]">
+        <div className="bg-white rounded-3xl shadow-[0_4px_30px_rgba(26,122,140,0.07)] border border-soft-blush overflow-hidden grid grid-cols-1 lg:grid-cols-[290px_1fr]">
 
           {/* Sidebar */}
           <aside className="booking-sidebar bg-deep-plum text-white p-10 flex flex-col gap-6">
@@ -673,7 +673,7 @@
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
               {/* Map + info */}
               <div className="lg:col-span-7 space-y-gutter">
-                <div className="rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(10,74,92,0.06)] border border-soft-blush bg-white">
+                <div className="rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(26,122,140,0.06)] border border-soft-blush bg-white">
                   <div className="relative" style={{ aspectRatio: '16/10' }}>
                     <iframe
                       src="https://maps.google.com/maps?q=23+Voortrekker+Road,+Krugersdorp+North,+1739,+South+Africa&t=&z=16&ie=UTF8&iwloc=&output=embed"
@@ -716,7 +716,7 @@
               <div className="lg:col-span-5">
                 {sent ? (
                   /* ── Success confirmation card ── */
-                  <div className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(10,74,92,0.06)] border border-soft-blush flex flex-col items-center text-center gap-6">
+                  <div className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(26,122,140,0.06)] border border-soft-blush flex flex-col items-center text-center gap-6">
                     <div className="w-16 h-16 rounded-full bg-secondary-container flex items-center justify-center">
                       <span className="material-symbols-outlined text-primary" style={{ fontSize:36, fontVariationSettings:"'FILL' 1" }}>mark_email_read</span>
                     </div>
@@ -750,7 +750,7 @@
                   </div>
                 ) : (
                   /* ── Contact form ── */
-                  <form onSubmit={submit} noValidate className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(10,74,92,0.06)] border border-soft-blush space-y-5">
+                  <form onSubmit={submit} noValidate className="bg-white rounded-3xl p-8 shadow-[0_4px_30px_rgba(26,122,140,0.06)] border border-soft-blush space-y-5">
                     <div>
                       <h3 className="font-headline text-2xl font-semibold text-on-surface">Send us a <span className="italic text-primary">note</span>.</h3>
                       <p className="text-sm text-on-surface-variant mt-1">We reply within one working day.</p>
@@ -876,11 +876,11 @@
 
       return (
         <>
-          <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-surface-bright/85 glass-nav shadow-[0_4px_20px_rgba(10,74,92,0.06)]' : 'bg-transparent'}`}>
+          <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-surface-bright/85 glass-nav shadow-[0_4px_20px_rgba(26,122,140,0.06)]' : 'bg-transparent'}`}>
             <div className="flex justify-between items-center h-20 px-margin-desktop max-w-container-max mx-auto">
               <a href="#home" className="flex items-center gap-2 font-headline text-xl font-bold text-primary tracking-tight">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="32" height="32">
-                  <circle cx="40" cy="40" r="40" fill="#0a4a5c"/>
+                  <circle cx="40" cy="40" r="40" fill="#1a7a8c"/>
                   <path d="M40 57 C35 52 18 42 18 30 C18 24 23 19 29 19 C33 19 36.5 21.5 40 25.5 C43.5 21.5 47 19 51 19 C57 19 62 24 62 30 C62 42 45 52 40 57Z" fill="none" stroke="white" strokeWidth="2.2" strokeLinejoin="round" strokeLinecap="round"/>
                   <line x1="40" y1="26.5" x2="40" y2="35.5" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
                   <line x1="35.5" y1="31" x2="44.5" y2="31" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
@@ -1007,7 +1007,7 @@
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-8">
-            <div className="md:col-span-7 bg-white p-10 rounded-3xl shadow-[0_10px_40px_rgba(10,74,92,0.04)] border border-soft-blush flex flex-col justify-center">
+            <div className="md:col-span-7 bg-white p-10 rounded-3xl shadow-[0_10px_40px_rgba(26,122,140,0.04)] border border-soft-blush flex flex-col justify-center">
               <h3 className="font-headline text-headline-md text-primary mb-6">A Shared Vision of Empathy</h3>
               <p className="text-on-surface-variant text-body-lg leading-relaxed mb-4">
                 Founded by two passionate practitioners, Kliniq was born from a desire to strip away the clinical coldness of traditional dentistry. Our approach is rooted in active listening and a deep respect for every patient's comfort.
@@ -1089,7 +1089,7 @@
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter">
               {cards.map(c => (
-                <div key={c.title} className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgba(10,74,92,0.03)] hover:-translate-y-2 transition-all duration-300">
+                <div key={c.title} className="bg-white p-8 rounded-3xl shadow-[0_8px_30px_rgba(26,122,140,0.03)] hover:-translate-y-2 transition-all duration-300">
                   <div className="w-14 h-14 bg-soft-blush rounded-2xl flex items-center justify-center mb-6">
                     <span className="material-symbols-outlined text-primary text-3xl">{c.icon}</span>
                   </div>
@@ -1248,7 +1248,7 @@
             {/* Review cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
               {REVIEWS.map((r, i) => (
-                <div key={i} className="bg-white rounded-3xl p-7 shadow-[0_4px_20px_rgba(10,74,92,0.06)] border border-soft-blush flex flex-col gap-4">
+                <div key={i} className="bg-white rounded-3xl p-7 shadow-[0_4px_20px_rgba(26,122,140,0.06)] border border-soft-blush flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <StarRating n={r.rating} />
                     <span className="text-xs text-on-surface-variant">{r.date}</span>
@@ -1269,7 +1269,7 @@
 
             {/* Google Reviews CTA */}
             <div className="text-center">
-              <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-3xl px-8 py-6 shadow-[0_4px_20px_rgba(10,74,92,0.06)] border border-soft-blush">
+              <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white rounded-3xl px-8 py-6 shadow-[0_4px_20px_rgba(26,122,140,0.06)] border border-soft-blush">
                 <div className="flex items-center gap-3">
                   <div className="flex gap-0.5">
                     {[1,2,3,4,5].map(i => (
@@ -1388,7 +1388,7 @@
             <div style={{maxWidth:720, margin:'0 auto'}}>
               {FAQS.map((f, i) => (
                 <div key={i} style={{
-                  borderBottom: '1px solid rgba(10,74,92,0.12)',
+                  borderBottom: '1px solid rgba(26,122,140,0.12)',
                   marginBottom: 0,
                 }}>
                   <button
@@ -1401,10 +1401,10 @@
                   >
                     <span style={{
                       fontFamily:'Plus Jakarta Sans, sans-serif',
-                      fontWeight:600, fontSize:16, color:'#0a1f26', lineHeight:1.4,
+                      fontWeight:600, fontSize:16, color:'#0d2d3e', lineHeight:1.4,
                     }}>{f.q}</span>
                     <span style={{
-                      fontSize:22, color:'#0a4a5c', flexShrink:0,
+                      fontSize:22, color:'#1a7a8c', flexShrink:0,
                       transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
                       transition:'transform .2s', lineHeight:1,
                     }}>+</span>
@@ -1412,7 +1412,7 @@
                   {open === i && (
                     <div style={{
                       padding:'0 4px 20px',
-                      fontSize:15, color:'#2d5a6b', lineHeight:1.7,
+                      fontSize:15, color:'#2c5f70', lineHeight:1.7,
                     }}>
                       {f.a}
                     </div>
@@ -1422,17 +1422,17 @@
             </div>
 
             <div style={{textAlign:'center', marginTop:48}}>
-              <p style={{color:'#6a9aa8', marginBottom:16, fontSize:15}}>Still have a question?</p>
+              <p style={{color:'#7bbdc8', marginBottom:16, fontSize:15}}>Still have a question?</p>
               <a href="#contact"
                 style={{
                   display:'inline-flex', alignItems:'center', gap:8,
-                  background:'#0a4a5c', color:'#fff',
+                  background:'#1a7a8c', color:'#fff',
                   padding:'14px 32px', borderRadius:9999,
                   fontWeight:700, fontSize:15, textDecoration:'none',
                   transition:'background .15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background='#072e3a'}
-                onMouseLeave={e => e.currentTarget.style.background='#0a4a5c'}
+                onMouseEnter={e => e.currentTarget.style.background='#0d4a58'}
+                onMouseLeave={e => e.currentTarget.style.background='#1a7a8c'}
               >
                 Send us a message →
               </a>
