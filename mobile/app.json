@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "OH Dental",
-    "slug": "oh-dental",
+    "name": "Kliniq",
+    "slug": "kliniq",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "oh-dental",
+    "scheme": "kliniq",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#FDEEF5"
+      "backgroundColor": "#f7f0e6"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "co.za.ohdental.app"
+      "bundleIdentifier": "co.za.kliniq.app"
     },
     "android": {
-      "package": "co.za.ohdental.app",
+      "package": "co.za.kliniq.app",
       "adaptiveIcon": {
-        "backgroundColor": "#FDEEF5"
+        "backgroundColor": "#f7f0e6"
       }
     },
     "plugins": [
@@ -24,14 +24,14 @@
       [
         "expo-notifications",
         {
-          "color": "#EC4899"
+          "color": "#0a4a5c"
         }
       ]
     ],
     "extra": {
-      "supabaseUrl": "https://hkmxsbopmvlprzktppzq.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhrbXhzYm9wbXZscHJ6a3RwcHpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NDMxOTksImV4cCI6MjA5NTExOTE5OX0.BGhqmHJ4V7TXLgTNO2LaNTBQJRf68LYgtTqyduzwU30",
-      "apiBaseUrl": "https://oh-dental-studio.vercel.app",
+      "supabaseUrl":    "https://bbstaqlvhsxlkwgeqdqy.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJic3RhcWx2aHN4bGt3Z2VxZHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NDUzNzgsImV4cCI6MjA5NjUyMTM3OH0.yc3iRcWkljUKqiEd0c4qOLOPfnWfNO7L7FwXM2XrB-U",
+      "apiBaseUrl":     "https://cliniq-five.vercel.app",
       "eas": {
         "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
       }

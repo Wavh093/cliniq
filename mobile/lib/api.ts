@@ -138,6 +138,61 @@ export async function searchPatients(q = '', limit = 30): Promise<{ patients: Pa
   return res.json();
 }
 
+// ── Treatment Plans ──────────────────────────────────────────────
+
+export interface TreatmentPlan {
+  id: string;
+  title: string;
+  description: string | null;
+  total_sessions: number;
+  sessions_done: number;
+  status: 'active' | 'paused' | 'completed' | 'cancelled';
+  next_session_due: string | null;
+  notes: string | null;
+  notify_patient: boolean;
+  created_at: string;
+  updated_at: string;
+  payment_summary?: { total_charged: number; total_paid: number; outstanding: number };
+  patients: {
+    id: string; first_name: string; last_name: string;
+    phone: string | null; email: string | null;
+  } | null;
+}
+
+export interface TreatmentPlanSession {
+  id: string;
+  session_number: number;
+  status: 'scheduled' | 'completed' | 'missed' | 'rescheduled';
+  session_date: string | null;
+  notes: string | null;
+  amount_charged: number | null;
+  amount_paid: number | null;
+  payment_method: string | null;
+  appointments?: {
+    id: string;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    services: { id: string; name: string; price_from: number | null } | null;
+  } | null;
+}
+
+export async function getTreatmentPlans(planStatus = 'active'): Promise<{ plans: TreatmentPlan[]; total: number }> {
+  const params = new URLSearchParams({ resource: 'treatment_plans', status: planStatus, limit: '50' });
+  const res = await fetch(`${BASE}/api/appointments?${params}`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(`Plans error: ${res.status}`);
+  return res.json();
+}
+
+export async function getTreatmentPlan(id: string): Promise<{ plan: TreatmentPlan & { treatment_plan_sessions: TreatmentPlanSession[] } }> {
+  const res = await fetch(
+    `${BASE}/api/appointments?resource=treatment_plans&id=${encodeURIComponent(id)}`,
+    { headers: await authHeaders() },
+  );
+  if (!res.ok) throw new Error(`Plan error: ${res.status}`);
+  return res.json();
+}
+
 export async function updateAppointmentStatus(id: string, status: string): Promise<void> {
   const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
     method:  'PATCH',

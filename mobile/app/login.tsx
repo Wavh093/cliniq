@@ -5,8 +5,27 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { supabase } from '../lib/supabase';
 import { C } from '../constants/theme';
+
+/** Kliniq wordmark / logo mark in SVG */
+function KliniqMark() {
+  return (
+    <Svg width={44} height={44} viewBox="0 0 44 44">
+      <Circle cx={22} cy={22} r={22} fill={C.ink} />
+      {/* Stylised K */}
+      <Path
+        d="M14 10 L14 34 M14 22 L26 10 M14 22 L27 34"
+        stroke="#ffffff"
+        strokeWidth={3.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
 
 export default function LoginScreen() {
   const [email,    setEmail]    = useState('');
@@ -38,12 +57,10 @@ export default function LoginScreen() {
         <View style={s.inner}>
           {/* Brand */}
           <View style={s.brand}>
-            <View style={s.mark}>
-              <Text style={s.markText}>O</Text>
-            </View>
+            <KliniqMark />
             <View>
-              <Text style={s.brandName}>OH Dental</Text>
-              <Text style={s.brandSub}>Doctor Portal</Text>
+              <Text style={s.brandName}>Kliniq</Text>
+              <Text style={s.brandSub}>Staff Portal</Text>
             </View>
           </View>
 
@@ -63,7 +80,7 @@ export default function LoginScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
-                placeholder="doctor@ohdental.co.za"
+                placeholder="staff@kliniq.co.za"
                 placeholderTextColor={C.muted}
                 returnKeyType="next"
               />
@@ -103,12 +120,7 @@ const s = StyleSheet.create({
   kav:   { flex: 1 },
   inner: { flex: 1, padding: 28, justifyContent: 'center' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 44 },
-  mark:  {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center',
-  },
-  markText:  { color: '#fff', fontSize: 20, fontStyle: 'italic' },
-  brandName: { fontSize: 18, fontWeight: '600', color: C.ink },
+  brandName: { fontSize: 18, fontWeight: '700', color: C.ink },
   brandSub:  { fontSize: 12, color: C.muted, marginTop: 1 },
   heading:   { fontSize: 32, fontWeight: '700', color: C.ink, marginBottom: 8 },
   sub:       { fontSize: 15, color: C.inkSoft, lineHeight: 22, marginBottom: 36 },

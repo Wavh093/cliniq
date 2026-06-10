@@ -17,7 +17,7 @@ export default function TabLayout() {
           borderTopWidth:  1,
         },
         tabBarLabelStyle: {
-          fontSize:   11,
+          fontSize:   10,
           fontWeight: '500',
         },
       }}
@@ -46,6 +46,15 @@ export default function TabLayout() {
           title: 'Patients',
           tabBarIcon: ({ color, size }: IconProps) => (
             <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="plans"
+        options={{
+          title: 'Plans',
+          tabBarIcon: ({ color, size }: IconProps) => (
+            <Ionicons name="document-text-outline" size={size} color={color} />
           ),
         }}
       />

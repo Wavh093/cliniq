@@ -1,0 +1,181 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, FlatList, StyleSheet,
+  ActivityIndicator, TouchableOpacity,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { getTreatmentPlans, type TreatmentPlan } from '../../lib/api';
+import { C } from '../../constants/theme';
+
+function ProgressBar({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? Math.min(done / total, 1) : 0;
+  return (
+    <View style={pb.track}>
+      {pct > 0 && <View style={[pb.fill, { flex: pct }]} />}
+      {pct < 1 && <View style={{ flex: 1 - pct }} />}
+    </View>
+  );
+}
+const pb = StyleSheet.create({
+  track: {
+    height: 5, borderRadius: 3, backgroundColor: C.bg2,
+    flexDirection: 'row', overflow: 'hidden', marginTop: 10,
+  },
+  fill: { backgroundColor: C.sage, borderRadius: 3 },
+});
+
+function formatDate(d: string | null) {
+  if (!d) return null;
+  const match = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return d;
+  const [, y, m, day] = match;
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(day)} ${MONTHS[parseInt(m) - 1]} ${y}`;
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  active:    C.sage,
+  paused:    '#d97706',
+  completed: '#16a34a',
+  cancelled: C.muted,
+};
+
+export default function PlansScreen() {
+  const [plans,   setPlans]   = useState<TreatmentPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Load active + paused plans
+      const [active, paused] = await Promise.all([
+        getTreatmentPlans('active'),
+        getTreatmentPlans('paused'),
+      ]);
+      setPlans([...active.plans, ...paused.plans]);
+    } catch (e: any) {
+      setError(e.message ?? 'Could not load plans');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const renderItem = ({ item }: { item: TreatmentPlan }) => {
+    const patient  = item.patients;
+    const pct      = item.total_sessions > 0
+      ? Math.round((item.sessions_done / item.total_sessions) * 100) : 0;
+    const nextDue  = formatDate(item.next_session_due);
+    const dotColor = STATUS_COLOR[item.status] ?? C.muted;
+
+    return (
+      <TouchableOpacity
+        style={s.card}
+        onPress={() => router.push(`/plan/${item.id}`)}
+        activeOpacity={0.75}
+      >
+        <View style={s.cardTop}>
+          <View style={[s.statusDot, { backgroundColor: dotColor }]} />
+          <View style={s.cardMid}>
+            <Text style={s.planTitle} numberOfLines={1}>{item.title}</Text>
+            {patient && (
+              <Text style={s.patientName}>
+                {patient.first_name} {patient.last_name}
+              </Text>
+            )}
+          </View>
+          <View style={s.sessCounter}>
+            <Text style={s.sessNum}>{item.sessions_done}</Text>
+            <Text style={s.sessDen}>/{item.total_sessions}</Text>
+          </View>
+        </View>
+
+        <ProgressBar done={item.sessions_done} total={item.total_sessions} />
+
+        <View style={s.cardBottom}>
+          <Text style={s.pct}>{pct}% complete</Text>
+          {nextDue
+            ? <Text style={s.nextDue}>Next: {nextDue}</Text>
+            : <Text style={s.nextDue} /> }
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <SafeAreaView style={s.safe} edges={['top']}>
+      <View style={s.header}>
+        <Text style={s.title}>Plans</Text>
+      </View>
+
+      {loading ? (
+        <View style={s.center}><ActivityIndicator color={C.sage} size="large" /></View>
+      ) : error ? (
+        <View style={s.center}><Text style={s.err}>{error}</Text></View>
+      ) : (
+        <FlatList
+          data={plans}
+          keyExtractor={item => item.id}
+          renderItem={renderItem}
+          ListHeaderComponent={
+            plans.length > 0
+              ? <Text style={s.count}>{plans.length} active plan{plans.length === 1 ? '' : 's'}</Text>
+              : null
+          }
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="document-text-outline" size={40} color={C.muted} style={{ marginBottom: 12 }} />
+              <Text style={s.emptyText}>No active treatment plans.</Text>
+            </View>
+          }
+          contentContainerStyle={s.list}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: C.bg },
+  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
+  title:  { fontSize: 28, fontWeight: '700', color: C.ink },
+  count:  { fontSize: 11, color: C.muted, fontWeight: '600', letterSpacing: 0.5, marginBottom: 8 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  list:   { padding: 16, paddingBottom: 40 },
+  empty:  { paddingVertical: 64, alignItems: 'center' },
+  emptyText: { color: C.muted, fontSize: 15 },
+  err:    { color: C.danger, fontSize: 14, textAlign: 'center', padding: 20 },
+
+  card: {
+    backgroundColor: C.paper,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: C.rule,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginTop: 2 },
+  cardMid:   { flex: 1 },
+  planTitle: { fontSize: 15, fontWeight: '600', color: C.ink },
+  patientName: { fontSize: 13, color: C.muted, marginTop: 2 },
+  sessCounter: { flexDirection: 'row', alignItems: 'baseline' },
+  sessNum:     { fontSize: 20, fontWeight: '700', color: C.ink },
+  sessDen:     { fontSize: 13, color: C.muted },
+  cardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  pct:     { fontSize: 12, color: C.muted },
+  nextDue: { fontSize: 12, color: C.sage, fontWeight: '500' },
+});
