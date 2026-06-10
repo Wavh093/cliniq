@@ -2,28 +2,52 @@
 -- Migration 025 — Push notification triggers via pg_net
 -- ============================================================
 -- Prerequisites:
---   1. Add NOTIFY_SECRET to Vercel env vars (any random string,
---      e.g. openssl rand -hex 32).  Example: abc123xyz...
+--   1. Add NOTIFY_SECRET to Vercel env vars (any random string).
 --   2. Replace <YOUR_NOTIFY_SECRET> below with that SAME value.
 --   3. Run this entire script in the Supabase SQL editor.
---
--- What this does:
---   • Enables the pg_net extension (HTTP calls from DB triggers)
---   • Stores your webhook secret in DB config
---   • Fires POST /api/notify when a new patient is created
---   • Fires POST /api/notify when a session payment is recorded
 -- ============================================================
 
 -- Enable pg_net (ships with every Supabase project)
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- Store the secret so triggers can read it without hardcoding
--- IMPORTANT: replace <YOUR_NOTIFY_SECRET> with your actual secret
-ALTER DATABASE postgres
-  SET app.settings.notify_secret = '<YOUR_NOTIFY_SECRET>';
 
--- Reload config so current session picks it up
-SELECT pg_reload_conf();
+-- ── Config table (replaces ALTER DATABASE which needs superuser) ──
+-- Stores the webhook secret so triggers can read it without
+-- hardcoding it in function bodies. RLS blocks all client access.
+CREATE TABLE IF NOT EXISTS public._app_config (
+  key   text PRIMARY KEY,
+  value text NOT NULL
+);
+
+ALTER TABLE public._app_config ENABLE ROW LEVEL SECURITY;
+
+-- Deny all direct access from anon / authenticated roles
+DROP POLICY IF EXISTS "_app_config_no_access" ON public._app_config;
+CREATE POLICY "_app_config_no_access"
+  ON public._app_config
+  AS RESTRICTIVE
+  FOR ALL
+  TO anon, authenticated
+  USING (false);
+
+-- !! Replace <YOUR_NOTIFY_SECRET> with the value you set in Vercel !!
+INSERT INTO public._app_config (key, value)
+  VALUES ('notify_secret', '<YOUR_NOTIFY_SECRET>')
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+
+
+-- ── Helper: read a config value ───────────────────────────────
+-- SECURITY DEFINER so triggers (which run as invoker) can still
+-- read the table even though clients cannot.
+CREATE OR REPLACE FUNCTION public.fn_get_config(p_key text)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT value FROM public._app_config WHERE key = p_key LIMIT 1;
+$$;
 
 
 -- ── 1. New patient notification ───────────────────────────────
@@ -33,6 +57,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_secret text := fn_get_config('notify_secret');
 BEGIN
   PERFORM net.http_post(
     url     := 'https://cliniq-five.vercel.app/api/notify',
@@ -43,13 +69,14 @@ BEGIN
                            'name', NEW.first_name || ' ' || NEW.last_name
                          )
                )::text,
-    headers := ('{"Content-Type":"application/json","x-webhook-secret":"'
-                || current_setting('app.settings.notify_secret', true)
-                || '"}')::jsonb
+    headers := json_build_object(
+                 'Content-Type',      'application/json',
+                 'x-webhook-secret',  v_secret
+               )::jsonb
   );
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Never fail the INSERT because of a notification error
+  -- Never block the INSERT because of a notification error
   RAISE WARNING '[fn_notify_new_patient] HTTP call failed: %', SQLERRM;
   RETURN NEW;
 END;
@@ -71,13 +98,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  v_secret       text := fn_get_config('notify_secret');
   v_patient_name text;
 BEGIN
-  -- Only fire when amount_paid goes from 0/NULL to a positive number
+  -- Only fire when amount_paid goes from 0 / NULL → positive
   IF COALESCE(NEW.amount_paid, 0) > 0
      AND COALESCE(OLD.amount_paid, 0) = 0
   THEN
-    -- Resolve patient name via the linked treatment plan
     SELECT p.first_name || ' ' || p.last_name
       INTO v_patient_name
       FROM treatment_plans tp
@@ -95,9 +122,10 @@ BEGIN
                              'amount', NEW.amount_paid::text
                            )
                  )::text,
-      headers := ('{"Content-Type":"application/json","x-webhook-secret":"'
-                  || current_setting('app.settings.notify_secret', true)
-                  || '"}')::jsonb
+      headers := json_build_object(
+                   'Content-Type',     'application/json',
+                   'x-webhook-secret', v_secret
+                 )::jsonb
     );
   END IF;
   RETURN NEW;
