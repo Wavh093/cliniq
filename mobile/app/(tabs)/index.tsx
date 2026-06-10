@@ -10,6 +10,7 @@ import AppointmentCard from '../../components/AppointmentCard';
 import StatCard from '../../components/StatCard';
 import { C } from '../../constants/theme';
 
+
 function todayStr() {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
@@ -35,6 +36,10 @@ export default function TodayScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
   const today = todayStr();
+
+  const handleStatusChange = useCallback((id: string, newStatus: Appointment['status']) => {
+    setAppts(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
+  }, []);
 
   const load = useCallback(async (refresh = false) => {
     refresh ? setRefreshing(true) : setLoading(true);
@@ -95,6 +100,7 @@ export default function TodayScreen() {
             <AppointmentCard
               appt={item}
               onPress={() => item.patients?.id && router.push(`/patient/${item.patients.id}`)}
+              onStatusChange={handleStatusChange}
             />
           )}
           ListHeaderComponent={<Header />}

@@ -116,3 +116,36 @@ export async function savePushToken(token: string): Promise<void> {
     body:    JSON.stringify({ token }),
   });
 }
+
+export interface PatientSummary {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  patient_type: string | null;
+  date_of_birth: string | null;
+  suburb: string | null;
+  medical_aid_name: string | null;
+  created_at: string;
+}
+
+export async function searchPatients(q = '', limit = 30): Promise<{ patients: PatientSummary[]; total: number }> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (q.trim()) params.set('q', q.trim());
+  const res = await fetch(`${BASE}/api/patients?${params}`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(`Patients error: ${res.status}`);
+  return res.json();
+}
+
+export async function updateAppointmentStatus(id: string, status: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
+    method:  'PATCH',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Status update failed: ${res.status}`);
+  }
+}

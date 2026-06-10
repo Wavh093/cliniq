@@ -41,11 +41,29 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="patients"
+        options={{
+          title: 'Patients',
+          tabBarIcon: ({ color, size }: IconProps) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="analytics"
         options={{
           title: 'Analytics',
           tabBarIcon: ({ color, size }: IconProps) => (
             <Ionicons name="bar-chart-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, size }: IconProps) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
           ),
         }}
       />

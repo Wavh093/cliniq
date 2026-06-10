@@ -19,6 +19,10 @@ export default function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading,      setLoading]      = useState(true);
 
+  const handleStatusChange = useCallback((id: string, newStatus: Appointment['status']) => {
+    setAllAppts(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
+  }, []);
+
   const loadMonth = useCallback(async (month: Date) => {
     setLoading(true);
     try {
@@ -101,6 +105,7 @@ export default function CalendarScreen() {
             <AppointmentCard
               appt={item}
               onPress={() => item.patients?.id && router.push(`/patient/${item.patients.id}`)}
+              onStatusChange={handleStatusChange}
             />
           )}
           ListEmptyComponent={
