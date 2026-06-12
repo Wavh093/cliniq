@@ -110,7 +110,7 @@ export async function getDependants(mainMemberId: string): Promise<{ patients: L
 
 export async function savePushToken(token: string): Promise<void> {
   const headers = await authHeaders();
-  await fetch(`${BASE}/api/push-token`, {
+  await fetch(`${BASE}/api/notify?action=save-token`, {
     method:  'POST',
     headers,
     body:    JSON.stringify({ token }),

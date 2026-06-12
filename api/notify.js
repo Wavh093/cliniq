@@ -11,14 +11,24 @@
  *
  * Security: caller must supply x-webhook-secret header matching NOTIFY_SECRET env var.
  * The migration (025_push_notify_triggers.sql) sets this secret in the DB trigger.
+ *
+ * POST /api/notify?action=save-token  { token: "ExponentPushToken[xxx]" }
+ *
+ * Saves the Expo push token for the authenticated staff member (mobile app,
+ * called on login). Staff-authed via requireAuth — separate from the
+ * webhook-secret path above. Folded in here to stay under Vercel's
+ * Hobby-plan 12-function cap.
  */
-const { adminClient, cors, parseBody, PRACTICE_ID } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // ── Action: save a staff push token (mobile app, staff-authed) ──
+  if (req.query.action === 'save-token') return saveToken(req, res);
 
   // ── Auth: validate webhook secret ────────────────────────────
   const secret   = process.env.NOTIFY_SECRET;
@@ -95,3 +105,28 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'Push delivery failed' });
   }
 };
+
+// ── Save a staff member's Expo push token (was POST /api/push-token) ──
+async function saveToken(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return;
+
+  const { token } = await parseBody(req);
+  if (!token || typeof token !== 'string' || !token.startsWith('ExponentPushToken')) {
+    return res.status(400).json({ error: 'Invalid push token' });
+  }
+
+  const db = adminClient();
+  const { error } = await db
+    .from('staff')
+    .update({ expo_push_token: token })
+    .eq('practice_id', PRACTICE_ID)
+    .eq('email', user.email);
+
+  if (error) {
+    console.error('[notify save-token]', error);
+    return res.status(500).json({ error: 'Could not save push token' });
+  }
+
+  return res.status(200).json({ success: true });
+}
