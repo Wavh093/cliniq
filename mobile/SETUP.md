@@ -47,7 +47,7 @@ eas build --platform ios       # requires Apple Developer account
 ## How push notifications work
 
 1. Doctor opens app on their phone → app requests notification permission
-2. Expo generates a push token and saves it to the `staff` table via `/api/push-token`
+2. Expo generates a push token and saves it to the `staff` table via `/api/notify?action=save-token`
 3. When a patient books online (`POST /api/bookings`), the server sends a push message
    to every staff member who has a token registered
 4. The notification appears instantly on the doctor's phone
