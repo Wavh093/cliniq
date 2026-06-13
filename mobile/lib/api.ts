@@ -253,7 +253,7 @@ export async function updatePatientNotes(id: string, intake_notes: string | null
 
 export async function getAIUsage(): Promise<{ used: number; limit: number; remaining: number }> {
   try {
-    const res = await fetch(`${BASE}/api/ai-ask`, { headers: await authHeaders() });
+    const res = await fetch(`${BASE}/api/notify?action=ai-ask`, { headers: await authHeaders() });
     if (!res.ok) return { used: 0, limit: 10, remaining: 10 };
     return res.json();
   } catch {
@@ -267,7 +267,7 @@ export async function askAI(question: string): Promise<{
   limit: number;
   remaining: number;
 }> {
-  const res = await fetch(`${BASE}/api/ai-ask`, {
+  const res = await fetch(`${BASE}/api/notify?action=ai-ask`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({ question }),
