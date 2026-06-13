@@ -567,6 +567,27 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     const { date, status, patient_id, needs_link, month } = req.query;
 
+    // ── Single appointment by ID ───────────────────────────────
+    if (req.query.id && !date && !patient_id && !needs_link && !month) {
+      const SELECT_SINGLE = `
+        id, appointment_date, appointment_time, duration_minutes, status,
+        patient_notes, internal_notes, clinical_notes, icd10_codes, tariff_codes,
+        branch_id, cancellation_reason, cancelled_at, created_at,
+        patients ( id, first_name, last_name, email, phone, date_of_birth, allergies, medical_conditions, medications ),
+        services ( id, name, category, price_from ),
+        branches ( id, name )
+      `;
+      const { data: singleAppt, error: sErr } = await db
+        .from('appointments')
+        .select(SELECT_SINGLE)
+        .eq('id', req.query.id)
+        .eq('practice_id', PRACTICE_ID)
+        .is('deleted_at', null)
+        .single();
+      if (sErr || !singleAppt) return res.status(404).json({ error: 'Appointment not found' });
+      return res.status(200).json({ appointment: singleAppt });
+    }
+
     // Pagination
     const page  = Math.max(1, parseInt(req.query.page  || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '20', 10)));
@@ -578,7 +599,7 @@ module.exports = async function handler(req, res) {
       patient_notes, internal_notes, confirmation_sent, needs_patient_link, created_at,
       icd10_codes, tariff_codes, clinical_notes, branch_id,
       cancellation_reason, cancelled_at,
-      patients ( id, first_name, last_name, email, phone ),
+      patients ( id, first_name, last_name, email, phone, date_of_birth, allergies, medical_conditions, medications ),
       services (
         id, name, category, price_from,
         service_inventory_map (

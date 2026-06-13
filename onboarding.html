@@ -196,9 +196,10 @@ function OnboardingApp() {
   const [patientId, setPatientId] = useState(null);
 
   const set = patch => setForm(f => ({...f, ...patch}));
-  const fieldErr = key => errors[key]
-    ? <div className="field-err">{errors[key]}</div>
+  const fieldErr = (key) => errors[key]
+    ? <div className="field-err" id={`err-${key}`} role="alert">{errors[key]}</div>
     : null;
+  const errId = (key) => errors[key] ? `err-${key}` : undefined;
 
   /* ── Validation ── */
   const validateStep0 = () => {
@@ -326,43 +327,48 @@ function OnboardingApp() {
 
           <div className="row">
             <div className="field">
-              <label>First name <span className="req">*</span></label>
-              <input value={form.first_name} onChange={e => set({first_name: e.target.value})}
-                placeholder="e.g. Thandi" autoFocus />
+              <label htmlFor="ob-first-name">First name <span className="req">*</span></label>
+              <input id="ob-first-name" value={form.first_name} onChange={e => set({first_name: e.target.value})}
+                placeholder="e.g. Thandi" autoFocus autoComplete="given-name"
+                aria-required="true" aria-describedby={errId('first_name')} />
               {fieldErr('first_name')}
             </div>
             <div className="field">
-              <label>Surname <span className="req">*</span></label>
-              <input value={form.last_name} onChange={e => set({last_name: e.target.value})}
-                placeholder="e.g. Nkosi" />
+              <label htmlFor="ob-last-name">Surname <span className="req">*</span></label>
+              <input id="ob-last-name" value={form.last_name} onChange={e => set({last_name: e.target.value})}
+                placeholder="e.g. Nkosi" autoComplete="family-name"
+                aria-required="true" aria-describedby={errId('last_name')} />
               {fieldErr('last_name')}
             </div>
           </div>
 
           <div className="row">
             <div className="field">
-              <label>Phone number <span className="req">*</span></label>
-              <input type="tel" value={form.phone} onChange={e => set({phone: e.target.value})}
-                placeholder="e.g. 082 555 1234" />
+              <label htmlFor="ob-phone">Phone number <span className="req">*</span></label>
+              <input id="ob-phone" type="tel" value={form.phone} onChange={e => set({phone: e.target.value})}
+                placeholder="e.g. 082 555 1234" autoComplete="tel"
+                aria-required="true" aria-describedby={errId('phone')} />
               {fieldErr('phone')}
             </div>
             <div className="field">
-              <label>Email address</label>
-              <input type="email" value={form.email} onChange={e => set({email: e.target.value})}
-                placeholder="optional" />
+              <label htmlFor="ob-email">Email address</label>
+              <input id="ob-email" type="email" value={form.email} onChange={e => set({email: e.target.value})}
+                placeholder="optional" autoComplete="email"
+                aria-describedby={errId('email')} />
               {fieldErr('email')}
             </div>
           </div>
 
           <div className="row">
             <div className="field">
-              <label>Date of birth</label>
-              <input type="date" value={form.dob} onChange={e => set({dob: e.target.value})}
-                max={new Date().toISOString().slice(0,10)} />
+              <label htmlFor="ob-dob">Date of birth</label>
+              <input id="ob-dob" type="date" value={form.dob} onChange={e => set({dob: e.target.value})}
+                max={new Date().toISOString().slice(0,10)} autoComplete="bday"
+                aria-label="Date of birth" />
             </div>
             <div className="field">
-              <label>Gender</label>
-              <select value={form.gender} onChange={e => set({gender: e.target.value})}
+              <label htmlFor="ob-gender">Gender</label>
+              <select id="ob-gender" value={form.gender} onChange={e => set({gender: e.target.value})}
                 style={{color: form.gender ? 'var(--ink)' : 'var(--muted)'}}>
                 <option value="">Select…</option>
                 {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
@@ -371,9 +377,9 @@ function OnboardingApp() {
           </div>
 
           <div className="field">
-            <label>ID or Passport number <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
-            <input value={form.id_number} onChange={e => set({id_number: e.target.value})}
-              placeholder="South African ID or passport number" />
+            <label htmlFor="ob-id">ID or Passport number <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+            <input id="ob-id" value={form.id_number} onChange={e => set({id_number: e.target.value})}
+              placeholder="South African ID or passport number" autoComplete="off" />
           </div>
 
           <div className="btn-row">
@@ -405,23 +411,23 @@ function OnboardingApp() {
             <>
               <div className="row">
                 <div className="field">
-                  <label>Medical aid scheme name</label>
-                  <input value={form.medical_aid_name}
+                  <label htmlFor="ob-ma-name">Medical aid scheme name</label>
+                  <input id="ob-ma-name" value={form.medical_aid_name}
                     onChange={e => set({medical_aid_name: e.target.value})}
-                    placeholder="e.g. Discovery, Bonitas, Medihelp" />
+                    placeholder="e.g. Discovery, Bonitas, Medihelp" autoComplete="organization" />
                 </div>
                 <div className="field">
-                  <label>Membership number</label>
-                  <input value={form.medical_aid_number}
+                  <label htmlFor="ob-ma-number">Membership number</label>
+                  <input id="ob-ma-number" value={form.medical_aid_number}
                     onChange={e => set({medical_aid_number: e.target.value})}
-                    placeholder="Your membership number" />
+                    placeholder="Your membership number" autoComplete="off" />
                 </div>
               </div>
               <div className="field">
-                <label>Plan / Option name <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
-                <input value={form.medical_aid_plan}
+                <label htmlFor="ob-ma-plan">Plan / Option name <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+                <input id="ob-ma-plan" value={form.medical_aid_plan}
                   onChange={e => set({medical_aid_plan: e.target.value})}
-                  placeholder="e.g. Essential Saver, Hospital Plan" />
+                  placeholder="e.g. Essential Saver, Hospital Plan" autoComplete="off" />
               </div>
             </>
           )}
@@ -452,13 +458,13 @@ function OnboardingApp() {
 
           <div className="row">
             <div className="field">
-              <label>Suburb <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
-              <input value={form.suburb} onChange={e => set({suburb: e.target.value})}
-                placeholder="e.g. Krugersdorp North" />
+              <label htmlFor="ob-suburb">Suburb <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+              <input id="ob-suburb" value={form.suburb} onChange={e => set({suburb: e.target.value})}
+                placeholder="e.g. Krugersdorp North" autoComplete="address-level2" />
             </div>
             <div className="field">
-              <label>Province <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
-              <select value={form.province} onChange={e => set({province: e.target.value})}
+              <label htmlFor="ob-province">Province <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+              <select id="ob-province" value={form.province} onChange={e => set({province: e.target.value})}
                 style={{color: form.province ? 'var(--ink)' : 'var(--muted)'}}>
                 <option value="">Select…</option>
                 {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
@@ -489,7 +495,7 @@ function OnboardingApp() {
           />
 
           {errors.submit && (
-            <div className="alert alert-error">{errors.submit}</div>
+            <div className="alert alert-error" role="alert">{errors.submit}</div>
           )}
 
           <div className="btn-row has-back">

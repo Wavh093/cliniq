@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import { useFocusEffect, router } from 'expo-router';
@@ -96,6 +97,7 @@ export default function CalendarScreen() {
       {loading ? (
         <View style={s.loader}>
           <ActivityIndicator color={C.sage} />
+          <Text style={s.loaderText}>Loading appointments…</Text>
         </View>
       ) : (
         <FlatList
@@ -110,7 +112,9 @@ export default function CalendarScreen() {
           )}
           ListEmptyComponent={
             <View style={s.empty}>
-              <Text style={s.emptyText}>No appointments on this day.</Text>
+              <Ionicons name="calendar-outline" size={36} color={C.muted} style={{ marginBottom: 12 }} />
+              <Text style={s.emptyTitle}>No appointments</Text>
+              <Text style={s.emptyText}>No sessions booked on this day. Tap another date to check.</Text>
             </View>
           }
           contentContainerStyle={s.list}
@@ -135,8 +139,10 @@ const s = StyleSheet.create({
   },
   dayLabel:  { fontSize: 15, fontWeight: '600', color: C.ink },
   dayCount:  { fontSize: 12, color: C.muted },
-  loader:    { padding: 40, alignItems: 'center' },
-  list:      { padding: 16, paddingBottom: 40 },
-  empty:     { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { color: C.muted, fontSize: 14 },
+  loader:     { padding: 40, alignItems: 'center', gap: 10 },
+  loaderText: { color: C.muted, fontSize: 13 },
+  list:       { padding: 16, paddingBottom: 40 },
+  empty:      { paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: C.ink, marginBottom: 6, textAlign: 'center' },
+  emptyText:  { color: C.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
 });

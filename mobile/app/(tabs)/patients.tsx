@@ -46,7 +46,12 @@ export default function PatientsScreen() {
     }
   }, []);
 
-  useEffect(() => { load(''); }, [load]);
+  useEffect(() => {
+    load('');
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [load]);
 
   const handleSearch = (text: string) => {
     setQuery(text);
@@ -90,7 +95,7 @@ export default function PatientsScreen() {
   };
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={s.header}>
         <Text style={s.title}>Patients</Text>
@@ -137,8 +142,19 @@ export default function PatientsScreen() {
           renderItem={renderItem}
           ListEmptyComponent={
             <View style={s.empty}>
+              <Ionicons
+                name={query.trim() ? 'search-outline' : 'people-outline'}
+                size={36}
+                color={C.muted}
+                style={{ marginBottom: 12 }}
+              />
+              <Text style={s.emptyTitle}>
+                {query.trim() ? 'No results found' : 'No patients yet'}
+              </Text>
               <Text style={s.emptyText}>
-                {query.trim() ? 'No patients match that search.' : 'No patients yet.'}
+                {query.trim()
+                  ? `No patients match "${query}". Try a different name or phone number.`
+                  : 'Patients added through the web portal will appear here.'}
               </Text>
             </View>
           }
@@ -182,8 +198,9 @@ const s = StyleSheet.create({
 
   center:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list:      { paddingHorizontal: 16, paddingBottom: 40 },
-  empty:     { paddingVertical: 48, alignItems: 'center' },
-  emptyText: { color: C.muted, fontSize: 15 },
+  empty:     { paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 },
+  emptyTitle:{ fontSize: 16, fontWeight: '600', color: C.ink, marginBottom: 6, textAlign: 'center' },
+  emptyText: { color: C.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
   err:       { color: C.danger, fontSize: 14, textAlign: 'center', padding: 20 },
 
   row: {

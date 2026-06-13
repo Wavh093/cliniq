@@ -1,12 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  ActivityIndicator, StyleSheet,
+  View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
+  ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getPatient, getDependants } from '../../lib/api';
+import { getPatient, getDependants, updatePatientNotes, saveSessionNotes } from '../../lib/api';
 import type { Patient, LinkedPatient, AppointmentSummary } from '../../lib/api';
 import { C, STATUS } from '../../constants/theme';
 
@@ -32,7 +32,7 @@ function calcAge(dob: string | null): number | null {
 }
 
 function initials(p: Patient) {
-  return `${p.first_name[0] ?? ''}${p.last_name[0] ?? ''}`.toUpperCase();
+  return `${p.first_name[0] ?? '?'}${p.last_name[0] ?? '?'}`.toUpperCase();
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -80,6 +80,54 @@ export default function PatientDetailScreen() {
   const [dependants, setDependants] = useState<LinkedPatient[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
+  const [apptModal,    setApptModal]    = useState<AppointmentSummary | null>(null);
+  const [apptClinical, setApptClinical] = useState('');
+  const [apptInternal, setApptInternal] = useState('');
+  const [apptSaving,   setApptSaving]   = useState(false);
+
+  // Doctor's notes (intake_notes) — inline editing
+  const [notesEdit,  setNotesEdit]  = useState(false);
+  const [notesText,  setNotesText]  = useState('');
+  const [notesSaving,setNotesSaving] = useState(false);
+
+  const saveNotes = useCallback(async () => {
+    if (!patient) return;
+    setNotesSaving(true);
+    try {
+      await updatePatientNotes(patient.id, notesText.trim() || null);
+      setPatient(p => p ? { ...p, intake_notes: notesText.trim() || null } : p);
+      setNotesEdit(false);
+    } catch (e: any) {
+      Alert.alert('Could not save', e.message ?? 'Please try again.');
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [patient, notesText]);
+
+  const saveApptNotes = useCallback(async () => {
+    if (!apptModal) return;
+    setApptSaving(true);
+    try {
+      await saveSessionNotes(apptModal.id, {
+        clinical_notes: apptClinical.trim() || null,
+        internal_notes: apptInternal.trim() || null,
+      });
+      // Reflect saved values back into the patient's appointment list
+      setPatient(p => p ? {
+        ...p,
+        appointments: (p.appointments ?? []).map(a =>
+          a.id === apptModal.id
+            ? { ...a, clinical_notes: apptClinical.trim() || null, internal_notes: apptInternal.trim() || null } as AppointmentSummary
+            : a,
+        ),
+      } : p);
+      setApptModal(null);
+    } catch (e: any) {
+      Alert.alert('Could not save', e.message ?? 'Please try again.');
+    } finally {
+      setApptSaving(false);
+    }
+  }, [apptModal, apptClinical, apptInternal]);
 
   useFocusEffect(useCallback(() => {
     if (!id) return;
@@ -89,6 +137,7 @@ export default function PatientDetailScreen() {
     getPatient(id)
       .then(async ({ patient: p }) => {
         setPatient(p);
+        setNotesText(p.intake_notes ?? '');
         if (p.main_member) {
           const { patients: deps } = await getDependants(id).catch(() => ({ patients: [] }));
           setDependants(deps);
@@ -106,7 +155,7 @@ export default function PatientDetailScreen() {
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
         <View style={s.topBar}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <TouchableOpacity onPress={() => router.back()} style={s.backBtn} accessibilityLabel="Go back" accessibilityRole="button">
             <Ionicons name="arrow-back" size={22} color={C.ink} />
           </TouchableOpacity>
           <Text style={s.topBarTitle}>Patient</Text>
@@ -130,7 +179,7 @@ export default function PatientDetailScreen() {
   const meds       = patient.medications      ?? [];
   const conditions = patient.medical_conditions ?? [];
   const hasHealth  = allergies.length || meds.length || conditions.length ||
-                     patient.previous_dentist || patient.dental_anxiety || patient.intake_notes;
+                     patient.previous_dentist || patient.dental_anxiety;
   const appts: AppointmentSummary[] = patient.appointments ?? [];
 
   return (
@@ -172,6 +221,69 @@ export default function PatientDetailScreen() {
             <View style={s.typePill}>
               <Text style={s.typePillText}>{patient.patient_type}</Text>
             </View>
+          )}
+        </View>
+
+        {/* ── Doctor's Notes (editable) ─────────────────────────── */}
+        <View style={s.drNotesCard}>
+          <View style={s.drNotesHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="document-text-outline" size={14} color={C.sage} />
+              <Text style={s.drNotesLabel}>DOCTOR'S NOTES</Text>
+            </View>
+            {!notesEdit ? (
+              <TouchableOpacity
+                onPress={() => { setNotesText(patient.intake_notes ?? ''); setNotesEdit(true); }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Edit doctor's notes"
+                accessibilityRole="button"
+              >
+                <Ionicons name="pencil-outline" size={16} color={C.sage} />
+              </TouchableOpacity>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                <TouchableOpacity onPress={() => setNotesEdit(false)}>
+                  <Text style={s.drNotesCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.drNotesSaveBtn}
+                  onPress={saveNotes}
+                  disabled={notesSaving}
+                >
+                  {notesSaving
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={s.drNotesSaveBtnText}>Save</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {notesEdit ? (
+            <TextInput
+              style={s.drNotesInput}
+              value={notesText}
+              onChangeText={setNotesText}
+              multiline
+              autoFocus
+              placeholder="Clinical observations, preferences, reminders for next visit…"
+              placeholderTextColor={C.muted}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              autoCapitalize="sentences"
+              autoCorrect
+              accessibilityLabel="Doctor's notes"
+            />
+          ) : patient.intake_notes ? (
+            <Text style={s.drNotesText}>{patient.intake_notes}</Text>
+          ) : (
+            <TouchableOpacity
+              onPress={() => { setNotesText(''); setNotesEdit(true); }}
+              activeOpacity={0.7}
+            >
+              <Text style={s.drNotesPlaceholder}>
+                Tap the pencil to add notes about this patient…
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -219,7 +331,7 @@ export default function PatientDetailScreen() {
             >
               <View style={s.linkedAvatar}>
                 <Text style={s.linkedAvatarText}>
-                  {(patient.main_member_name ?? 'M')[0].toUpperCase()}
+                  {(patient.main_member_name || 'M')[0].toUpperCase()}
                 </Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -240,7 +352,7 @@ export default function PatientDetailScreen() {
                 onPress={() => router.push(`/patient/${dep.id}`)}
               >
                 <View style={s.linkedAvatar}>
-                  <Text style={s.linkedAvatarText}>{dep.first_name[0].toUpperCase()}</Text>
+                  <Text style={s.linkedAvatarText}>{(dep.first_name[0] ?? '?').toUpperCase()}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={s.linkedName}>{dep.first_name} {dep.last_name}</Text>
@@ -273,12 +385,6 @@ export default function PatientDetailScreen() {
             {conditions.length > 0 && (
               <ChipRow label="Conditions"  items={conditions} bg="#FEF3C7" fg="#92400E" last />
             )}
-            {patient.intake_notes && (
-              <View style={[s.notesBlock, { borderBottomWidth: 0 }]}>
-                <Text style={s.rowLabel}>Notes</Text>
-                <Text style={s.notesText}>{patient.intake_notes}</Text>
-              </View>
-            )}
           </Section>
         )}
 
@@ -288,9 +394,15 @@ export default function PatientDetailScreen() {
             {appts.map((appt, i) => {
               const st = STATUS[appt.status] ?? STATUS.pending;
               return (
-                <View
+                <TouchableOpacity
                   key={appt.id}
                   style={[s.apptRow, i === appts.length - 1 && { borderBottomWidth: 0 }]}
+                  onPress={() => {
+                    setApptClinical((appt as any).clinical_notes ?? '');
+                    setApptInternal((appt as any).internal_notes ?? '');
+                    setApptModal(appt);
+                  }}
+                  activeOpacity={0.7}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={s.apptDate}>
@@ -302,22 +414,139 @@ export default function PatientDetailScreen() {
                         : ''}
                     </Text>
                     <Text style={s.apptService}>{appt.services?.name ?? '—'}</Text>
-                    {appt.patient_notes && (
-                      <Text style={s.apptNotes} numberOfLines={1}>{appt.patient_notes}</Text>
-                    )}
                   </View>
-                  <View style={[s.apptBadge, { backgroundColor: st.bg }]}>
-                    <Text style={[s.apptBadgeText, { color: st.text }]}>
-                      {appt.status.replace('_', ' ')}
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={[s.apptBadge, { backgroundColor: st.bg }]}>
+                      <Text style={[s.apptBadgeText, { color: st.text }]}>
+                        {appt.status.replace('_', ' ')}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color={C.muted} />
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </Section>
         )}
 
       </ScrollView>
+
+      {/* ── Session notes modal ────────────────────────────────────── */}
+      <Modal
+        visible={apptModal !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setApptModal(null)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={s.overlay}>
+            <TouchableOpacity style={s.overlayBg} activeOpacity={1} onPress={() => setApptModal(null)} />
+            <View style={s.sheet}>
+              <View style={s.sheetHandle} />
+
+              {/* Header */}
+              <View style={s.sheetHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.sheetDate}>
+                    {apptModal
+                      ? new Date(apptModal.appointment_date + 'T00:00:00').toLocaleDateString('en-GB', {
+                          day: 'numeric', month: 'long', year: 'numeric',
+                        })
+                      : ''}
+                    {apptModal?.appointment_time
+                      ? `  ·  ${apptModal.appointment_time.slice(0, 5)}`
+                      : ''}
+                  </Text>
+                  <Text style={s.sheetService}>{apptModal?.services?.name ?? '—'}</Text>
+                </View>
+                {apptModal && (() => {
+                  const st = STATUS[apptModal.status] ?? STATUS.pending;
+                  return (
+                    <View style={[s.apptBadge, { backgroundColor: st.bg }]}>
+                      <Text style={[s.apptBadgeText, { color: st.text }]}>
+                        {apptModal.status.replace('_', ' ')}
+                      </Text>
+                    </View>
+                  );
+                })()}
+              </View>
+
+              {/* Editable notes body */}
+              <ScrollView
+                style={s.sheetBody}
+                contentContainerStyle={s.sheetBodyContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {/* Patient notes — read-only (written by patient at booking) */}
+                {apptModal?.patient_notes ? (
+                  <View style={s.notesGroup}>
+                    <Text style={s.notesGroupLabel}>PATIENT NOTES</Text>
+                    <Text style={s.notesGroupText}>{apptModal.patient_notes}</Text>
+                  </View>
+                ) : null}
+
+                {/* Clinical notes — editable */}
+                <View style={s.notesGroup}>
+                  <Text style={s.notesGroupLabel}>CLINICAL NOTES</Text>
+                  <TextInput
+                    style={s.notesInput}
+                    value={apptClinical}
+                    onChangeText={setApptClinical}
+                    multiline
+                    placeholder="Observations, treatment performed, recommendations…"
+                    placeholderTextColor={C.muted}
+                    textAlignVertical="top"
+                    scrollEnabled={false}
+                    editable={!apptSaving}
+                  />
+                </View>
+
+                {/* Internal notes — editable */}
+                <View style={[s.notesGroup, { marginBottom: 4 }]}>
+                  <Text style={s.notesGroupLabel}>INTERNAL NOTES</Text>
+                  <TextInput
+                    style={[s.notesInput, { minHeight: 60 }]}
+                    value={apptInternal}
+                    onChangeText={setApptInternal}
+                    multiline
+                    placeholder="Staff-only notes (not visible to patient)…"
+                    placeholderTextColor={C.muted}
+                    textAlignVertical="top"
+                    scrollEnabled={false}
+                    editable={!apptSaving}
+                  />
+                </View>
+              </ScrollView>
+
+              {/* Footer buttons */}
+              <View style={s.sheetFooter}>
+                <TouchableOpacity
+                  style={s.closeBtnSecondary}
+                  onPress={() => setApptModal(null)}
+                  disabled={apptSaving}
+                >
+                  <Text style={s.closeBtnSecondaryText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.saveApptBtn, apptSaving && { opacity: 0.5 }]}
+                  onPress={saveApptNotes}
+                  disabled={apptSaving}
+                  activeOpacity={0.85}
+                >
+                  {apptSaving
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={s.saveApptBtnText}>Save Notes</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -332,7 +561,7 @@ const s = StyleSheet.create({
 
   // Top bar
   topBar:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.rule },
-  backBtn:     { padding: 4, marginRight: 10 },
+  backBtn:     { padding: 8, marginRight: 10 },
   topBarTitle: { fontSize: 16, fontWeight: '600', color: C.ink },
 
   // Hero
@@ -363,9 +592,27 @@ const s = StyleSheet.create({
   chip:     { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   chipText: { fontSize: 12, fontWeight: '500' },
 
-  // Notes
+  // Notes (inside medical history section — kept for chips layout)
   notesBlock: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.rule },
   notesText:  { fontSize: 13, color: C.inkSoft, marginTop: 4, lineHeight: 20 },
+
+  // Doctor's Notes card
+  drNotesCard: {
+    backgroundColor: C.paper, borderRadius: 16,
+    padding: 16, marginBottom: 20,
+    borderWidth: 1, borderColor: C.rule,
+  },
+  drNotesHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  drNotesLabel:      { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, color: C.sage },
+  drNotesCancelText: { fontSize: 13, color: C.muted },
+  drNotesSaveBtn:    { backgroundColor: C.sage, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 5 },
+  drNotesSaveBtnText:{ color: '#fff', fontSize: 13, fontWeight: '600' },
+  drNotesInput: {
+    fontSize: 14, color: C.ink, minHeight: 80, lineHeight: 22,
+    paddingTop: 0, textAlignVertical: 'top',
+  },
+  drNotesText:       { fontSize: 14, color: C.inkSoft, lineHeight: 22 },
+  drNotesPlaceholder:{ fontSize: 14, color: C.muted, fontStyle: 'italic', lineHeight: 22 },
 
   // Linked patients
   linkedRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.rule, gap: 10 },
@@ -378,7 +625,53 @@ const s = StyleSheet.create({
   apptRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.rule, gap: 10 },
   apptDate:      { fontSize: 13, fontWeight: '500', color: C.ink, marginBottom: 2 },
   apptService:   { fontSize: 12, color: C.muted },
-  apptNotes:     { fontSize: 11, color: C.muted, fontStyle: 'italic', marginTop: 2 },
   apptBadge:     { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, alignSelf: 'flex-start' },
   apptBadgeText: { fontSize: 11, fontWeight: '500', textTransform: 'capitalize' },
+
+  // Notes modal / bottom sheet
+  overlay:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  overlayBg:      { ...StyleSheet.absoluteFillObject },
+  sheet: {
+    backgroundColor: C.paper, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingBottom: 36, maxHeight: '80%',
+  },
+  sheetHandle:     { width: 40, height: 4, borderRadius: 2, backgroundColor: C.rule, alignSelf: 'center', marginTop: 12, marginBottom: 14 },
+  sheetHeader:     { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.rule, gap: 12 },
+  sheetDate:       { fontSize: 14, fontWeight: '600', color: C.ink, marginBottom: 3 },
+  sheetService:    { fontSize: 13, color: C.muted },
+  sheetBody:       { maxHeight: 340 },
+  sheetBodyContent:{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8 },
+  notesGroup:      { marginBottom: 22 },
+  notesGroupLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, color: C.muted, marginBottom: 8 },
+  notesGroupText:  { fontSize: 14, color: C.inkSoft, lineHeight: 22 },
+  noNotesWrap:     { paddingVertical: 36, alignItems: 'center', gap: 10 },
+  noNotesText:     { fontSize: 14, color: C.muted, textAlign: 'center' },
+
+  // Editable notes input
+  notesInput: {
+    fontSize: 14, color: C.ink, lineHeight: 22,
+    minHeight: 90, paddingTop: 4,
+    textAlignVertical: 'top',
+    borderWidth: 1, borderColor: C.rule,
+    borderRadius: 12, padding: 12,
+    backgroundColor: C.bg, marginTop: 6,
+  },
+
+  // Sheet footer
+  sheetFooter: {
+    flexDirection: 'row', gap: 10,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
+    borderTopWidth: 1, borderTopColor: C.rule,
+  },
+  closeBtnSecondary: {
+    flex: 1, backgroundColor: C.bg2, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+    borderWidth: 1, borderColor: C.rule,
+  },
+  closeBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: C.inkSoft },
+  saveApptBtn: {
+    flex: 2, backgroundColor: C.sage, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  saveApptBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

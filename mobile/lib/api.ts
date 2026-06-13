@@ -19,8 +19,21 @@ export interface Appointment {
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
   patient_notes: string | null;
   internal_notes: string | null;
-  patients: { id: string; first_name: string; last_name: string; email: string; phone: string } | null;
-  services:  { id: string; name: string; category: string; price_from: number | null } | null;
+  clinical_notes: string | null;
+  icd10_codes: string[] | null;
+  tariff_codes: string[] | null;
+  patients: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    date_of_birth: string | null;
+    allergies: string[];
+    medical_conditions: string[];
+    medications: string[];
+  } | null;
+  services: { id: string; name: string; category: string; price_from: number | null } | null;
 }
 
 export interface AppointmentSummary {
@@ -29,6 +42,8 @@ export interface AppointmentSummary {
   appointment_time: string;
   status: string;
   patient_notes: string | null;
+  internal_notes: string | null;
+  clinical_notes: string | null;
   services: { name: string; category: string; price_from: number | null } | null;
 }
 
@@ -190,6 +205,77 @@ export async function getTreatmentPlan(id: string): Promise<{ plan: TreatmentPla
     { headers: await authHeaders() },
   );
   if (!res.ok) throw new Error(`Plan error: ${res.status}`);
+  return res.json();
+}
+
+export async function getAppointment(id: string): Promise<{ appointment: Appointment }> {
+  const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as any).error ?? `Appointment not found (${res.status})`);
+  }
+  const data = await res.json();
+  // Guard: API should return { appointment: {...} } — if not, surface a clear error
+  if (!data.appointment) throw new Error('Appointment data missing in response');
+  return data;
+}
+
+export async function saveSessionNotes(
+  id: string,
+  data: { clinical_notes?: string | null; internal_notes?: string | null },
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
+    method:  'PATCH',
+    headers: await authHeaders(),
+    body:    JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Save failed: ${res.status}`);
+  }
+}
+
+export async function updatePatientNotes(id: string, intake_notes: string | null): Promise<void> {
+  const res = await fetch(`${BASE}/api/patients?id=${encodeURIComponent(id)}`, {
+    method:  'PATCH',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ intake_notes }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Save failed: ${res.status}`);
+  }
+}
+
+// ── AI Clinical Assistant ────────────────────────────────────────
+
+export async function getAIUsage(): Promise<{ used: number; limit: number; remaining: number }> {
+  try {
+    const res = await fetch(`${BASE}/api/ai-ask`, { headers: await authHeaders() });
+    if (!res.ok) return { used: 0, limit: 10, remaining: 10 };
+    return res.json();
+  } catch {
+    return { used: 0, limit: 10, remaining: 10 };
+  }
+}
+
+export async function askAI(question: string): Promise<{
+  answer: string;
+  used: number;
+  limit: number;
+  remaining: number;
+}> {
+  const res = await fetch(`${BASE}/api/ai-ask`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ question }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `AI request failed: ${res.status}`);
+  }
   return res.json();
 }
 

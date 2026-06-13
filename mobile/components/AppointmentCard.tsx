@@ -3,22 +3,22 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   Modal, Alert, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { C, STATUS } from '../constants/theme';
 import type { Appointment } from '../lib/api';
 import { updateAppointmentStatus } from '../lib/api';
 
-// Mirrors the server-side state machine
+// Mirrors the server-side state machine — must stay in sync with appointment/[id].tsx
 const TRANSITIONS: Record<string, Appointment['status'][]> = {
   pending:   ['confirmed', 'completed', 'cancelled', 'no_show'],
-  confirmed: ['pending',   'completed', 'cancelled', 'no_show'],
+  confirmed: ['completed', 'cancelled', 'no_show'],
   no_show:   ['cancelled'],
   completed: [],
   cancelled: [],
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pending:   'Revert to Pending',
-  confirmed: 'Confirm',
+  confirmed: 'Confirm Arrival',
   completed: 'Mark Complete',
   cancelled: 'Cancel Appointment',
   no_show:   'Mark No Show',
@@ -54,18 +54,39 @@ export default function AppointmentCard({ appt, onPress, onStatusChange }: Props
     }
   };
 
+  const patientName = patient
+    ? `${patient.first_name} ${patient.last_name}`
+    : 'Unknown patient';
+
   return (
     <>
-      <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={onPress ? 0.7 : 1}>
+      <TouchableOpacity
+        style={s.card}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.7 : 1}
+        accessibilityLabel={`${patientName}, ${service?.name ?? ''}, ${time}. Tap to view patient profile.`}
+        accessibilityRole={onPress ? 'button' : 'none'}
+      >
         <View style={s.timeCol}>
           <Text style={s.time}>{time}</Text>
           <View style={[s.pip, { backgroundColor: statusStyle.text }]} />
         </View>
 
         <View style={s.body}>
-          <Text style={s.name}>
-            {patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown patient'}
-          </Text>
+          <View style={s.nameRow}>
+            <Text style={s.name} numberOfLines={1}>
+              {patientName}
+            </Text>
+            {onPress && (
+              <Ionicons name="chevron-forward" size={14} color={C.muted} style={s.chevron} />
+            )}
+          </View>
+          {/* Allergy alert — shown immediately so the doctor never misses it */}
+          {(patient?.allergies?.length ?? 0) > 0 && (
+            <View style={s.allergyRow}>
+              <Text style={s.allergyTag}>⚠ {patient?.allergies?.join(' · ')}</Text>
+            </View>
+          )}
           <Text style={s.service}>{service?.name ?? '—'}</Text>
           {appt.patient_notes ? (
             <Text style={s.notes} numberOfLines={1}>{appt.patient_notes}</Text>
@@ -78,7 +99,8 @@ export default function AppointmentCard({ appt, onPress, onStatusChange }: Props
           onPress={canUpdate ? () => setModalVisible(true) : undefined}
           disabled={updating || !canUpdate}
           activeOpacity={canUpdate ? 0.7 : 1}
-          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+          accessibilityLabel={canUpdate ? `Status: ${appt.status.replace('_', ' ')}. Tap to update.` : `Status: ${appt.status.replace('_', ' ')}`}
+          accessibilityRole={canUpdate ? 'button' : 'text'}
         >
           {updating ? (
             <ActivityIndicator size="small" color={statusStyle.text} style={s.badgeSpinner} />
@@ -161,20 +183,26 @@ const s = StyleSheet.create({
   timeCol:     { alignItems: 'center', gap: 6, paddingTop: 2, width: 42 },
   time:        { fontSize: 13, color: C.inkSoft, letterSpacing: 0.3, fontVariant: ['tabular-nums'] },
   pip:         { width: 6, height: 6, borderRadius: 3 },
-  body:        { flex: 1 },
-  name:        { fontSize: 15, fontWeight: '600', color: C.ink, marginBottom: 2 },
+  body:     { flex: 1, minWidth: 0 },
+  nameRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 2, gap: 4 },
+  name:     { fontSize: 15, fontWeight: '600', color: C.ink, flexShrink: 1 },
+  chevron:  { flexShrink: 0 },
   service:     { fontSize: 13, color: C.muted },
   notes:       { fontSize: 12, color: C.muted, marginTop: 4, fontStyle: 'italic' },
+  allergyRow:  { marginTop: 3, marginBottom: 2 },
+  allergyTag:  { fontSize: 11, fontWeight: '600', color: '#dc2626', backgroundColor: '#FEF2F2', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start', overflow: 'hidden' },
   badge: {
-    borderRadius:      4,
-    paddingHorizontal: 8,
-    paddingVertical:   4,
+    borderRadius:      6,
+    paddingHorizontal: 10,
+    paddingVertical:   7,
     alignSelf:         'flex-start',
-    minWidth:          62,
+    minWidth:          70,
     alignItems:        'center',
+    minHeight:         32,
+    justifyContent:    'center',
   },
-  badgeSpinner: { width: 62 },
-  badgeText:    { fontSize: 11, fontWeight: '500', textTransform: 'capitalize' },
+  badgeSpinner: { width: 70 },
+  badgeText:    { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
 
   // Modal
   overlay: {

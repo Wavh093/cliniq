@@ -497,32 +497,32 @@
                       )}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">First name</label>
-                          <input value={data.firstName} onChange={e => set({ firstName: e.target.value })} placeholder="Lerato" maxLength={50} className={inputCls(errors.firstName)} />
-                          {errors.firstName && <span className="text-xs text-error">{errors.firstName}</span>}
+                          <label htmlFor="bk-first-name" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">First name</label>
+                          <input id="bk-first-name" value={data.firstName} onChange={e => set({ firstName: e.target.value })} placeholder="Lerato" maxLength={50} autoComplete="given-name" aria-required="true" aria-describedby={errors.firstName ? 'bk-first-name-err' : undefined} className={inputCls(errors.firstName)} />
+                          {errors.firstName && <span id="bk-first-name-err" role="alert" className="text-xs text-error">{errors.firstName}</span>}
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Last name</label>
-                          <input value={data.lastName} onChange={e => set({ lastName: e.target.value })} placeholder="Mokoena" maxLength={50} className={inputCls(errors.lastName)} />
-                          {errors.lastName && <span className="text-xs text-error">{errors.lastName}</span>}
+                          <label htmlFor="bk-last-name" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Last name</label>
+                          <input id="bk-last-name" value={data.lastName} onChange={e => set({ lastName: e.target.value })} placeholder="Mokoena" maxLength={50} autoComplete="family-name" aria-required="true" aria-describedby={errors.lastName ? 'bk-last-name-err' : undefined} className={inputCls(errors.lastName)} />
+                          {errors.lastName && <span id="bk-last-name-err" role="alert" className="text-xs text-error">{errors.lastName}</span>}
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Email</label>
-                          <input type="email" value={data.email} onChange={e => set({ email: e.target.value })} placeholder="you@email.com" maxLength={100} className={inputCls(errors.email)} />
-                          {errors.email && <span className="text-xs text-error">{errors.email}</span>}
+                          <label htmlFor="bk-email" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Email</label>
+                          <input id="bk-email" type="email" value={data.email} onChange={e => set({ email: e.target.value })} placeholder="you@email.com" maxLength={100} autoComplete="email" aria-required="true" aria-describedby={errors.email ? 'bk-email-err' : undefined} className={inputCls(errors.email)} />
+                          {errors.email && <span id="bk-email-err" role="alert" className="text-xs text-error">{errors.email}</span>}
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Phone</label>
-                          <input type="tel" value={data.phone} onChange={e => set({ phone: sanitisePhone(e.target.value) })} placeholder="082 555 0123" maxLength={15} className={inputCls(errors.phone)} />
-                          {errors.phone && <span className="text-xs text-error">{errors.phone}</span>}
+                          <label htmlFor="bk-phone" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Phone</label>
+                          <input id="bk-phone" type="tel" value={data.phone} onChange={e => set({ phone: sanitisePhone(e.target.value) })} placeholder="082 555 0123" maxLength={15} autoComplete="tel" aria-required="true" aria-describedby={errors.phone ? 'bk-phone-err' : undefined} className={inputCls(errors.phone)} />
+                          {errors.phone && <span id="bk-phone-err" role="alert" className="text-xs text-error">{errors.phone}</span>}
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Anything we should know? (optional)</label>
-                        <textarea rows="3" value={data.notes} onChange={e => set({ notes: e.target.value })} placeholder="Sensitivity, anxiety, medication, etc." maxLength={500} className={`${inputCls(errors.notes)} resize-none`} />
-                        {errors.notes && <span className="text-xs text-error">{errors.notes}</span>}
+                        <label htmlFor="bk-notes" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Anything we should know? (optional)</label>
+                        <textarea id="bk-notes" rows="3" value={data.notes} onChange={e => set({ notes: e.target.value })} placeholder="Sensitivity, anxiety, medication, etc." maxLength={500} autoComplete="off" className={`${inputCls(errors.notes)} resize-none`} />
+                        {errors.notes && <span role="alert" className="text-xs text-error">{errors.notes}</span>}
                       </div>
                     </div>
                   )}
@@ -554,7 +554,7 @@
                 </div>
 
                 {submitErr && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-error">{submitErr}</div>
+                  <div role="alert" className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-error">{submitErr}</div>
                 )}
 
                 <div className="mt-6 flex items-center justify-between">
@@ -757,21 +757,21 @@
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Your name</label>
-                      <input value={form.name} onChange={e => set({ name: e.target.value })} placeholder="Lerato Mokoena" maxLength={100} className={inputCls(errors.name)} />
-                      {errors.name && <span className="text-xs text-error">{errors.name}</span>}
+                      <label htmlFor="ct-name" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Your name</label>
+                      <input id="ct-name" value={form.name} onChange={e => set({ name: e.target.value })} placeholder="Lerato Mokoena" maxLength={100} autoComplete="name" aria-required="true" aria-describedby={errors.name ? 'ct-name-err' : undefined} className={inputCls(errors.name)} />
+                      {errors.name && <span id="ct-name-err" role="alert" className="text-xs text-error">{errors.name}</span>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Email</label>
-                        <input type="email" value={form.email} onChange={e => set({ email: e.target.value })} placeholder="you@email.com" maxLength={100} className={inputCls(errors.email)} />
-                        {errors.email && <span className="text-xs text-error">{errors.email}</span>}
+                        <label htmlFor="ct-email" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Email</label>
+                        <input id="ct-email" type="email" value={form.email} onChange={e => set({ email: e.target.value })} placeholder="you@email.com" maxLength={100} autoComplete="email" aria-required="true" aria-describedby={errors.email ? 'ct-email-err' : undefined} className={inputCls(errors.email)} />
+                        {errors.email && <span id="ct-email-err" role="alert" className="text-xs text-error">{errors.email}</span>}
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Phone (optional)</label>
-                        <input type="tel" value={form.phone} onChange={e => set({ phone: sanitisePhone(e.target.value) })} placeholder="082 555 0123" maxLength={15} className={inputCls(errors.phone)} />
-                        {errors.phone && <span className="text-xs text-error">{errors.phone}</span>}
+                        <label htmlFor="ct-phone" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Phone (optional)</label>
+                        <input id="ct-phone" type="tel" value={form.phone} onChange={e => set({ phone: sanitisePhone(e.target.value) })} placeholder="082 555 0123" maxLength={15} autoComplete="tel" className={inputCls(errors.phone)} />
+                        {errors.phone && <span role="alert" className="text-xs text-error">{errors.phone}</span>}
                       </div>
                     </div>
 
@@ -797,20 +797,23 @@
 
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-baseline">
-                        <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Message</label>
-                        <span className={`text-xs tabular-nums transition-colors ${msgNearLimit ? (msgLen >= MSG_MAX ? 'text-error font-semibold' : 'text-amber-500') : 'text-on-surface-variant/50'}`}>
+                        <label htmlFor="ct-message" className="text-xs font-medium text-on-surface-variant uppercase tracking-wide">Message</label>
+                        <span aria-hidden="true" className={`text-xs tabular-nums transition-colors ${msgNearLimit ? (msgLen >= MSG_MAX ? 'text-error font-semibold' : 'text-amber-500') : 'text-on-surface-variant/50'}`}>
                           {msgLen}/{MSG_MAX}
                         </span>
                       </div>
                       <textarea
+                        id="ct-message"
                         rows="4"
                         value={form.message}
                         onChange={e => set({ message: e.target.value })}
                         placeholder={TOPIC_PLACEHOLDERS[form.topic]}
                         maxLength={MSG_MAX}
+                        aria-required="true"
+                        aria-describedby={errors.message ? 'ct-message-err' : undefined}
                         className={`${inputCls(errors.message)} resize-none`}
                       />
-                      {errors.message && <span className="text-xs text-error">{errors.message}</span>}
+                      {errors.message && <span id="ct-message-err" role="alert" className="text-xs text-error">{errors.message}</span>}
                     </div>
 
                     <button type="submit" disabled={submitting || msgLen > MSG_MAX}
@@ -822,8 +825,8 @@
                     </button>
 
                     {submitErr && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-error flex items-start gap-2">
-                        <span className="material-symbols-outlined text-error flex-shrink-0" style={{fontSize:16,marginTop:1}}>error</span>
+                      <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-error flex items-start gap-2">
+                        <span className="material-symbols-outlined text-error flex-shrink-0" aria-hidden="true" style={{fontSize:16,marginTop:1}}>error</span>
                         {submitErr}
                       </div>
                     )}

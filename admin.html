@@ -342,6 +342,7 @@
   }
   @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
   @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes spin { from { transform: translateY(-50%) rotate(0deg); } to { transform: translateY(-50%) rotate(360deg); } }
 
   /* ── Section grids ────────────────────────────────────────── */
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -519,27 +520,32 @@ function showToast(msg, type = 'success') {
 }
 function ToastContainer() {
   const [toasts, setToasts] = useState([]);
+  const dismiss = (id) => setToasts(prev => prev.filter(t => t.id !== id));
   useEffect(() => {
     _toastFn = (msg, type) => {
       const id = Date.now();
       setToasts(prev => [...prev, { id, msg, type }]);
-      setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      setTimeout(() => dismiss(id), 3500);
     };
     return () => { _toastFn = null; };
   }, []);
   if (!toasts.length) return null;
   return (
-    <div style={{position:'fixed', bottom:24, right:24, zIndex:9999, display:'flex', flexDirection:'column', gap:8, pointerEvents:'none'}}>
+    <div style={{position:'fixed', bottom:24, right:24, zIndex:9999, display:'flex', flexDirection:'column', gap:8}} role="region" aria-live="polite" aria-label="Notifications">
       {toasts.map(t => (
-        <div key={t.id} style={{
+        <div key={t.id} role="status" style={{
           background: t.type === 'error' ? 'var(--danger)' : '#16a34a',
-          color: '#fff', borderRadius: 10, padding: '12px 18px',
+          color: '#fff', borderRadius: 10, padding: '12px 14px 12px 18px',
           fontSize: 13, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
           display: 'flex', alignItems: 'center', gap: 8,
           animation: 'toastIn 0.2s ease',
         }}>
-          <span style={{fontSize: 16}}>{t.type === 'error' ? '⚠' : '✓'}</span>
-          {t.msg}
+          <span style={{fontSize: 16}} aria-hidden="true">{t.type === 'error' ? '⚠' : '✓'}</span>
+          <span style={{flex:1}}>{t.msg}</span>
+          <button onClick={() => dismiss(t.id)} aria-label="Dismiss notification"
+            style={{background:'none',border:'none',color:'rgba(255,255,255,0.8)',cursor:'pointer',padding:'0 0 0 4px',fontSize:16,lineHeight:1,flexShrink:0}}>
+            ✕
+          </button>
         </div>
       ))}
     </div>
@@ -652,13 +658,13 @@ function LoginPage({ supabase, onLogin }) {
         <form className="login-form" onSubmit={submit}>
           <div className="field">
             <label>Email</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="staff@kliniq.co.za" required autoFocus />
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="staff@kliniq.co.za" required autoFocus autoComplete="email" />
           </div>
           <div className="field">
             <label>Password</label>
-            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} required />
+            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} required autoComplete="current-password" />
           </div>
-          {err && <div className="login-err">{err}</div>}
+          {err && <div className="login-err" role="alert">{err}</div>}
           {resetSent && <div style={{fontSize:12,color:'var(--green)',marginTop:4,textAlign:'center'}}>
             ✓ Reset link sent — check your inbox.
           </div>}
@@ -686,6 +692,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
   const [lowStock,   setLow]       = useState([]);
   const [revSum,     setRevSum]    = useState(null);
   const [loading,    setLoading]   = useState(true);
+  const [loadErr,    setLoadErr]   = useState('');
   const [quickEdit,  setQuickEdit] = useState(null);
   const [patching,   setPatching]  = useState(false);
   const [showCreate, setShowCreate]= useState(false);
@@ -715,7 +722,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
   }, []);
 
   const load = useCallback(() => {
-    setLoading(true);
+    setLoading(true); setLoadErr('');
     Promise.all([
       api(`/api/appointments?date=${today}`),
       api('/api/analytics?view=low_stock'),
@@ -727,7 +734,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
       setRevSum(r.summary || null);
       setNoShows(ns.appointments || []);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch(e => { setLoadErr(e.message || 'Could not load dashboard data. Please refresh.'); setLoading(false); });
   }, [today, thisMonth]);
 
   useEffect(() => { load(); }, [load]);
@@ -808,6 +815,13 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
 
   return (
     <div>
+      {loadErr && (
+        <div className="alert alert-error" style={{marginBottom:20}} role="alert">
+          <span className="material-symbols-outlined" style={{fontSize:16,verticalAlign:'middle',marginRight:6}}>error</span>
+          {loadErr}
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:12,fontSize:11}} onClick={load}>Retry</button>
+        </div>
+      )}
       {/* ── Greeting ── */}
       <div style={{marginBottom:28}}>
         <div className="eyebrow">Practice Dashboard</div>
@@ -1038,7 +1052,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
                       type="button"
                       className="btn btn-sm"
                       style={{background:'rgba(22,163,74,0.08)',border:'1px solid rgba(22,163,74,0.3)',color:'var(--green)',whiteSpace:'nowrap',flexShrink:0}}
-                      onClick={e => { e.stopPropagation(); if (!window.confirm('Mark this appointment as completed?')) return; quickUpdateStatus(a.id, 'completed'); }}
+                      onClick={e => { e.stopPropagation(); quickUpdateStatus(a.id, 'completed'); }}
                       disabled={patching}
                     >
                       Mark done
@@ -1129,7 +1143,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
                   {fmtDateShort(quickEdit.appointment_date)} at {quickEdit.appointment_time?.slice(0,5)} · {quickEdit.services?.name}
                 </div>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setQuickEdit(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setQuickEdit(null)} aria-label="Close">✕</button>
             </div>
             <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:12}}>
               Update status
@@ -1145,7 +1159,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
                   {(STATUS_TRANSITIONS[quickEdit.status]||[]).map(s => (
                     <button key={s} className="btn btn-ghost btn-sm"
                       style={s==='cancelled'?{borderColor:'var(--danger)',color:'var(--danger)'}:{}}
-                      onClick={() => { if (s==='cancelled') { setQuickCancelPending(true); } else if (s==='completed') { if (!window.confirm('Mark this appointment as completed?')) return; quickUpdateStatus(quickEdit.id, s); } else { quickUpdateStatus(quickEdit.id, s); } }}
+                      onClick={() => { if (s==='cancelled') { setQuickCancelPending(true); } else { quickUpdateStatus(quickEdit.id, s); } }}
                       disabled={patching}>
                       {STATUS_LABELS[s] || s}
                     </button>
@@ -1256,7 +1270,10 @@ function TariffCodePicker({ lines, onChange }) {
           style={{paddingRight:36}}
         />
         {searching && (
-          <span style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:11,color:'var(--muted)'}}>…</span>
+          <span className="material-symbols-outlined" aria-label="Searching…"
+            style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:16,color:'var(--muted)',animation:'spin 1s linear infinite'}}>
+            progress_activity
+          </span>
         )}
         {open && results.length > 0 && (
           <div style={{position:'absolute',zIndex:400,top:'calc(100% + 4px)',left:0,right:0,background:'var(--bg-2)',border:'1px solid var(--border-2)',borderRadius:10,boxShadow:'0 8px 24px rgba(13,45,62,.13)',maxHeight:220,overflowY:'auto'}}>
@@ -1322,7 +1339,7 @@ function TariffCodePicker({ lines, onChange }) {
                   <td style={{padding:'4px 6px',textAlign:'center'}}>
                     <button onClick={() => removeLine(i)}
                       style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',fontSize:14,lineHeight:1,padding:'2px 4px'}}
-                      title="Remove line">✕</button>
+                      title="Remove line" aria-label={`Remove procedure ${l.code}`}>✕</button>
                   </td>
                 </tr>
               ))}
@@ -1390,7 +1407,8 @@ function ICD10CodePicker({ items, onChange }) {
               <span style={{fontFamily:'monospace',fontWeight:700,color:'var(--sage)'}}>{item.code}</span>
               {item.description && <span style={{color:'var(--ink-soft)'}}> · {item.description}</span>}
               <button onClick={() => removeItem(item.code)}
-                style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',fontSize:13,lineHeight:1,padding:'0 0 0 2px',marginTop:1}}>✕</button>
+                style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',fontSize:13,lineHeight:1,padding:'0 0 0 2px',marginTop:1}}
+                aria-label={`Remove diagnosis ${item.code}`}>✕</button>
             </span>
           ))}
         </div>
@@ -1400,7 +1418,12 @@ function ICD10CodePicker({ items, onChange }) {
         <input value={q} onChange={e => setQ(e.target.value)} onFocus={() => results.length && setOpen(true)}
           placeholder="Search ICD-10 diagnosis (e.g. K02.1, caries, periodontitis…)"
           style={{paddingRight:36}} />
-        {searching && <span style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:11,color:'var(--muted)'}}>…</span>}
+        {searching && (
+          <span className="material-symbols-outlined" aria-label="Searching…"
+            style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',fontSize:16,color:'var(--muted)',animation:'spin 1s linear infinite'}}>
+            progress_activity
+          </span>
+        )}
         {open && results.length > 0 && (
           <div style={{position:'absolute',zIndex:400,top:'calc(100% + 4px)',left:0,right:0,background:'var(--bg-2)',border:'1px solid var(--border-2)',borderRadius:10,boxShadow:'0 8px 24px rgba(13,45,62,.13)',maxHeight:200,overflowY:'auto'}}>
             {results.map(r => (
@@ -2034,7 +2057,7 @@ function Appointments({ onNavigate }) {
     setUnlinkedLoading(true);
     api('/api/appointments?needs_link=true')
       .then(d => { setUnlinked(d.appointments || []); setUnlinkedLoading(false); })
-      .catch(() => setUnlinkedLoading(false));
+      .catch(e => { showToast(e.message || 'Could not load unlinked appointments.', 'error'); setUnlinkedLoading(false); });
   }, []);
 
   useEffect(() => { loadUnlinked(); }, [loadUnlinked]);
@@ -2082,9 +2105,9 @@ function Appointments({ onNavigate }) {
   };
 
   const [deletingAppt, setDeletingAppt] = useState(null);
+  const [confirmDeleteAppt, setConfirmDeleteAppt] = useState(null);
   const deleteUnlinked = async (appt) => {
-    const name = [appt.patients?.first_name, appt.patients?.last_name].filter(Boolean).join(' ') || 'this booking';
-    if (!window.confirm(`Delete the unlinked booking for "${name}"?\n\nThis removes bad data entered online — it cannot be undone.`)) return;
+    setConfirmDeleteAppt(null);
     setDeletingAppt(appt.id);
     try {
       await api(`/api/appointments?id=${appt.id}`, { method: 'DELETE' });
@@ -2258,17 +2281,30 @@ function Appointments({ onNavigate }) {
                       <td>{a.services?.name}</td>
                       <td><StatusBadge status={a.status} /></td>
                       <td>
-                        <div style={{display:'flex',gap:6}}>
-                          <button className="btn btn-sm" style={{background:'#fef3c7', border:'1px solid #fcd34d', color:'#92400e'}}
-                            onClick={e => { e.stopPropagation(); setSelected(a); }}>
-                            Open &amp; link
-                          </button>
-                          <button className="btn btn-sm btn-danger"
-                            disabled={deletingAppt === a.id}
-                            onClick={e => { e.stopPropagation(); deleteUnlinked(a); }}>
-                            {deletingAppt === a.id ? '…' : 'Delete'}
-                          </button>
-                        </div>
+                        {confirmDeleteAppt?.id === a.id ? (
+                          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                            <span style={{fontSize:11,color:'var(--danger)',fontWeight:600}}>Delete permanently?</span>
+                            <button className="btn btn-sm" style={{fontSize:11,background:'var(--danger)',color:'#fff',border:'none'}}
+                              disabled={deletingAppt === a.id}
+                              onClick={e => { e.stopPropagation(); deleteUnlinked(a); }}>
+                              {deletingAppt === a.id ? '…' : 'Yes, delete'}
+                            </button>
+                            <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteAppt(null); }}>Cancel</button>
+                          </div>
+                        ) : (
+                          <div style={{display:'flex',gap:6}}>
+                            <button className="btn btn-sm" style={{background:'#fef3c7', border:'1px solid #fcd34d', color:'#92400e'}}
+                              onClick={e => { e.stopPropagation(); setSelected(a); }}>
+                              Open &amp; link
+                            </button>
+                            <button className="btn btn-sm btn-danger"
+                              disabled={deletingAppt === a.id}
+                              onClick={e => { e.stopPropagation(); setConfirmDeleteAppt(a); }}>
+                              {deletingAppt === a.id ? '…' : 'Delete'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -2676,7 +2712,7 @@ function Patients({ initialPatient }) {
     const params = query.trim() ? `?q=${encodeURIComponent(query)}&limit=40` : '?limit=40';
     api(`/api/patients${params}`)
       .then(d => { setPatients(d.patients || []); setTotal(d.total || 0); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { showToast(e.message || 'Could not load patients.', 'error'); setLoading(false); });
   }, []);
 
   useEffect(() => { load(''); }, []);
@@ -2832,8 +2868,9 @@ function ConsentDocs({ patient, onUpdate }) {
     } finally { setUploading(false); }
   };
 
+  const [confirmRemoveDoc, setConfirmRemoveDoc] = useState(null);
   const removeDoc = async (docId) => {
-    if (!window.confirm('Remove this document? This cannot be undone.')) return;
+    setConfirmRemoveDoc(null);
     const updated = docs.filter(d => d.id !== docId);
     try {
       await api(`/api/patients?id=${patient.id}`, {
@@ -2881,13 +2918,23 @@ function ConsentDocs({ patient, onUpdate }) {
               {doc.doc_type} · {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : ''}
             </div>
           </div>
-          <div style={{display:'flex',gap:6,flexShrink:0}}>
+          <div style={{display:'flex',gap:6,flexShrink:0,alignItems:'center'}}>
             {doc.url && (
               <a href={doc.url} target="_blank" rel="noopener noreferrer"
                 className="btn btn-ghost btn-sm" style={{fontSize:11}}>View</a>
             )}
-            <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--danger)'}}
-              onClick={() => removeDoc(doc.id)}>Remove</button>
+            {confirmRemoveDoc === doc.id ? (
+              <>
+                <span style={{fontSize:11,color:'var(--danger)',fontWeight:600}}>Remove?</span>
+                <button className="btn btn-sm" style={{fontSize:11,background:'var(--danger)',color:'#fff',border:'none'}}
+                  onClick={() => removeDoc(doc.id)}>Yes</button>
+                <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
+                  onClick={() => setConfirmRemoveDoc(null)}>Cancel</button>
+              </>
+            ) : (
+              <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--danger)'}}
+                onClick={() => setConfirmRemoveDoc(doc.id)}>Remove</button>
+            )}
           </div>
         </div>
       ))}
@@ -2985,7 +3032,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     setDetailLoad(true);
     api(`/api/patients?id=${patient.id}`)
       .then(d => { setDetail(d.patient); setDetailLoad(false); })
-      .catch(() => setDetailLoad(false));
+      .catch(e => { showToast(e.message || 'Could not load patient record.', 'error'); setDetailLoad(false); });
   }, [patient.id]);
 
   useEffect(() => {
@@ -3015,7 +3062,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     setPtPlansLoad(true); setPtPlans([]);
     api(`/api/appointments?resource=treatment_plans&patient_id=${detail.id}`)
       .then(d => { setPtPlans(d.plans || []); setPtPlansLoad(false); })
-      .catch(() => setPtPlansLoad(false));
+      .catch(e => { showToast(e.message || 'Could not load treatment plans.', 'error'); setPtPlansLoad(false); });
   }, [tab, detail?.id]);
 
   const togglePlan = async (planId) => {
@@ -3145,7 +3192,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     try {
       await api(`/api/patients?id=${patient.id}`, { method: 'DELETE' });
       onDelete(patient.id);
-    } catch(e) { alert(e.message || 'Could not delete.'); setDeleting(false); setConfirmDel(false); }
+    } catch(e) { showToast(e.message || 'Could not delete patient. Please try again.', 'error'); setDeleting(false); setConfirmDel(false); }
   };
 
   const d = detail;
@@ -3187,7 +3234,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
             {editing
               ? <span style={{fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Editing patient record</span>
               : <span />}
-            <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={onClose}>✕ Close</button>
+            <button className="btn btn-ghost btn-sm" style={{fontSize:11,minHeight:44,paddingTop:8,paddingBottom:8}} onClick={onClose} aria-label="Close patient record">✕ Close</button>
           </div>
 
           {(d || patient) && (
@@ -3216,9 +3263,13 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
           )}
 
           {!editing && (
-            <div className="pt-tabs">
+            <div className="pt-tabs" role="tablist" aria-label="Patient record sections">
               {TABS.map(t => (
-                <div key={t} className={`pt-tab${tab===t?' on':''}`} onClick={()=>setTab(t)}>{t}</div>
+                <button key={t} role="tab" aria-selected={tab===t} aria-controls={`pt-tab-panel-${t.replace(/\s+/g,'-')}`}
+                  className={`pt-tab${tab===t?' on':''}`} onClick={()=>setTab(t)}
+                  style={{background:'none',border:'none',cursor:'pointer',font:'inherit',padding:0}}>
+                  {t}
+                </button>
               ))}
             </div>
           )}
@@ -5139,6 +5190,7 @@ function AnalyticsPage() {
 function InventoryPage() {
   const [items,    setItems]    = useState([]);
   const [loading,  setLoading]  = useState(true);
+  const [loadErr,  setLoadErr]  = useState('');
   const [selected, setSelected] = useState(null);
   const [detail,   setDetail]   = useState(null);
   const [showAdd,  setShowAdd]  = useState(false);
@@ -5146,18 +5198,20 @@ function InventoryPage() {
   const [filter,   setFilter]   = useState('');
 
   const load = () => {
-    setLoading(true);
+    setLoading(true); setLoadErr('');
     api('/api/inventory')
       .then(d => { setItems(d.items || []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { setLoadErr(e.message || 'Could not load inventory. Please try again.'); setLoading(false); });
   };
 
   useEffect(() => { load(); }, []);
 
   const openItem = async (item) => {
     setSelected(item); setDetail(null);
-    const d = await api(`/api/inventory?item_id=${item.id}`).catch(()=>null);
-    if (d) setDetail(d);
+    try {
+      const d = await api(`/api/inventory?item_id=${item.id}`);
+      setDetail(d);
+    } catch(e) { showToast(e.message || 'Could not load item details.', 'error'); }
   };
 
   const filtered = useMemo(() => {
@@ -5182,6 +5236,14 @@ function InventoryPage() {
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add item</button>
       </div>
+
+      {loadErr && (
+        <div className="alert alert-error" style={{marginBottom:16}} role="alert">
+          <span className="material-symbols-outlined" style={{fontSize:16,verticalAlign:'middle',marginRight:6}}>error</span>
+          {loadErr}
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:12,fontSize:11}} onClick={load}>Retry</button>
+        </div>
+      )}
 
       <div className="search-bar">
         <input type="search" placeholder="Filter by name or category…" value={filter} onChange={e=>setFilter(e.target.value)} />
@@ -5432,15 +5494,16 @@ function RevenuePage() {
   const [month,   setMonth]   = useState(now.getMonth() + 1);
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState('');
   const [payAppt, setPayAppt] = useState(null);
 
   const monthStr = `${year}-${String(month).padStart(2,'0')}`;
 
   const load = () => {
-    setLoading(true);
+    setLoading(true); setLoadErr('');
     api(`/api/revenue?month=${monthStr}`)
       .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { setLoadErr(e.message || 'Could not load revenue data. Please try again.'); setLoading(false); });
   };
 
   useEffect(() => { load(); }, [monthStr]);
@@ -5478,6 +5541,14 @@ function RevenuePage() {
           <button className="btn btn-ghost btn-sm" onClick={nextMonth} style={{fontSize:18,lineHeight:1,padding:'4px 10px'}}>›</button>
         </div>
       </div>
+
+      {loadErr && (
+        <div className="alert alert-error" style={{marginBottom:20}} role="alert">
+          <span className="material-symbols-outlined" style={{fontSize:16,verticalAlign:'middle',marginRight:6}}>error</span>
+          {loadErr}
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:12,fontSize:11}} onClick={load}>Retry</button>
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="stat-grid" style={{marginBottom:24}}>
@@ -5749,12 +5820,13 @@ function ServicesPage() {
   const [saving,   setSaving]   = useState(false);
   const [formErr,  setFormErr]  = useState('');
   const [toggling, setToggling] = useState(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(null); // service pending deactivation confirm
 
   const load = useCallback(() => {
     setLoading(true);
     api(`/api/services?all=${showAll}`)
       .then(d => { setServices(d.services || []); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(e => { showToast(e.message || 'Could not load services.', 'error'); setLoading(false); });
   }, [showAll]);
 
   useEffect(() => { load(); }, [load]);
@@ -5810,8 +5882,8 @@ function ServicesPage() {
     finally { setSaving(false); }
   };
 
-  const toggleActive = async (svc) => {
-    if (svc.active && !window.confirm(`Deactivate "${svc.name}"? It will no longer appear in the booking form, but existing appointments won't be affected.`)) return;
+  const doToggleActive = async (svc) => {
+    setConfirmDeactivate(null);
     setToggling(svc.id);
     try {
       await api(`/api/services?id=${svc.id}`, { method:'PATCH', body: JSON.stringify({ active: !svc.active }) });
@@ -5819,6 +5891,11 @@ function ServicesPage() {
       showToast(svc.active ? `"${svc.name}" deactivated` : `"${svc.name}" is now active`);
     } catch(e) { showToast(e.message, 'error'); }
     finally { setToggling(null); }
+  };
+
+  const toggleActive = (svc) => {
+    if (svc.active) { setConfirmDeactivate(svc); return; }
+    doToggleActive(svc);
   };
 
   const grouped = useMemo(() => {
@@ -5886,12 +5963,22 @@ function ServicesPage() {
                         </span>
                       </td>
                       <td>
-                        <div style={{display:'flex',gap:6}}>
-                          <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>Edit</button>
-                          <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(s)} disabled={toggling===s.id}>
-                            {toggling===s.id ? '…' : s.active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </div>
+                        {confirmDeactivate?.id === s.id ? (
+                          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                            <span style={{fontSize:11,color:'var(--danger)',fontWeight:600}}>Deactivate?</span>
+                            <button className="btn btn-sm" style={{fontSize:11,background:'var(--danger)',color:'#fff',border:'none'}}
+                              onClick={() => doToggleActive(s)}>Yes</button>
+                            <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
+                              onClick={() => setConfirmDeactivate(null)}>Cancel</button>
+                          </div>
+                        ) : (
+                          <div style={{display:'flex',gap:6}}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>Edit</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => toggleActive(s)} disabled={toggling===s.id}>
+                              {toggling===s.id ? '…' : s.active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -5967,6 +6054,7 @@ const MSG_STATUS_LABEL = { new:'New', read:'Read', archived:'Archived' };
 function MessagesPage() {
   const [msgs,       setMsgs]      = useState([]);
   const [loading,    setLoading]   = useState(true);
+  const [loadErr,    setLoadErr]   = useState('');
   const [statusFilt, setStatusFilt]= useState('new');
   const [selected,   setSelected]  = useState(null);
   const [page,       setPage]      = useState(1);
@@ -5975,7 +6063,7 @@ function MessagesPage() {
   const LIMIT = 20;
 
   const load = useCallback((pg, sf) => {
-    setLoading(true);
+    setLoading(true); setLoadErr('');
     const params = [`page=${pg}`, `limit=${LIMIT}`];
     if (sf) params.push(`status=${sf}`);
     api('/api/contact?' + params.join('&'))
@@ -5985,7 +6073,7 @@ function MessagesPage() {
         setPages(d.pages || 1);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(e => { setLoadErr(e.message || 'Could not load messages. Please try again.'); setLoading(false); });
   }, []);
 
   useEffect(() => { setPage(1); load(1, statusFilt); }, [statusFilt]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5996,7 +6084,7 @@ function MessagesPage() {
       await api(`/api/contact?id=${id}`, { method:'PATCH', body: JSON.stringify({ status }) });
       setMsgs(prev => prev.map(m => m.id === id ? { ...m, status } : m));
       if (selected?.id === id) setSelected(s => ({ ...s, status }));
-    } catch(e) { alert(e.message); }
+    } catch(e) { showToast(e.message || 'Could not update message status.', 'error'); }
   };
 
   const openMsg = async (msg) => {
@@ -6020,6 +6108,14 @@ function MessagesPage() {
           ))}
         </div>
       </div>
+
+      {loadErr && (
+        <div className="alert alert-error" style={{marginBottom:16}} role="alert">
+          <span className="material-symbols-outlined" style={{fontSize:16,verticalAlign:'middle',marginRight:6}}>error</span>
+          {loadErr}
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:12,fontSize:11}} onClick={() => load(page, statusFilt)}>Retry</button>
+        </div>
+      )}
 
       <div className="card" style={{padding:0,overflow:'hidden'}}>
         <div className="table-wrap">
@@ -6297,7 +6393,7 @@ function CreateClaimModal({ show, onClose, onCreated, prefill }) {
       <div className="modal" style={{maxWidth:680,maxHeight:'90vh',overflowY:'auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <div style={{fontSize:18,fontWeight:700,color:'var(--ink)'}}>New MA Claim</div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         {err && <div className="error-banner" style={{marginBottom:12}}>{err}</div>}
@@ -6452,7 +6548,7 @@ function RemittanceModal({ claim, lines, onClose, onSaved }) {
             <div style={{fontSize:18,fontWeight:700,color:'var(--ink)'}}>Record Remittance</div>
             <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>{claim.scheme_name} · Claim R {Number(claim.total_charged).toFixed(2)}</div>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
         {err && <div className="error-banner" style={{marginBottom:12}}>{err}</div>}
@@ -6593,7 +6689,7 @@ function PreAuthModal({ preAuth, patient: initPatient, onClose, onSaved }) {
       <div className="modal" style={{maxWidth:540}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <div style={{fontSize:18,fontWeight:700,color:'var(--ink)'}}>{isEdit?'Update Pre-Auth':'New Pre-Auth Request'}</div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
         </div>
         {err && <div className="error-banner" style={{marginBottom:12}}>{err}</div>}
 
@@ -6766,7 +6862,7 @@ function ClaimDetailModal({ claimId, onClose, onUpdated }) {
               </div>
             </div>
             <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:8}}>
-              <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
               <ClaimStatusChip status={claim.status} />
             </div>
           </div>
@@ -7223,11 +7319,12 @@ function SettingsPage({ supabase, session }) {
   const [inviteErr,    setInviteErr]    = useState('');
   const [inviteOk,     setInviteOk]     = useState(false);
   const [removing,     setRemoving]     = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(null); // staff member pending removal confirmation
 
   useEffect(() => {
     api('/api/staff')
       .then(d => { setStaff(d.staff || []); setStaffLoading(false); })
-      .catch(() => setStaffLoading(false));
+      .catch(e => { showToast(e.message || 'Could not load staff list.', 'error'); setStaffLoading(false); });
   }, []);
 
   const sendInvite = async () => {
@@ -7258,7 +7355,7 @@ function SettingsPage({ supabase, session }) {
   };
 
   const removeStaff = async (s) => {
-    if (!window.confirm(`Remove ${s.name || s.email} from the practice? They will no longer be able to log in.`)) return;
+    setConfirmRemove(null);
     setRemoving(s.id);
     try {
       await api(`/api/staff?id=${s.id}`, { method: 'DELETE' });
@@ -7341,11 +7438,21 @@ function SettingsPage({ supabase, session }) {
                   </div>
                   {isMe ? (
                     <span style={{fontSize:11,color:'var(--sage)',fontWeight:600,background:'rgba(10,74,92,0.08)',padding:'3px 10px',borderRadius:20}}>You</span>
+                  ) : confirmRemove?.id === s.id ? (
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+                      <span style={{fontSize:11,color:'var(--danger)',fontWeight:600}}>Remove?</span>
+                      <button className="btn btn-sm" style={{fontSize:11,background:'var(--danger)',color:'#fff',border:'none'}}
+                        disabled={removing === s.id} onClick={() => removeStaff(s)}>
+                        {removing === s.id ? 'Removing…' : 'Yes, remove'}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
+                        onClick={() => setConfirmRemove(null)}>Cancel</button>
+                    </div>
                   ) : (
                     <button className="btn btn-ghost btn-sm"
                       style={{fontSize:11,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
                       disabled={removing === s.id}
-                      onClick={() => removeStaff(s)}>
+                      onClick={() => setConfirmRemove(s)}>
                       {removing === s.id ? 'Removing…' : 'Remove'}
                     </button>
                   )}
@@ -7474,6 +7581,7 @@ function SettingsPage({ supabase, session }) {
 function ReviewsPage({ unreadCount = 0 }) {
   const [reviews,   setReviews]   = useState([]);
   const [loading,   setLoading]   = useState(true);
+  const [loadErr,   setLoadErr]   = useState('');
   const [filter,    setFilter]    = useState('all');   // all | new | read | 1..5
   const [selected,  setSelected]  = useState(null);
   const [total,     setTotal]     = useState(0);
@@ -7483,7 +7591,7 @@ function ReviewsPage({ unreadCount = 0 }) {
   const LIMIT = 20;
 
   const load = useCallback((pg = 1, f = filter) => {
-    setLoading(true);
+    setLoading(true); setLoadErr('');
     const params = [`page=${pg}`, `limit=${LIMIT}`];
     if (f === 'new' || f === 'read') params.push(`status=${f}`);
     if (/^\d$/.test(f)) params.push(`rating=${f}`);
@@ -7496,7 +7604,7 @@ function ReviewsPage({ unreadCount = 0 }) {
         setPage(pg);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(e => { setLoadErr(e.message || 'Could not load reviews. Please try again.'); setLoading(false); });
   }, [filter]);
 
   useEffect(() => { load(1, filter); }, [filter]);
@@ -7539,6 +7647,13 @@ function ReviewsPage({ unreadCount = 0 }) {
 
   return (
     <div>
+      {loadErr && (
+        <div className="alert alert-error" style={{marginBottom:16}} role="alert">
+          <span className="material-symbols-outlined" style={{fontSize:16,verticalAlign:'middle',marginRight:6}}>error</span>
+          {loadErr}
+          <button className="btn btn-ghost btn-sm" style={{marginLeft:12,fontSize:11}} onClick={() => load(page, filter)}>Retry</button>
+        </div>
+      )}
       {/* Summary */}
       <div className="stat-grid" style={{marginBottom:24}}>
         <div className="stat-card">
@@ -7697,7 +7812,7 @@ function ReviewsPage({ unreadCount = 0 }) {
                   {selected.treatment && ` · ${selected.treatment}`}
                 </div>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} aria-label="Close">✕</button>
             </div>
 
             <div style={{background:'var(--bg-3)',borderRadius:12,padding:'16px 18px',
@@ -8165,7 +8280,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
           <div className="modal" style={{maxWidth:640}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:4}}>
               <h3 className="modal-title" style={{margin:0}}>{selected.title}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>✕</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} aria-label="Close">✕</button>
             </div>
             <p className="modal-sub">
               {selected.patients ? (
@@ -8326,14 +8441,23 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
               )}
               <div style={{marginLeft:'auto',display:'flex',gap:8}}>
                 {['active','paused'].includes(selected.status) && (
-                  <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
-                    onClick={async () => {
-                      if (!window.confirm('Cancel this treatment plan?')) return;
-                      try { await updatePlanStatus(selected.id, 'cancelled'); setSelected(null); }
-                      catch {}
-                    }}>
-                    Cancel plan
-                  </button>
+                  selected._confirmCancel ? (
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{fontSize:12,color:'var(--danger)',fontWeight:600}}>Cancel this plan?</span>
+                      <button className="btn btn-sm" style={{fontSize:11,background:'var(--danger)',color:'#fff',border:'none'}}
+                        onClick={async () => {
+                          try { await updatePlanStatus(selected.id, 'cancelled'); setSelected(null); }
+                          catch {}
+                        }}>Yes, cancel</button>
+                      <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
+                        onClick={() => setSelected(p => ({...p, _confirmCancel: false}))}>Keep plan</button>
+                    </div>
+                  ) : (
+                    <button className="btn btn-ghost btn-sm" style={{color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
+                      onClick={() => setSelected(p => ({...p, _confirmCancel: true}))}>
+                      Cancel plan
+                    </button>
+                  )
                 )}
                 <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)}>Close</button>
               </div>
@@ -8899,24 +9023,30 @@ function Shell({ session, supabase, onLogout }) {
             </div>
           )}
         </div>
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Main navigation">
           {NAV.map(n => (
-            <div key={n.id} className={`nav-item ${page===n.id?'active':''}`}
+            <button key={n.id} className={`nav-item ${page===n.id?'active':''}`}
               title={sidebarCollapsed ? n.label : ''}
-              onClick={()=>{ navigate(n.id); setSidebarOpen(false); }}>
-              <span className="nav-icon material-symbols-outlined">{n.icon}</span>
+              aria-label={n.label + (n.id==='messages'&&unreadMsgs>0 ? ` (${unreadMsgs} unread)` : n.id==='reviews'&&unreadReviews>0 ? ` (${unreadReviews} unread)` : '')}
+              aria-current={page===n.id ? 'page' : undefined}
+              onClick={()=>{ navigate(n.id); setSidebarOpen(false); }}
+              style={{background:'none',border:'none',cursor:'pointer',font:'inherit',padding:0,width:'100%',textAlign:'left'}}>
+              <span className="nav-icon material-symbols-outlined" aria-hidden="true">{n.icon}</span>
               {!sidebarCollapsed && <span className="nav-label">{n.label}</span>}
               {!sidebarCollapsed && n.id === 'messages' && unreadMsgs > 0 && (
-                <span className="nav-badge">{unreadMsgs > 99 ? '99+' : unreadMsgs}</span>
+                <span className="nav-badge" aria-hidden="true">{unreadMsgs > 99 ? '99+' : unreadMsgs}</span>
               )}
               {!sidebarCollapsed && n.id === 'reviews' && unreadReviews > 0 && (
-                <span className="nav-badge">{unreadReviews > 99 ? '99+' : unreadReviews}</span>
+                <span className="nav-badge" aria-hidden="true">{unreadReviews > 99 ? '99+' : unreadReviews}</span>
               )}
-            </div>
+            </button>
           ))}
         </nav>
-        <button className="sidebar-collapse-btn" onClick={toggleCollapse} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          <span className="material-symbols-outlined" style={{fontSize:18}}>
+        <button className="sidebar-collapse-btn" onClick={toggleCollapse}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!sidebarCollapsed}>
+          <span className="material-symbols-outlined" style={{fontSize:18}} aria-hidden="true">
             {sidebarCollapsed ? 'chevron_right' : 'chevron_left'}
           </span>
         </button>
@@ -8929,7 +9059,7 @@ function Shell({ session, supabase, onLogout }) {
                 <div className="user-role">Practice staff</div>
               </div>
             )}
-            {!sidebarCollapsed && <button className="btn-logout" onClick={logout} title="Sign out">✕</button>}
+            {!sidebarCollapsed && <button className="btn-logout" onClick={logout} title="Sign out" aria-label="Sign out">✕</button>}
           </div>
         </div>
       </aside>
@@ -8979,7 +9109,7 @@ function App() {
           setToken(s?.access_token || null);
         });
       })
-      .catch(() => setBooting(false));
+      .catch(e => { console.error('Boot failed:', e); setBooting(false); });
   }, []);
 
   if (booting) return (

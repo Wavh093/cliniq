@@ -82,11 +82,17 @@ module.exports = async function handler(req, res) {
   }
 
   // ── Send via Expo push service ────────────────────────────────
+  // Only forward the specific data fields we expect — never spread the raw
+  // webhook body into the push payload, as the caller controls that object.
+  const safeData = { type };
+  if (typeof data.name   === 'string') safeData.name   = data.name.slice(0, 100);
+  if (typeof data.amount === 'number') safeData.amount = data.amount;
+
   const messages = tokens.map(to => ({
     to,
     title,
     body:     notifBody,
-    data:     { type, ...data },
+    data:     safeData,
     sound:    'default',
     priority: 'high',
   }));

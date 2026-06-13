@@ -13,12 +13,13 @@
  *   → 200 { success: true }
  *   Auth required. Deactivates a staff member (cannot remove yourself).
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const user = await requireAuth(req, res);
+  // Staff management requires verified practice membership — not just a valid JWT
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();

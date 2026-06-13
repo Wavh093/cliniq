@@ -169,6 +169,11 @@ module.exports = async function handler(req, res) {
   return res.status(405).json({ error: 'Method not allowed' });
 };
 
+/** Escape user input before embedding in HTML email bodies. */
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 function topicLabel(topic) {
   const map = {
     general:     'General question',
@@ -181,25 +186,32 @@ function topicLabel(topic) {
 }
 
 function practiceAlertHtml({ name, email, phone, topic, message }) {
+  // All user input MUST be escaped — XSS in email HTML can execute in some clients.
+  const n = escapeHtml(name);
+  const e = escapeHtml(email);
+  const p = phone ? escapeHtml(phone) : null;
+  const m = escapeHtml(message);
+  const t = escapeHtml(topicLabel(topic));
   return `
     <div style="font-family:monospace;max-width:480px;margin:0 auto;color:#1a1a1a">
       <p style="font-size:11px;color:#666;margin:0 0 16px">NEW CONTACT FORM — OH DENTAL STUDIO</p>
       <table style="width:100%;border-collapse:collapse">
-        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666;width:30%">From</td><td style="padding:8px 0;border-top:1px solid #eee">${name}</td></tr>
-        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666">Email</td><td style="padding:8px 0;border-top:1px solid #eee"><a href="mailto:${email}">${email}</a></td></tr>
-        ${phone ? `<tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666">Phone</td><td style="padding:8px 0;border-top:1px solid #eee">${phone}</td></tr>` : ''}
-        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666">Topic</td><td style="padding:8px 0;border-top:1px solid #eee">${topicLabel(topic)}</td></tr>
-        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666;vertical-align:top">Message</td><td style="padding:8px 0;border-top:1px solid #eee;white-space:pre-wrap">${message}</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666;width:30%">From</td><td style="padding:8px 0;border-top:1px solid #eee">${n}</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666">Email</td><td style="padding:8px 0;border-top:1px solid #eee"><a href="mailto:${e}">${e}</a></td></tr>
+        ${p ? `<tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666">Phone</td><td style="padding:8px 0;border-top:1px solid #eee">${p}</td></tr>` : ''}
+        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666">Topic</td><td style="padding:8px 0;border-top:1px solid #eee">${t}</td></tr>
+        <tr><td style="padding:8px 0;border-top:1px solid #eee;font-size:11px;color:#666;vertical-align:top">Message</td><td style="padding:8px 0;border-top:1px solid #eee;white-space:pre-wrap">${m}</td></tr>
       </table>
     </div>`;
 }
 
 function autoReplyHtml({ name }) {
+  const n = escapeHtml(name);
   return `
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#2A3128">
       <div style="background:#F2EDE4;padding:40px 48px;border-radius:8px">
         <p style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:#8A8478;margin:0 0 28px">OH Dental Studio</p>
-        <h1 style="font-size:32px;font-weight:400;margin:0 0 16px">Thanks, ${name}.</h1>
+        <h1 style="font-size:32px;font-weight:400;margin:0 0 16px">Thanks, ${n}.</h1>
         <p style="color:#4C5347;margin:0 0 16px">Your message is on its way. We read every one ourselves and reply within one working day.</p>
         <p style="color:#4C5347;margin:0 0 32px">If it's urgent, call us on <strong>011 660 2400</strong> (Mon–Fri 08:00–17:00, Sat 09:00–13:00).</p>
         <p style="font-size:12px;color:#8A8478;margin:0;padding-top:20px;border-top:1px solid #D9D1C0">Where the best smiles are made.</p>

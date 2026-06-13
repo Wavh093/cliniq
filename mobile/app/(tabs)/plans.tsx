@@ -80,7 +80,6 @@ export default function PlansScreen() {
         activeOpacity={0.75}
       >
         <View style={s.cardTop}>
-          <View style={[s.statusDot, { backgroundColor: dotColor }]} />
           <View style={s.cardMid}>
             <Text style={s.planTitle} numberOfLines={1}>{item.title}</Text>
             {patient && (
@@ -98,17 +97,22 @@ export default function PlansScreen() {
         <ProgressBar done={item.sessions_done} total={item.total_sessions} />
 
         <View style={s.cardBottom}>
-          <Text style={s.pct}>{pct}% complete</Text>
+          <View style={[s.statusBadge, { backgroundColor: dotColor + '22', borderColor: dotColor + '44' }]}>
+            <View style={[s.statusDot, { backgroundColor: dotColor }]} />
+            <Text style={[s.statusBadgeText, { color: dotColor }]}>
+              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+            </Text>
+          </View>
           {nextDue
             ? <Text style={s.nextDue}>Next: {nextDue}</Text>
-            : <Text style={s.nextDue} /> }
+            : <Text style={s.pct}>{pct}% complete</Text>}
         </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={s.safe} edges={['top']}>
+    <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
         <Text style={s.title}>Plans</Text>
       </View>
@@ -164,7 +168,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  statusDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginTop: 2 },
   cardMid:   { flex: 1 },
   planTitle: { fontSize: 15, fontWeight: '600', color: C.ink },
   patientName: { fontSize: 13, color: C.muted, marginTop: 2 },
@@ -174,8 +177,20 @@ const s = StyleSheet.create({
   cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
+    alignItems: 'center',
+    marginTop: 10,
   },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusDot:       { width: 6, height: 6, borderRadius: 3 },
+  statusBadgeText: { fontSize: 11, fontWeight: '600' },
   pct:     { fontSize: 12, color: C.muted },
   nextDue: { fontSize: 12, color: C.sage, fontWeight: '500' },
 });

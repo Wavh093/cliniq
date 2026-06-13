@@ -24,13 +24,21 @@ function adminClient() {
 const ALLOWED_ORIGINS = new Set([
   'https://ohdental.co.za',
   'https://www.ohdental.co.za',
+  // Cliniq admin + mobile web
+  'https://cliniq-five.vercel.app',
+  // OH Dental Studio admin
+  'https://oh-dental-studio.vercel.app',
 ]);
 
 function isAllowedOrigin(origin) {
   if (!origin) return false; // server-to-server calls have no Origin header — handled below
   if (ALLOWED_ORIGINS.has(origin)) return true;
-  // Allow Vercel preview deployments: *.vercel.app
-  if (/^https:\/\/[a-z0-9-]+-[a-z0-9-]+\.vercel\.app$/.test(origin)) return true;
+  // Allow Vercel preview builds for the two known projects ONLY.
+  // Pattern: <project-name>-<git-hash-or-branch>-<team>.vercel.app
+  // Tightened from the previous wildcard *.vercel.app which allowed
+  // ANY Vercel-hosted app to make credentialed cross-origin requests.
+  if (/^https:\/\/cliniq(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) return true;
+  if (/^https:\/\/oh-dental-studio(-[a-z0-9-]+)?\.vercel\.app$/.test(origin)) return true;
   return false;
 }
 
@@ -101,4 +109,34 @@ async function requireAuth(req, res) {
   return user;
 }
 
-module.exports = { adminClient, cors, parseBody, PRACTICE_ID, requireAuth };
+/**
+ * Like requireAuth, but additionally verifies the user is an active staff member
+ * of this practice. Use this on any endpoint that modifies data or accesses PII.
+ *
+ * Returns the Supabase user (augmented with staffId + role) or null (401/403 sent).
+ *
+ *   const user = await requireStaff(req, res);
+ *   if (!user) return;
+ */
+async function requireStaff(req, res) {
+  const user = await requireAuth(req, res);
+  if (!user) return null;
+
+  const db = adminClient();
+  const { data: staff } = await db
+    .from('staff')
+    .select('id, role')
+    .eq('practice_id', PRACTICE_ID)
+    .eq('auth_user_id', user.id)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (!staff) {
+    res.status(403).json({ error: 'Access denied. Staff account required.' });
+    return null;
+  }
+
+  return { ...user, staffId: staff.id, role: staff.role };
+}
+
+module.exports = { adminClient, cors, parseBody, PRACTICE_ID, requireAuth, requireStaff };

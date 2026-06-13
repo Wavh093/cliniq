@@ -80,7 +80,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* LOGOUT */}
-        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8} accessibilityLabel="Log out of Cliniq" accessibilityRole="button">
           <Ionicons name="log-out-outline" size={20} color="#fff" />
           <Text style={s.logoutText}>Log out</Text>
         </TouchableOpacity>

@@ -124,14 +124,23 @@ const GOOGLE_URL = 'https://g.page/r/OH-Dental-Studio-Krugersdorp/review';
 
 function StarRating({ value, onChange, hover, onHover, onLeave }) {
   return (
-    <div className="stars">
+    <div className="stars" role="radiogroup" aria-label="Star rating">
       {[1,2,3,4,5].map(n => (
-        <span key={n}
+        <button key={n}
+          type="button"
+          role="radio"
+          aria-checked={value === n}
+          aria-label={`Rate ${n} star${n !== 1 ? 's' : ''}`}
           className={`star ${(hover || value) >= n ? 'filled' : 'empty'}`}
           onClick={() => onChange(n)}
           onMouseEnter={() => onHover(n)}
           onMouseLeave={onLeave}
-        >★</span>
+          onKeyDown={e => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); onChange(Math.min(5, n + 1)); }
+            if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { e.preventDefault(); onChange(Math.max(1, n - 1)); }
+          }}
+          style={{background:'none',border:'none',padding:0,cursor:'pointer'}}
+        >★</button>
       ))}
     </div>
   );
@@ -285,16 +294,16 @@ function ReviewApp() {
           <div className="field">
             <label>Your name</label>
             <input value={name} onChange={e => setName(e.target.value)}
-              placeholder="e.g. Thandi N." />
+              placeholder="e.g. Thandi N." autoComplete="name" />
           </div>
           <div className="field">
             <label>Email address</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="We will not share this" />
+              placeholder="We will not share this" autoComplete="email" />
           </div>
         </div>
 
-        {error && <div className="alert-error">{error}</div>}
+        {error && <div className="alert-error" role="alert">{error}</div>}
 
         <button className="submit-btn" onClick={submit} disabled={saving || !rating}>
           {saving ? 'Sending your review…' : 'Submit my review'}

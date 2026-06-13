@@ -43,7 +43,11 @@ export default function PlanDetailScreen() {
   const [error,   setError]   = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setError('Plan ID missing');
+      setLoading(false);
+      return;
+    }
     getTreatmentPlan(id)
       .then(({ plan: p }) => setPlan(p as FullPlan))
       .catch(e => setError(e.message ?? 'Could not load plan'))
@@ -52,9 +56,15 @@ export default function PlanDetailScreen() {
 
   if (loading) {
     return (
-      <View style={s.center}>
-        <ActivityIndicator color={C.sage} size="large" />
-      </View>
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color={C.sage} />
+          <Text style={s.backText}>Plans</Text>
+        </TouchableOpacity>
+        <View style={s.center}>
+          <ActivityIndicator color={C.sage} size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 

@@ -9,7 +9,7 @@
  * PATCH ?id=UUID { ...fields }               → 200 { success }      Auth required
  * DELETE ?id=UUID                            → 200 { success }      Auth required
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth, requireStaff } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rateLimit');
 
 module.exports = async function handler(req, res) {
@@ -119,7 +119,7 @@ module.exports = async function handler(req, res) {
         .from('appointments')
         .select(`
           id, appointment_date, appointment_time, duration_minutes,
-          status, patient_notes, internal_notes, created_at,
+          status, patient_notes, internal_notes, clinical_notes, created_at,
           services ( name, category, price_from )
         `)
         .eq('patient_id', id)
@@ -151,7 +151,10 @@ module.exports = async function handler(req, res) {
       // `"`) from each term to prevent filter-string injection before building `pat`.
       // The `%` wildcards are intentional and safe as ILIKE wildcards.
       for (const rawTerm of searchInput.split(/\s+/)) {
-        const term = rawTerm.replace(/[.,()"\\']/g, '');
+        // Strip PostgREST filter-string operators in addition to SQL metacharacters.
+        // Allowed through: alphanumerics, spaces, @, +, -, _, digits.
+        // Stripped: . , ( ) " \ ' | ! * : ; < > = ~ ^ ` { } [ ]
+        const term = rawTerm.replace(/[^a-zA-Z0-9@+\-_ ]/g, '');
         if (!term) continue;
         const pat = `%${term}%`;
         query = query.or(`first_name.ilike.${pat},last_name.ilike.${pat},email.ilike.${pat},phone.ilike.${pat},medical_aid_number.ilike.${pat}`);
@@ -196,7 +199,9 @@ module.exports = async function handler(req, res) {
       { auth: { persistSession: false } }
     );
 
-    const docId   = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    // Use cryptographically random bytes — Math.random() paths are guessable.
+    const { randomBytes } = require('crypto');
+    const docId   = `${Date.now()}-${randomBytes(8).toString('hex')}`;
     const ext     = file_name.split('.').pop() || 'pdf';
     const path    = `${PRACTICE_ID}/${patient_id}/${docId}.${ext}`;
 
@@ -339,8 +344,31 @@ module.exports = async function handler(req, res) {
 
     const body = await parseBody(req);
 
-    // Strip read-only fields
-    const { id: _id, practice_id: _pid, created_at: _ca, deleted_at: _da, ...updates } = body;
+    // Allowlist — only permit known writable columns.
+    // Stripping read-only fields is NOT enough; use an explicit allowlist so
+    // adding new sensitive columns to the table doesn't automatically expose them.
+    const ALLOWED_PATIENT_FIELDS = new Set([
+      'first_name', 'last_name', 'email', 'phone',
+      'date_of_birth', 'gender', 'id_number',
+      'home_address', 'suburb', 'city', 'postal_code', 'province',
+      'referral_source', 'referral_detail',
+      'has_medical_aid', 'medical_aid_name', 'medical_aid_number', 'medical_aid_plan',
+      'main_member', 'main_member_name', 'main_member_dob', 'main_member_id_number',
+      'relationship_to_member', 'dependant_code', 'main_member_patient_id',
+      'allergies', 'medications', 'medical_conditions',
+      'previous_dentist', 'dental_anxiety',
+      'intake_notes', 'patient_type',
+      'consent_signed', 'popia_consent', 'marketing_consent',
+    ]);
+
+    const updates = {};
+    for (const [key, value] of Object.entries(body)) {
+      if (ALLOWED_PATIENT_FIELDS.has(key)) updates[key] = value;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
 
     // SA ID number format: exactly 13 digits (allow clearing with null/'')
     if (updates.id_number != null && updates.id_number !== '' && !/^\d{13}$/.test(updates.id_number.trim())) {
@@ -375,8 +403,11 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ success: true });
   }
 
-  // ── DELETE — soft-delete patient ─────────────────────────────
+  // ── DELETE — soft-delete patient (staff-only, verified) ──────
   if (req.method === 'DELETE') {
+    // Deleting a patient record is irreversible — require verified staff membership
+    const staffUser = await requireStaff(req, res);
+    if (!staffUser) return;
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
 
