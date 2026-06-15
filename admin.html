@@ -3269,7 +3269,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
               {TABS.map(t => (
                 <button key={t} role="tab" aria-selected={tab===t} aria-controls={`pt-tab-panel-${t.replace(/\s+/g,'-')}`}
                   className={`pt-tab${tab===t?' on':''}`} onClick={()=>setTab(t)}
-                  style={{background:'none',border:'none',cursor:'pointer',font:'inherit',padding:0}}>
+                  style={{background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
                   {t}
                 </button>
               ))}
