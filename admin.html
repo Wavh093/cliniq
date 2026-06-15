@@ -102,7 +102,7 @@
   .nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
   .nav-item.active { background: rgba(255,255,255,0.18); color: #fff; }
   .sidebar-collapsed .nav-item { justify-content: center; padding: 9px 0; gap: 0; }
-  .nav-icon { width: 20px; flex-shrink: 0; text-align: center; font-size: 20px; }
+  .nav-icon { width: 24px; flex-shrink: 0; text-align: center; font-size: 24px; }
   .nav-label { overflow: hidden; }
   .nav-badge {
     margin-left: auto; flex-shrink: 0;
@@ -8670,7 +8670,7 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
    AI CHAT ASSISTANT — floating bubble, available on every page
 ════════════════════════════════════════════════════════════ */
 function ChatAssistant({ currentPage }) {
-  const GREETING = { role:'assistant', content:"Hi! I'm the Cliniq assistant. Ask me anything — dental questions, help with the dashboard, or drafting replies to patient reviews." };
+  const GREETING = { role:'assistant', content:"Hi, I'm Klara 👋 Ask me anything — dental clinical questions, help with the dashboard, or drafting replies to patient reviews." };
   const [open,     setOpen]     = useState(false);
   const [messages, setMessages] = useState([GREETING]);
   const [input,    setInput]    = useState('');
@@ -8720,7 +8720,7 @@ function ChatAssistant({ currentPage }) {
       {/* Floating bubble */}
       <button
         onClick={() => setOpen(o => !o)}
-        title="AI assistant"
+        title="Ask Klara"
         style={{
           position:'fixed', bottom:24, right:24, zIndex:9998,
           width:56, height:56, borderRadius:'50%', border:'none', cursor:'pointer',
@@ -8730,7 +8730,7 @@ function ChatAssistant({ currentPage }) {
         }}
       >
         <span className="material-symbols-outlined" style={{fontSize:26}}>
-          {open ? 'close' : 'smart_toy'}
+          {open ? 'close' : 'auto_awesome'}
         </span>
       </button>
 
@@ -8752,11 +8752,11 @@ function ChatAssistant({ currentPage }) {
               width:30, height:30, borderRadius:'50%', background:'#e8f4f7',
               display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
             }}>
-              <span className="material-symbols-outlined" style={{fontSize:18,color:'#0a4a5c'}}>smart_toy</span>
+              <span className="material-symbols-outlined" style={{fontSize:18,color:'#0a4a5c'}}>auto_awesome</span>
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:700,color:'var(--ink)'}}>Cliniq Assistant</div>
-              <div style={{fontSize:11,color:'var(--muted)'}}>Powered by AI · staff only</div>
+              <div style={{fontSize:13,fontWeight:700,color:'var(--ink)'}}>Klara</div>
+              <div style={{fontSize:11,color:'var(--muted)'}}>AI clinical assistant · staff only</div>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={clear} title="Clear conversation"
               style={{padding:'4px 8px',fontSize:11}}>Clear</button>
