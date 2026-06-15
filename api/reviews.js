@@ -45,8 +45,13 @@ const SYSTEM_PROMPT = [
   '',
   'You can help with two things:',
   '1. Quick operational stats about the clinic — use ONLY the "CLINIC STATS" block provided',
-  '   below in this prompt. Never invent numbers. If a figure is not in that block (for example',
-  '   reschedules, which are not tracked), say it is not tracked rather than guessing.',
+  '   below in this prompt. It covers appointments (today, this week, this month, next 7/30',
+  '   days, plus daily counts), patient counts, revenue (this week / this month), low-stock',
+  '   inventory, and a review summary. For a custom date range, you MAY add up the daily',
+  '   appointment counts that fall inside the range, as long as every day you need is listed.',
+  '   Never invent numbers. If a figure is not in that block, or the requested dates fall',
+  '   outside the listed window (for example reschedules, or a range with no data), say so',
+  '   rather than guessing.',
   '2. General or external information — you have a Google Search tool; use it for things like',
   '   clinical guidelines, product info, or anything not specific to this clinic.',
   '',
@@ -70,8 +75,51 @@ function practiceToday() {
 }
 
 /**
+ * Revenue totals for an appointment-date range, mirroring /api/revenue
+ * (estimated from service price + plan sessions; collected via split-stream
+ * fields, falling back to legacy amount_paid). Inventory cost is omitted here.
+ * Returns { estimated, collected, outstanding } in ZAR.
+ */
+async function revenueForRange(db, startDate, endDate) {
+  let estimated = 0, collected = 0;
+
+  const { data: appts } = await db
+    .from('appointments')
+    .select('amount_paid, ma_amount_received, patient_portion, services(price_from)')
+    .eq('practice_id', PRACTICE_ID)
+    .not('status', 'in', '("cancelled","no_show")')
+    .is('deleted_at', null)
+    .gte('appointment_date', startDate)
+    .lte('appointment_date', endDate)
+    .limit(5000);
+  for (const a of (appts || [])) {
+    estimated += Number(a.services?.price_from || 0);
+    collected += (a.ma_amount_received != null || a.patient_portion != null)
+      ? (Number(a.ma_amount_received || 0) + Number(a.patient_portion || 0))
+      : Number(a.amount_paid || 0);
+  }
+
+  const { data: sessions } = await db
+    .from('treatment_plan_sessions')
+    .select('amount_charged, amount_paid, treatment_plans!inner(practice_id)')
+    .eq('treatment_plans.practice_id', PRACTICE_ID)
+    .not('session_date', 'is', null)
+    .gte('session_date', startDate)
+    .lte('session_date', endDate)
+    .gt('amount_paid', 0)
+    .limit(5000);
+  for (const s of (sessions || [])) {
+    estimated += Number(s.amount_charged || 0);
+    collected += Number(s.amount_paid || 0);
+  }
+
+  const round = n => Math.round(n * 100) / 100;
+  return { estimated: round(estimated), collected: round(collected), outstanding: round(estimated - collected) };
+}
+
+/**
  * Build the aggregate "CLINIC STATS" context block injected into every chat.
- * COUNTS ONLY — no names or other personal identifiers ever leave the database here.
+ * COUNTS + MONEY TOTALS ONLY — no names or other personal identifiers ever leave the database here.
  */
 async function buildOpsSnapshot(db) {
   const today = practiceToday();
@@ -131,6 +179,55 @@ async function buildOpsSnapshot(db) {
     );
   } catch (e) { console.error('[ops] week appointments', e); }
 
+  // ── This month + a daily breakdown for arbitrary date-range questions ──
+  // The per-day counts let the model sum ANY custom range inside the window,
+  // without us having to pre-bucket every possible range.
+  try {
+    const now = practiceNow();
+    const today = practiceToday();
+    const y = now.getUTCFullYear(), mo = now.getUTCMonth();
+    const monthStart = new Date(Date.UTC(y, mo, 1)).toISOString().slice(0, 10);
+    const monthEnd   = new Date(Date.UTC(y, mo + 1, 0)).toISOString().slice(0, 10);
+
+    // Window: 14 days back → 60 days ahead (covers practical "how many on/between …" Qs).
+    const winS = new Date(now); winS.setUTCDate(now.getUTCDate() - 14);
+    const winE = new Date(now); winE.setUTCDate(now.getUTCDate() + 60);
+    const winStart = winS.toISOString().slice(0, 10);
+    const winEnd   = winE.toISOString().slice(0, 10);
+    const e7  = new Date(now); e7.setUTCDate(now.getUTCDate() + 7);
+    const e30 = new Date(now); e30.setUTCDate(now.getUTCDate() + 30);
+    const end7  = e7.toISOString().slice(0, 10);
+    const end30 = e30.toISOString().slice(0, 10);
+
+    const { data: win } = await db
+      .from('appointments')
+      .select('appointment_date, status')
+      .eq('practice_id', PRACTICE_ID)
+      .is('deleted_at', null)
+      .gte('appointment_date', winStart)
+      .lte('appointment_date', winEnd)
+      .limit(10000);
+
+    const byDay = {};
+    let monthBooked = 0, next7 = 0, next30 = 0;
+    for (const a of (win || [])) {
+      if (!['pending', 'confirmed', 'completed'].includes(a.status)) continue; // booked only
+      const d = a.appointment_date;
+      byDay[d] = (byDay[d] || 0) + 1;
+      if (d >= monthStart && d <= monthEnd) monthBooked++;
+      if (d >= today && d <= end7)  next7++;
+      if (d >= today && d <= end30) next30++;
+    }
+    const dayLines = Object.keys(byDay).sort().map(d => `${d}:${byDay[d]}`);
+    parts.push(
+      '',
+      `This month (${monthStart} to ${monthEnd}): ${monthBooked} booked appointments (excl. cancelled/no-show).`,
+      `Next 7 days (from ${today}): ${next7} booked. Next 30 days: ${next30} booked.`,
+      `Daily booked-appointment counts ${winStart}…${winEnd} — you MAY add these up to answer any custom date range inside this window (dates with zero are omitted):`,
+      dayLines.length ? dayLines.join(', ') : '(no booked appointments in this window)',
+    );
+  } catch (e) { console.error('[ops] month/daily appointments', e); }
+
   // ── New vs existing patients ──
   try {
     const [total, newType, newToday] = await Promise.all([
@@ -186,6 +283,47 @@ async function buildOpsSnapshot(db) {
       for (const r of snippets) parts.push(`- [${r.date}] ${r.rating || '?'} stars: ${r.text.slice(0, 240)}`);
     }
   } catch (e) { console.error('[ops] reviews', e); }
+
+  // ── Revenue (this week + this month) ──
+  try {
+    const now = practiceNow();
+    const dow = now.getUTCDay();
+    const monday = new Date(now); monday.setUTCDate(now.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+    const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+    const wStart = monday.toISOString().slice(0, 10), wEnd = sunday.toISOString().slice(0, 10);
+    const y = now.getUTCFullYear(), mo = now.getUTCMonth();
+    const mStart = new Date(Date.UTC(y, mo, 1)).toISOString().slice(0, 10);
+    const mEnd   = new Date(Date.UTC(y, mo + 1, 0)).toISOString().slice(0, 10);
+
+    const [wk, mn] = await Promise.all([
+      revenueForRange(db, wStart, wEnd),
+      revenueForRange(db, mStart, mEnd),
+    ]);
+    const R = n => 'R' + Number(n).toFixed(2);
+    parts.push(
+      '',
+      'Revenue (ZAR — estimated = expected from booked services + treatment-plan sessions; collected = actually received; outstanding = estimated minus collected):',
+      `- this week (${wStart} to ${wEnd}): estimated ${R(wk.estimated)}, collected ${R(wk.collected)}, outstanding ${R(wk.outstanding)}`,
+      `- this month (${mStart} to ${mEnd}): estimated ${R(mn.estimated)}, collected ${R(mn.collected)}, outstanding ${R(mn.outstanding)}`,
+    );
+  } catch (e) { console.error('[ops] revenue', e); }
+
+  // ── Inventory: items at or below reorder level (product names, not PII) ──
+  try {
+    const { data: items } = await db
+      .from('inventory_items')
+      .select('name, current_qty, unit, reorder_threshold')
+      .eq('practice_id', PRACTICE_ID)
+      .eq('active', true)
+      .is('deleted_at', null)
+      .not('reorder_threshold', 'is', null)
+      .limit(2000);
+    const low = (items || []).filter(i => Number(i.current_qty) <= Number(i.reorder_threshold));
+    parts.push('', `Inventory: ${low.length} item(s) at or below reorder level.`);
+    for (const i of low.slice(0, 20)) {
+      parts.push(`- ${i.name}: ${Number(i.current_qty)} ${i.unit || ''} left (reorder at ${Number(i.reorder_threshold)})`);
+    }
+  } catch (e) { console.error('[ops] inventory', e); }
 
   if (!parts.length) return null;
   return 'CLINIC STATS (the only clinic-specific data you may use):\n' + parts.join('\n');
