@@ -57,9 +57,16 @@ const SYSTEM_PROMPT = [
   'member to open the Patients page in the dashboard.',
 ].join('\n');
 
+/** Current instant shifted to the practice timezone (SAST, UTC+2). The UTC
+ *  fields of the returned Date read as SAST wall-clock, so getUTCDay/getUTCDate
+ *  and toISOString().slice(0,10) all reflect the practice's local day. */
+function practiceNow() {
+  return new Date(Date.now() + 2 * 60 * 60 * 1000);
+}
+
 /** Today's date in the practice timezone (SAST, UTC+2) as YYYY-MM-DD. */
 function practiceToday() {
-  return new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return practiceNow().toISOString().slice(0, 10);
 }
 
 /**
@@ -91,6 +98,38 @@ async function buildOpsSnapshot(db) {
       `- reschedules: NOT tracked separately`,
     );
   } catch (e) { console.error('[ops] appointments', e); }
+
+  // ── This week's appointments (Mon–Sun, practice tz) ──
+  try {
+    const now = practiceNow();
+    const dow = now.getUTCDay();                          // 0=Sun … 6=Sat (already SAST)
+    const monday = new Date(now);
+    monday.setUTCDate(now.getUTCDate() + (dow === 0 ? -6 : 1 - dow));
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    const weekStart = monday.toISOString().slice(0, 10);
+    const weekEnd   = sunday.toISOString().slice(0, 10);
+
+    const { data: wk } = await db
+      .from('appointments')
+      .select('status')
+      .eq('practice_id', PRACTICE_ID)
+      .gte('appointment_date', weekStart)
+      .lte('appointment_date', weekEnd)
+      .is('deleted_at', null)
+      .limit(5000);
+    const c = { pending: 0, confirmed: 0, completed: 0, cancelled: 0, no_show: 0 };
+    for (const a of (wk || [])) if (a.status in c) c[a.status]++;
+    parts.push(
+      '',
+      `This week (${weekStart} to ${weekEnd}) appointments:`,
+      `- booked this week (excl. cancelled): ${c.pending + c.confirmed + c.completed}`,
+      `- completed so far: ${c.completed}`,
+      `- still upcoming (pending or confirmed): ${c.pending + c.confirmed}`,
+      `- no-shows: ${c.no_show}`,
+      `- cancelled: ${c.cancelled}`,
+    );
+  } catch (e) { console.error('[ops] week appointments', e); }
 
   // ── New vs existing patients ──
   try {

@@ -8672,9 +8672,11 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
    AI CHAT ASSISTANT — floating bubble, available on every page
 ════════════════════════════════════════════════════════════ */
 function ChatAssistant() {
-  const GREETING = { role:'assistant', content:"Hi, I'm Klara 👋 Ask me anything — dental clinical questions, help with the dashboard, or drafting replies to patient reviews." };
+  // Greeting is rendered as a static first bubble — it is NOT part of the
+  // conversation state, so it can never duplicate or get sent to the model.
+  const GREETING = "Hi, I'm Klara 👋 Ask me anything — dental clinical questions, help with the dashboard, or drafting replies to patient reviews.";
   const [open,     setOpen]     = useState(false);
-  const [messages, setMessages] = useState([GREETING]);
+  const [messages, setMessages] = useState([]);   // real conversation only
   const [input,    setInput]    = useState('');
   const [sending,  setSending]  = useState(false);
   const scrollRef = useRef(null);
@@ -8687,10 +8689,8 @@ function ChatAssistant() {
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
-    // Send the real conversation (drop the canned greeting) to the model.
-    const history = messages.filter(m => m !== GREETING);
-    const next = [...history, { role:'user', content:text }];
-    setMessages([GREETING, ...next]);
+    const next = [...messages, { role:'user', content:text }];
+    setMessages(next);
     setInput('');
     setSending(true);
     try {
@@ -8698,10 +8698,10 @@ function ChatAssistant() {
         method:'POST',
         body: JSON.stringify({ messages: next }),
       });
-      setMessages([GREETING, ...next, { role:'assistant', content: d.reply }]);
+      setMessages([...next, { role:'assistant', content: d.reply }]);
     } catch (e) {
       showToast(e.message || 'The assistant could not respond', 'error');
-      setMessages([GREETING, ...next]); // keep the question; let them retry
+      setMessages(next); // keep the question; let them retry
     } finally {
       setSending(false);
     }
@@ -8711,7 +8711,7 @@ function ChatAssistant() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const clear = () => { setMessages([GREETING]); setInput(''); };
+  const clear = () => { setMessages([]); setInput(''); };
 
   const TEAL = 'var(--teal, #1a8fa0)';
 
@@ -8781,6 +8781,16 @@ function ChatAssistant() {
             flex:1, overflowY:'auto', padding:'14px', display:'flex',
             flexDirection:'column', gap:10, background:'var(--bg, #f7f0e6)',
           }}>
+            {/* Greeting — always first, never part of the sent conversation */}
+            <div style={{
+              alignSelf:'flex-start', maxWidth:'85%',
+              background:'var(--card, #fff)', color:'var(--ink)',
+              border:'1px solid var(--border)', borderRadius:12,
+              padding:'9px 12px', fontSize:13, lineHeight:1.5,
+              whiteSpace:'pre-wrap', wordBreak:'break-word',
+            }}>
+              {GREETING}
+            </div>
             {messages.map((m, i) => (
               <div key={i} style={{
                 alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
