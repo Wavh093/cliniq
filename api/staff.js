@@ -2,23 +2,57 @@
 /**
  * /api/staff
  *
- * GET  → { staff: [{ id, auth_user_id, name, email, role, active }] }
- *   Auth required. Returns all active staff for the practice.
- *
- * POST { name, email }
- *   → 201 { success: true }
- *   Auth required. Invites a new staff member via Supabase magic link.
- *
- * DELETE ?id=UUID
- *   → 200 { success: true }
- *   Auth required. Deactivates a staff member (cannot remove yourself).
+ * GET  ?resource=config        → { supabaseUrl, supabaseAnon, practice? }  PUBLIC
+ * GET  → { staff: [...] }      Auth required.
+ * POST { name, email }         → 201 { success: true }  Auth required.
+ * DELETE ?id=UUID              → 200 { success: true }  Auth required.
  */
+const { createClient } = require('@supabase/supabase-js');
 const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
+const { rateLimit } = require('./_lib/rateLimit');
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  // Staff management requires verified practice membership — not just a valid JWT
+  // ── GET ?resource=config — public Supabase config + optional practice row ──
+  if (req.method === 'GET' && req.query.resource === 'config') {
+    if (rateLimit(req, res, 30, 60_000)) return;
+
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (token) {
+      try {
+        const anonClient = createClient(
+          process.env.SUPABASE_URL,
+          process.env.SUPABASE_ANON_KEY,
+          { auth: { persistSession: false } },
+        );
+        const { data: { user } } = await anonClient.auth.getUser(token)
+          .catch(() => ({ data: { user: null } }));
+        if (user) {
+          const db = adminClient();
+          const { data: practice } = await db
+            .from('practices')
+            .select('id, name, email, phone, address_line1, hpcsa_number')
+            .eq('id', PRACTICE_ID)
+            .single()
+            .catch(() => ({ data: null }));
+          return res.status(200).json({
+            supabaseUrl:  process.env.SUPABASE_URL,
+            supabaseAnon: process.env.SUPABASE_ANON_KEY,
+            practice:     practice || null,
+          });
+        }
+      } catch {
+        // Fall through to unauthenticated response
+      }
+    }
+    return res.status(200).json({
+      supabaseUrl:  process.env.SUPABASE_URL,
+      supabaseAnon: process.env.SUPABASE_ANON_KEY,
+    });
+  }
+
+  // All remaining routes require verified practice membership
   const user = await requireStaff(req, res);
   if (!user) return;
 

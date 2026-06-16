@@ -9115,7 +9115,7 @@ function App() {
 
   useEffect(() => {
     // Fetch public config from our API (keeps keys out of HTML source)
-    fetch('/api/config')
+    fetch('/api/staff?resource=config')
       .then(r => r.json())
       .then(({ supabaseUrl, supabaseAnon }) => {
         const sb = window.supabase.createClient(supabaseUrl, supabaseAnon);

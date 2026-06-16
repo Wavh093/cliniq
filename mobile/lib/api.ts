@@ -308,7 +308,7 @@ export interface PracticeConfig {
 
 export async function getPractice(): Promise<PracticeConfig | null> {
   try {
-    const res = await fetch(`${BASE}/api/config`, { headers: await authHeaders() });
+    const res = await fetch(`${BASE}/api/staff?resource=config`, { headers: await authHeaders() });
     if (!res.ok) return null;
     const data = await res.json();
     return data.practice ?? null;
@@ -377,7 +377,7 @@ export async function getDentalChart(
   patientId: string,
 ): Promise<{ records: ToothRecord[]; notes: ToothNote[] }> {
   const res = await fetch(
-    `${BASE}/api/dental?patient_id=${encodeURIComponent(patientId)}`,
+    `${BASE}/api/documents?resource=dental&patient_id=${encodeURIComponent(patientId)}`,
     { headers: await authHeaders() },
   );
   if (!res.ok) throw new Error(`Dental chart error: ${res.status}`);
@@ -389,7 +389,7 @@ export async function upsertToothStatus(
   toothFdi: number,
   status: ToothStatus,
 ): Promise<ToothRecord> {
-  const res = await fetch(`${BASE}/api/dental`, {
+  const res = await fetch(`${BASE}/api/documents?resource=dental`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({ patient_id: patientId, tooth_fdi: toothFdi, status }),
@@ -408,7 +408,7 @@ export async function addToothNote(
   note: string,
   appointmentId?: string | null,
 ): Promise<ToothNote> {
-  const res = await fetch(`${BASE}/api/dental?action=note`, {
+  const res = await fetch(`${BASE}/api/documents?resource=dental&action=note`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({
@@ -428,7 +428,7 @@ export async function addToothNote(
 
 export async function deleteToothNote(id: string): Promise<void> {
   const res = await fetch(
-    `${BASE}/api/dental?action=note&id=${encodeURIComponent(id)}`,
+    `${BASE}/api/documents?resource=dental&action=note&id=${encodeURIComponent(id)}`,
     { method: 'DELETE', headers: await authHeaders() },
   );
   if (!res.ok) {
@@ -439,7 +439,7 @@ export async function deleteToothNote(id: string): Promise<void> {
 
 export async function getDentalScans(patientId: string): Promise<DentalScan[]> {
   const res = await fetch(
-    `${BASE}/api/dental?action=scans&patient_id=${encodeURIComponent(patientId)}`,
+    `${BASE}/api/documents?resource=dental&action=scans&patient_id=${encodeURIComponent(patientId)}`,
     { headers: await authHeaders() },
   );
   if (!res.ok) throw new Error(`Scans error: ${res.status}`);
@@ -456,7 +456,7 @@ export async function saveDentalScan(payload: {
   tooth_fdis?: number[];
   notes?: string | null;
 }): Promise<DentalScan> {
-  const res = await fetch(`${BASE}/api/dental?action=scan`, {
+  const res = await fetch(`${BASE}/api/documents?resource=dental&action=scan`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify(payload),
@@ -471,7 +471,7 @@ export async function saveDentalScan(payload: {
 
 export async function deleteDentalScan(id: string): Promise<void> {
   const res = await fetch(
-    `${BASE}/api/dental?action=scan&id=${encodeURIComponent(id)}`,
+    `${BASE}/api/documents?resource=dental&action=scan&id=${encodeURIComponent(id)}`,
     { method: 'DELETE', headers: await authHeaders() },
   );
   if (!res.ok) {

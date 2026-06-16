@@ -196,7 +196,7 @@
   // ── Bootstrap Supabase auth ───────────────────────────────────────
   let supabaseClient, session;
   try {
-    const cfgRes = await fetch('/api/config');
+    const cfgRes = await fetch('/api/staff?resource=config');
     if (!cfgRes.ok) throw new Error('Config unavailable');
     const cfg = await cfgRes.json();
     supabaseClient = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnon);
