@@ -41,7 +41,28 @@ export default function AppointmentCard({ appt, onPress, onStatusChange }: Props
   const nextStatuses = TRANSITIONS[appt.status] ?? [];
   const canUpdate    = nextStatuses.length > 0 && !!onStatusChange;
 
+  const DESTRUCTIVE: Appointment['status'][] = ['cancelled', 'no_show'];
+  const DESTRUCTIVE_LABELS: Partial<Record<Appointment['status'], string>> = {
+    cancelled: 'Cancel this appointment?',
+    no_show:   'Mark as no-show?',
+  };
+
   const handleSelectStatus = async (newStatus: Appointment['status']) => {
+    if (DESTRUCTIVE.includes(newStatus)) {
+      Alert.alert(
+        DESTRUCTIVE_LABELS[newStatus] ?? 'Confirm',
+        `${patientName} · ${time}${service?.name ? `  ·  ${service.name}` : ''}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Confirm', style: 'destructive', onPress: () => doStatusUpdate(newStatus) },
+        ],
+      );
+      return;
+    }
+    doStatusUpdate(newStatus);
+  };
+
+  const doStatusUpdate = async (newStatus: Appointment['status']) => {
     setUpdating(true);
     try {
       await updateAppointmentStatus(appt.id, newStatus);
@@ -89,7 +110,7 @@ export default function AppointmentCard({ appt, onPress, onStatusChange }: Props
           )}
           <Text style={s.service}>{service?.name ?? '—'}</Text>
           {appt.patient_notes ? (
-            <Text style={s.notes} numberOfLines={1}>{appt.patient_notes}</Text>
+            <Text style={s.notes} numberOfLines={2}>{appt.patient_notes}</Text>
           ) : null}
         </View>
 

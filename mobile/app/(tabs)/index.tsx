@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, FlatList, RefreshControl,
+  View, Text, FlatList, RefreshControl, TouchableOpacity,
   StyleSheet, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { getAppointments, type Appointment } from '../../lib/api';
@@ -121,7 +122,11 @@ export default function TodayScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       {error ? (
         <View style={s.center}>
+          <Ionicons name="cloud-offline-outline" size={36} color={C.muted} style={{ marginBottom: 12 }} />
           <Text style={s.err}>{error}</Text>
+          <TouchableOpacity onPress={() => load()} style={s.retryBtn} activeOpacity={0.7}>
+            <Text style={s.retryText}>Try again</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -170,5 +175,7 @@ const s = StyleSheet.create({
   emptyIcon:  { fontSize: 40, marginBottom: 12 },
   emptyTitle: { fontSize: 17, fontWeight: '600', color: C.ink, marginBottom: 6, textAlign: 'center' },
   emptyText:  { color: C.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  err:        { color: C.danger, fontSize: 14, textAlign: 'center', padding: 20 },
+  err:        { color: C.danger, fontSize: 14, textAlign: 'center', paddingHorizontal: 32, marginBottom: 16 },
+  retryBtn:   { backgroundColor: C.bg2, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 24, borderWidth: 1, borderColor: C.rule },
+  retryText:  { fontSize: 14, fontWeight: '600', color: C.inkSoft },
 });

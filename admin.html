@@ -1817,7 +1817,8 @@ function CreateAppointmentModal({ onClose, onDone, allowPastDates = false }) {
       });
       showToast('Appointment booked');
       onDone();
-    } catch(e) { setErr(e.message); setSaving(false); }
+    } catch(e) { setErr(e.message); }
+    finally    { setSaving(false); }
   };
 
   const selSvc = services.find(s => s.id === serviceId);
@@ -7563,7 +7564,7 @@ function SettingsPage({ supabase, session }) {
                         <td style={{whiteSpace:'nowrap',fontSize:12}}>{new Date(log.changed_at).toLocaleString('en-ZA',{dateStyle:'short',timeStyle:'short'})}</td>
                         <td style={{fontSize:12,color:'var(--ink-soft)'}}>{log.table_name}</td>
                         <td><span style={{fontSize:11,fontWeight:700,color:actionColor}}>{log.action}</span></td>
-                        <td style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}}>{log.record_id?.slice(0,8)}…</td>
+                        <td style={{fontSize:11,color:'var(--muted)',fontFamily:'monospace'}} title={log.record_id ?? ''}>{log.record_id?.slice(0,8)}…</td>
                         <td style={{fontSize:12,color:'var(--ink-soft)'}}>
                           {log.action === 'INSERT' && 'New record created'}
                           {log.action === 'DELETE' && 'Record deleted'}
@@ -7779,7 +7780,7 @@ function ReviewsPage({ unreadCount = 0 }) {
                   )}
                 </div>
                 <div style={{fontSize:13,color:'var(--ink)',lineHeight:1.4,
-                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%'}}>
+                  overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',maxWidth:'100%'}}>
                   {r.text}
                 </div>
                 <div style={{fontSize:11,color:'var(--muted)',marginTop:4,display:'flex',gap:12}}>
