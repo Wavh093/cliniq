@@ -106,7 +106,7 @@ export default function CalendarScreen() {
           renderItem={({ item }) => (
             <AppointmentCard
               appt={item}
-              onPress={() => item.patients?.id && router.push(`/patient/${item.patients.id}`)}
+              onPress={() => router.push(`/appointment/${item.id}`)}
               onStatusChange={handleStatusChange}
             />
           )}

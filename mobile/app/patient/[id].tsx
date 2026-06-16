@@ -397,11 +397,7 @@ export default function PatientDetailScreen() {
                 <TouchableOpacity
                   key={appt.id}
                   style={[s.apptRow, i === appts.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => {
-                    setApptClinical((appt as any).clinical_notes ?? '');
-                    setApptInternal((appt as any).internal_notes ?? '');
-                    setApptModal(appt);
-                  }}
+                  onPress={() => router.push(`/appointment/${appt.id}`)}
                   activeOpacity={0.7}
                 >
                   <View style={{ flex: 1 }}>
