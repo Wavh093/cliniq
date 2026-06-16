@@ -334,6 +334,8 @@
   /* ── Empty state ──────────────────────────────────────────── */
   .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
   .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-title { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 6px; }
+  .empty-hint  { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
   /* ── Skeleton loader ──────────────────────────────────────── */
   .skel {
@@ -436,6 +438,12 @@
   .wiz-dot.cur   { background: var(--sage);   width: 24px; }
   .wiz-dot.ahead { background: var(--border-2); width: 8px; }
 
+  /* ── Tablet breakpoint — hide lower-priority table columns ── */
+  @media (max-width: 1024px) {
+    .col-optional { display: none; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
   /* ── Mobile-responsive sidebar ────────────────────────────── */
   .hamburger-btn {
     display: none; align-items: center; justify-content: center;
@@ -536,13 +544,13 @@ function ToastContainer() {
     <div style={{position:'fixed', bottom:24, right:24, zIndex:9999, display:'flex', flexDirection:'column', gap:8}} role="region" aria-live="polite" aria-label="Notifications">
       {toasts.map(t => (
         <div key={t.id} role="status" style={{
-          background: t.type === 'error' ? 'var(--danger)' : '#16a34a',
+          background: t.type === 'error' ? 'var(--danger)' : t.type === 'warning' ? 'var(--amber)' : '#16a34a',
           color: '#fff', borderRadius: 10, padding: '12px 14px 12px 18px',
           fontSize: 13, fontWeight: 500, boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
           display: 'flex', alignItems: 'center', gap: 8,
           animation: 'toastIn 0.2s ease',
         }}>
-          <span style={{fontSize: 16}} aria-hidden="true">{t.type === 'error' ? '⚠' : '✓'}</span>
+          <span style={{fontSize: 16}} aria-hidden="true">{t.type === 'error' ? '⚠' : t.type === 'warning' ? '!' : '✓'}</span>
           <span style={{flex:1}}>{t.msg}</span>
           <button onClick={() => dismiss(t.id)} aria-label="Dismiss notification"
             style={{background:'none',border:'none',color:'rgba(255,255,255,0.8)',cursor:'pointer',padding:'0 0 0 4px',fontSize:16,lineHeight:1,flexShrink:0}}>
@@ -2339,15 +2347,15 @@ function Appointments({ onNavigate }) {
             <thead>
               <tr>
                 <th>Date</th><th>Time</th><th>Patient</th>
-                <th>Service</th><th>Duration</th><th>Status</th><th></th>
+                <th>Service</th><th className="col-optional">Duration</th><th>Status</th><th></th>
               </tr>
             </thead>
             <tbody>
               {loading ? <SkeletonRows n={6} /> : appts.length === 0 ? (
                 <tr><td colSpan="7">
                   <div className="empty"><div className="empty-icon">📅</div>
-                    <div style={{marginBottom:8}}>No appointments found.</div>
-                    <div style={{fontSize:12,color:'var(--muted)'}}>Try clearing the filters, or use the "New appointment" button above to book one.</div>
+                    <div className="empty-title">No appointments found</div>
+                    <div className="empty-hint">Try clearing the filters, or use the "New appointment" button above to book one.</div>
                   </div>
                 </td></tr>
               ) : appts.map(a => (
@@ -2363,7 +2371,7 @@ function Appointments({ onNavigate }) {
                     )}
                   </td>
                   <td>{a.services?.name || <span style={{color:'var(--muted)'}}>—</span>}</td>
-                  <td className="mono">{a.duration_minutes ? `${a.duration_minutes} min` : '—'}</td>
+                  <td className="mono col-optional">{a.duration_minutes ? `${a.duration_minutes} min` : '—'}</td>
                   <td><StatusBadge status={a.status} /></td>
                   <td>
                     <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setSelected(a); }}>View</button>
@@ -2753,17 +2761,17 @@ function Patients({ initialPatient }) {
               <tr>
                 <th>Patient</th>
                 <th>Phone</th>
-                <th>Medical aid</th>
+                <th className="col-optional">Medical aid</th>
                 <th>Type</th>
-                <th>Since</th>
+                <th className="col-optional">Since</th>
               </tr>
             </thead>
             <tbody>
               {loading ? <SkeletonRows n={8} /> : patients.length === 0 ? (
                 <tr><td colSpan="5">
                   <div className="empty"><div className="empty-icon">👤</div>
-                    <div style={{marginBottom:8}}>No patients found.</div>
-                    <div style={{fontSize:12,color:'var(--muted)'}}>Try a different search, or use the "Add patient" button above to register a new patient.</div>
+                    <div className="empty-title">No patients found</div>
+                    <div className="empty-hint">Try a different search, or use the "Add patient" button above to register a new patient.</div>
                   </div>
                 </td></tr>
               ) : patients.map(p => (
@@ -2780,12 +2788,12 @@ function Patients({ initialPatient }) {
                     </div>
                   </td>
                   <td style={{fontSize:13}}>{p.phone || '—'}</td>
-                  <td>{p.medical_aid_name
+                  <td className="col-optional">{p.medical_aid_name
                     ? <span className="tag" style={{background:'rgba(14,116,144,0.08)',color:'var(--teal)',borderColor:'rgba(14,116,144,0.22)'}}>{p.medical_aid_name}</span>
                     : <span style={{color:'var(--muted)',fontSize:12}}>Self-pay</span>}
                   </td>
                   <td><span className="tag">{p.patient_type === 'new' ? 'New patient' : p.patient_type === 'returning' ? 'Returning' : p.patient_type || '—'}</span></td>
-                  <td className="mono">{fmtDate(p.created_at)}</td>
+                  <td className="mono col-optional">{fmtDate(p.created_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -5270,8 +5278,8 @@ function InventoryPage() {
             <tbody>
               {loading ? <SkeletonRows n={8} /> : filtered.length === 0 ? (
                 <tr><td colSpan="8"><div className="empty"><div className="empty-icon">📦</div>
-                  <div style={{marginBottom:8}}>No items found.</div>
-                  <div style={{fontSize:12,color:'var(--muted)'}}>Try a different search, or use the "Add item" button to add something new.</div>
+                  <div className="empty-title">No items found</div>
+                  <div className="empty-hint">Try a different search, or use the "Add item" button to add something new.</div>
                 </div></td></tr>
               ) : filtered.map(item => {
                 const cls = stockClass(item);
@@ -5927,8 +5935,8 @@ function ServicesPage() {
       ) : services.length === 0 ? (
         <div className="card">
           <div className="empty"><div className="empty-icon">🦷</div>
-            <div style={{marginBottom:8}}>No services have been added yet.</div>
-            <div style={{fontSize:12,color:'var(--muted)'}}>Use the "New service" button above to add your first treatment or procedure.</div>
+            <div className="empty-title">No services yet</div>
+            <div className="empty-hint">Use the "New service" button above to add your first treatment or procedure.</div>
           </div>
         </div>
       ) : Object.entries(grouped).map(([cat, svcs]) => (

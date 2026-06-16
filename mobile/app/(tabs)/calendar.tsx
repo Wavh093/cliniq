@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, ActivityIndicator,
+  View, Text, FlatList, RefreshControl, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,20 +19,24 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(dateStr(new Date()));
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
 
   const handleStatusChange = useCallback((id: string, newStatus: Appointment['status']) => {
     setAllAppts(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a));
   }, []);
 
-  const loadMonth = useCallback(async (month: Date) => {
-    setLoading(true);
+  const loadMonth = useCallback(async (month: Date, isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
+    setError(null);
     try {
       const { appointments } = await getAppointments({ month: monthStr(month) });
       setAllAppts(appointments);
     } catch {
-      setAllAppts([]);
+      setError('Could not load appointments. Pull down to retry.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -110,12 +114,26 @@ export default function CalendarScreen() {
               onStatusChange={handleStatusChange}
             />
           )}
-          ListEmptyComponent={
+          ListHeaderComponent={error ? (
+            <View style={s.errorBanner}>
+              <Ionicons name="cloud-offline-outline" size={14} color="#92400e" />
+              <Text style={s.errorText}>{error}</Text>
+            </View>
+          ) : null}
+          ListEmptyComponent={!error ? (
             <View style={s.empty}>
               <Ionicons name="calendar-outline" size={36} color={C.muted} style={{ marginBottom: 12 }} />
               <Text style={s.emptyTitle}>No appointments</Text>
               <Text style={s.emptyText}>No sessions booked on this day. Tap another date to check.</Text>
             </View>
+          ) : null}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadMonth(currentMonth, true)}
+              tintColor={C.sage}
+              colors={[C.sage]}
+            />
           }
           contentContainerStyle={s.list}
         />
@@ -142,6 +160,16 @@ const s = StyleSheet.create({
   loader:     { padding: 40, alignItems: 'center', gap: 10 },
   loaderText: { color: C.muted, fontSize: 13 },
   list:       { padding: 16, paddingBottom: 40 },
+  errorBanner: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    gap:              8,
+    backgroundColor:  '#fef3c7',
+    borderRadius:     10,
+    padding:          12,
+    marginBottom:     12,
+  },
+  errorText:  { flex: 1, fontSize: 13, color: '#92400e' },
   empty:      { paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: C.ink, marginBottom: 6, textAlign: 'center' },
   emptyText:  { color: C.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
