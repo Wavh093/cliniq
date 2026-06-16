@@ -26,9 +26,10 @@ export interface Appointment {
     id: string;
     first_name: string;
     last_name: string;
-    email: string;
-    phone: string;
+    email: string | null;
+    phone: string | null;
     date_of_birth: string | null;
+    id_number: string | null;
     allergies: string[];
     medical_conditions: string[];
     medications: string[];

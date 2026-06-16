@@ -573,7 +573,7 @@ module.exports = async function handler(req, res) {
         id, appointment_date, appointment_time, duration_minutes, status,
         patient_notes, internal_notes, clinical_notes, icd10_codes, tariff_codes,
         branch_id, cancellation_reason, cancelled_at, created_at,
-        patients ( id, first_name, last_name, email, phone, date_of_birth, allergies, medical_conditions, medications ),
+        patients ( id, first_name, last_name, email, phone, date_of_birth, id_number, allergies, medical_conditions, medications ),
         services ( id, name, category, price_from ),
         branches ( id, name )
       `;

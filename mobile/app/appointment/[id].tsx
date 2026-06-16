@@ -11,6 +11,8 @@ import {
   type Appointment, type AppointmentSummary,
 } from '../../lib/api';
 import { C, STATUS } from '../../constants/theme';
+import SickNoteModal from '../../components/SickNoteModal';
+import ReferralLetterModal from '../../components/ReferralLetterModal';
 
 // Server-side state machine (mirrored)
 const TRANSITIONS: Record<string, string[]> = {
@@ -64,6 +66,9 @@ export default function SessionScreen() {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
   const [saving,   setSaving]   = useState(false);
+
+  const [sickNoteVisible, setSickNoteVisible]     = useState(false);
+  const [referralVisible, setReferralVisible]     = useState(false);
 
   // Editable note fields
   const [clinicalNotes, setClinicalNotes] = useState('');
@@ -169,7 +174,7 @@ export default function SessionScreen() {
     Alert.alert(
       'Complete session?',
       clinicalNotes.trim()
-        ? 'Notes will be saved and session marked complete.'
+        ? 'Notes will be saved. You can then generate patient documents.'
         : 'No clinical notes recorded. Mark complete anyway?',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -177,7 +182,10 @@ export default function SessionScreen() {
           text: 'Complete',
           onPress: async () => {
             const ok = await save(true);
-            if (ok) router.back();
+            if (ok) {
+              // Stay on screen — update local status so document section becomes visible
+              setAppt(prev => prev ? { ...prev, status: 'completed' } : prev);
+            }
           },
         },
       ],
@@ -531,9 +539,60 @@ export default function SessionScreen() {
             </View>
           )}
 
+          {/* ── Patient documents (completed sessions only) ─────── */}
+          {appt.status === 'completed' && (
+            <View style={s.docsCard}>
+              <View style={s.docsHeaderRow}>
+                <Ionicons name="document-text-outline" size={15} color={C.sage} />
+                <Text style={s.docsTitle}>PATIENT DOCUMENTS</Text>
+              </View>
+              <TouchableOpacity
+                style={s.docBtn}
+                onPress={() => setSickNoteVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="medkit-outline" size={20} color={C.sage} />
+                <View style={s.docBtnText}>
+                  <Text style={s.docBtnLabel}>Sick Note</Text>
+                  <Text style={s.docBtnSub}>Medical certificate for work / school</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.muted} />
+              </TouchableOpacity>
+              <View style={s.docDivider} />
+              <TouchableOpacity
+                style={s.docBtn}
+                onPress={() => setReferralVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="paper-plane-outline" size={20} color={C.sage} />
+                <View style={s.docBtnText}>
+                  <Text style={s.docBtnLabel}>Referral Letter</Text>
+                  <Text style={s.docBtnSub}>Refer patient to a specialist</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.muted} />
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={{ height: 48 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Document modals */}
+      {appt && (
+        <>
+          <SickNoteModal
+            visible={sickNoteVisible}
+            onClose={() => setSickNoteVisible(false)}
+            appointment={appt}
+          />
+          <ReferralLetterModal
+            visible={referralVisible}
+            onClose={() => setReferralVisible(false)}
+            appointment={appt}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -683,4 +742,25 @@ const s = StyleSheet.create({
   secondaryBtnText:  { fontSize: 14, fontWeight: '600', color: C.inkSoft },
   btnDim:            { opacity: 0.5 },
   terminalRow:       { alignItems: 'center', marginTop: 8 },
+
+  // Patient documents section
+  docsCard: {
+    backgroundColor: C.paper, borderRadius: 16,
+    paddingTop: 14, marginTop: 16,
+    borderWidth: 1, borderColor: C.rule,
+    overflow: 'hidden',
+  },
+  docsHeaderRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 16, marginBottom: 10,
+  },
+  docsTitle: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, color: C.sage },
+  docBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  docBtnText: { flex: 1 },
+  docBtnLabel: { fontSize: 14, fontWeight: '600', color: C.ink },
+  docBtnSub:   { fontSize: 12, color: C.muted, marginTop: 1 },
+  docDivider:  { height: 1, backgroundColor: C.rule, marginLeft: 52 },
 });
