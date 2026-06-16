@@ -13,6 +13,7 @@ import {
 import { C, STATUS } from '../../constants/theme';
 import SickNoteModal from '../../components/SickNoteModal';
 import ReferralLetterModal from '../../components/ReferralLetterModal';
+import DentalChartCard from '../../components/DentalChartCard';
 
 // Server-side state machine (mirrored)
 const TRANSITIONS: Record<string, string[]> = {
@@ -398,6 +399,14 @@ export default function SessionScreen() {
               accessibilityLabel="Internal notes"
             />
           </View>
+
+          {/* ── Dental chart ──────────────────────────────────── */}
+          {patient?.id && (
+            <DentalChartCard
+              patientId={patient.id}
+              appointmentId={appt.id}
+            />
+          )}
 
           {/* ── Patient health summary ────────────────────────── */}
           {!!hasHealth && (

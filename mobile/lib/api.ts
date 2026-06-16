@@ -336,3 +336,146 @@ export async function saveDocument(payload: {
     return null;
   }
 }
+
+// ── Dental Chart ─────────────────────────────────────────────────────────────
+
+export type ToothStatus =
+  | 'healthy' | 'cavity' | 'filled' | 'crown'
+  | 'extraction' | 'implant' | 'missing' | 'bridge' | 'needs_treatment';
+
+export interface ToothRecord {
+  tooth_fdi: number;
+  status: ToothStatus;
+  updated_at: string;
+}
+
+export interface ToothNote {
+  id: string;
+  tooth_fdi: number;
+  note: string;
+  appointment_id: string | null;
+  created_at: string;
+  appointments?: {
+    appointment_date: string;
+    services: { name: string } | null;
+  } | null;
+}
+
+export interface DentalScan {
+  id: string;
+  appointment_id: string | null;
+  tooth_fdis: number[];
+  file_path: string;
+  mime_type: 'image/jpeg' | 'image/png' | 'application/pdf';
+  filename: string;
+  notes: string | null;
+  created_at: string;
+  signed_url: string | null;
+}
+
+export async function getDentalChart(
+  patientId: string,
+): Promise<{ records: ToothRecord[]; notes: ToothNote[] }> {
+  const res = await fetch(
+    `${BASE}/api/dental?patient_id=${encodeURIComponent(patientId)}`,
+    { headers: await authHeaders() },
+  );
+  if (!res.ok) throw new Error(`Dental chart error: ${res.status}`);
+  return res.json();
+}
+
+export async function upsertToothStatus(
+  patientId: string,
+  toothFdi: number,
+  status: ToothStatus,
+): Promise<ToothRecord> {
+  const res = await fetch(`${BASE}/api/dental`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ patient_id: patientId, tooth_fdi: toothFdi, status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Save failed: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.record;
+}
+
+export async function addToothNote(
+  patientId: string,
+  toothFdi: number,
+  note: string,
+  appointmentId?: string | null,
+): Promise<ToothNote> {
+  const res = await fetch(`${BASE}/api/dental?action=note`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({
+      patient_id:     patientId,
+      tooth_fdi:      toothFdi,
+      note,
+      appointment_id: appointmentId ?? null,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Save failed: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.note;
+}
+
+export async function deleteToothNote(id: string): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/dental?action=note&id=${encodeURIComponent(id)}`,
+    { method: 'DELETE', headers: await authHeaders() },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Delete failed: ${res.status}`);
+  }
+}
+
+export async function getDentalScans(patientId: string): Promise<DentalScan[]> {
+  const res = await fetch(
+    `${BASE}/api/dental?action=scans&patient_id=${encodeURIComponent(patientId)}`,
+    { headers: await authHeaders() },
+  );
+  if (!res.ok) throw new Error(`Scans error: ${res.status}`);
+  const data = await res.json();
+  return data.scans ?? [];
+}
+
+export async function saveDentalScan(payload: {
+  patient_id: string;
+  file_path: string;
+  mime_type: string;
+  filename: string;
+  appointment_id?: string | null;
+  tooth_fdis?: number[];
+  notes?: string | null;
+}): Promise<DentalScan> {
+  const res = await fetch(`${BASE}/api/dental?action=scan`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Upload failed: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.scan;
+}
+
+export async function deleteDentalScan(id: string): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/dental?action=scan&id=${encodeURIComponent(id)}`,
+    { method: 'DELETE', headers: await authHeaders() },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Delete failed: ${res.status}`);
+  }
+}

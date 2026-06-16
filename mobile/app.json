@@ -26,6 +26,12 @@
         {
           "color": "#0a4a5c"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Kliniq to access your photo library to upload X-rays and dental scans."
+        }
       ]
     ],
     "extra": {

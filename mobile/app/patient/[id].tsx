@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getPatient, getDependants, updatePatientNotes, saveSessionNotes } from '../../lib/api';
+import DentalChartCard from '../../components/DentalChartCard';
 import type { Patient, LinkedPatient, AppointmentSummary } from '../../lib/api';
 import { C, STATUS } from '../../constants/theme';
 
@@ -286,6 +287,9 @@ export default function PatientDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* ── Dental chart ────────────────────────────────────────── */}
+        <DentalChartCard patientId={patient.id} />
 
         {/* ── Profile ────────────────────────────────────────────── */}
         <Section title="PROFILE">
