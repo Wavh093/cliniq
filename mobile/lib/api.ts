@@ -291,3 +291,48 @@ export async function updateAppointmentStatus(id: string, status: string): Promi
     throw new Error((err as any).error ?? `Status update failed: ${res.status}`);
   }
 }
+
+// ── Practice config & Documents ──────────────────────────────────
+
+/** Exported so modals can build shareable document URLs. */
+export const API_BASE = BASE;
+
+export interface PracticeConfig {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address_line1: string | null;
+  hpcsa_number: string | null;
+}
+
+export async function getPractice(): Promise<PracticeConfig | null> {
+  try {
+    const res = await fetch(`${BASE}/api/config`, { headers: await authHeaders() });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.practice ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveDocument(payload: {
+  type: 'sick_note' | 'referral_letter';
+  appointment_id: string;
+  patient_id?: string;
+  title: string;
+  html_content: string;
+}): Promise<{ id: string } | null> {
+  try {
+    const res = await fetch(`${BASE}/api/documents`, {
+      method:  'POST',
+      headers: await authHeaders(),
+      body:    JSON.stringify(payload),
+    });
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}

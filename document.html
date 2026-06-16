@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Viewer — Cliniq</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sage: #0a4a5c;
+      --ink: #0d2d3e;
+      --muted: #4a8090;
+      --bg: #f7f0e6;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      background: var(--sage);
+      color: white;
+      font-family: 'DM Sans', sans-serif;
+      flex-shrink: 0;
+      height: 56px;
+    }
+    .topbar a {
+      color: rgba(255,255,255,0.8);
+      text-decoration: none;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+    .topbar a:hover { color: #fff; }
+    .topbar .sep {
+      color: rgba(255,255,255,0.3);
+      font-size: 16px;
+    }
+    .topbar .title {
+      flex: 1;
+      font-weight: 600;
+      font-size: 15px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .topbar .actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .print-btn {
+      background: white;
+      color: var(--sage);
+      border: none;
+      border-radius: 8px;
+      padding: 7px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .print-btn:hover { background: #f0f4f5; }
+    .print-btn.secondary {
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    .print-btn.secondary:hover { background: rgba(255,255,255,0.25); }
+
+    /* ── States ── */
+    #state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #state.hidden { display: none; }
+    .state-icon {
+      font-size: 40px;
+      opacity: 0.4;
+    }
+    .state-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .state-sub {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .state-link {
+      color: var(--sage);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    .state-link:hover { text-decoration: underline; }
+
+    /* ── Document iframe ── */
+    #doc-frame {
+      width: 100%;
+      height: calc(100vh - 56px);
+      border: none;
+      background: white;
+      display: none;
+    }
+    #doc-frame.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar (always visible) -->
+<div class="topbar">
+  <a href="admin.html">&#8592; Dashboard</a>
+  <span class="sep">|</span>
+  <span class="title" id="doc-title">Loading…</span>
+  <div class="actions" id="topbar-actions" style="display:none">
+    <button class="print-btn secondary" onclick="printDoc()">&#128437; Download PDF</button>
+    <button class="print-btn" onclick="printDoc()">&#128424; Print</button>
+  </div>
+</div>
+
+<!-- State panel (loading / error / no-id / no-session) -->
+<div id="state">
+  <div class="state-icon">&#9654;</div>
+  <div class="state-title">Loading document…</div>
+</div>
+
+<!-- Document iframe -->
+<iframe id="doc-frame" title="Document"></iframe>
+
+<script>
+(async () => {
+  const stateEl  = document.getElementById('state');
+  const frameEl  = document.getElementById('doc-frame');
+  const titleEl  = document.getElementById('doc-title');
+  const actionsEl = document.getElementById('topbar-actions');
+
+  function showState(icon, title, sub, linkText, linkHref) {
+    stateEl.innerHTML = `
+      <div class="state-icon">${icon}</div>
+      <div class="state-title">${title}</div>
+      ${sub ? `<div class="state-sub">${sub}</div>` : ''}
+      ${linkText ? `<a class="state-link" href="${linkHref}">${linkText}</a>` : ''}
+    `;
+    stateEl.classList.remove('hidden');
+    frameEl.classList.remove('visible');
+  }
+
+  function showFrame(html, title) {
+    frameEl.srcdoc = html;
+    frameEl.classList.add('visible');
+    stateEl.classList.add('hidden');
+    titleEl.textContent = title;
+    actionsEl.style.display = 'flex';
+  }
+
+  window.printDoc = function() {
+    if (frameEl.contentWindow) {
+      frameEl.contentWindow.print();
+    }
+  };
+
+  // ── Get document ID from URL ──────────────────────────────────────
+  const docId = new URLSearchParams(location.search).get('id');
+  if (!docId) {
+    showState('&#128196;', 'No document specified', 'Add ?id=... to the URL to view a document.');
+    return;
+  }
+
+  // ── Bootstrap Supabase auth ───────────────────────────────────────
+  let supabaseClient, session;
+  try {
+    const cfgRes = await fetch('/api/config');
+    if (!cfgRes.ok) throw new Error('Config unavailable');
+    const cfg = await cfgRes.json();
+    supabaseClient = supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnon);
+    const { data: { session: s } } = await supabaseClient.auth.getSession();
+    session = s;
+  } catch (err) {
+    showState('&#9888;', 'Could not load configuration', err.message);
+    return;
+  }
+
+  if (!session) {
+    titleEl.textContent = 'Sign in required';
+    showState(
+      '&#128274;',
+      'Please log in first',
+      'You need to be signed in to view documents.',
+      '&#8594; Go to Dashboard',
+      'admin.html'
+    );
+    return;
+  }
+
+  // ── Fetch the document ────────────────────────────────────────────
+  try {
+    const res = await fetch(`/api/documents?id=${encodeURIComponent(docId)}`, {
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (res.status === 404) {
+      showState('&#128196;', 'Document not found', 'This document may have been deleted or the link is incorrect.');
+      titleEl.textContent = 'Not found';
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `API error ${res.status}`);
+    }
+
+    const { document: doc } = await res.json();
+    if (!doc || !doc.html_content) {
+      showState('&#128196;', 'Empty document', 'The document exists but has no content to display.');
+      titleEl.textContent = doc?.title || 'Document';
+      return;
+    }
+
+    showFrame(doc.html_content, doc.title);
+  } catch (err) {
+    showState('&#9888;', 'Could not load document', err.message);
+    titleEl.textContent = 'Error';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Modal, ScrollView, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Alert, useWindowDimensions,
-  KeyboardAvoidingView, Platform,
+  StyleSheet, ActivityIndicator, Alert, useWindowDimensions, Share,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
@@ -13,6 +12,7 @@ import * as Sharing from 'expo-sharing';
 import SignaturePad from './SignaturePad';
 import { C } from '../constants/theme';
 import type { Appointment } from '../lib/api';
+import { getPractice, saveDocument, API_BASE, type PracticeConfig } from '../lib/api';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +57,7 @@ function buildHtml(p: {
   reason: string;
   clinicianName: string;
   signatureSvg: string | null;
+  practiceName: string;
 }): string {
   const today = displayDate(todayIso());
   const days  = dayCount(p.fromDate, p.toDate);
@@ -102,7 +103,7 @@ function buildHtml(p: {
 <body>
 <div class="page">
   <div class="lh">
-    <div><div class="pn">OH Dental Studio</div><div class="ps">Professional Dental Care</div></div>
+    <div><div class="pn">${p.practiceName}</div><div class="ps">Professional Dental Care</div></div>
     <div class="dd">${today}</div>
   </div>
   <h2>Medical Certificate</h2>
@@ -111,7 +112,7 @@ function buildHtml(p: {
     ${idLine}${dobLine}
   </div>
   <p class="body">
-    This is to certify that the above-named patient was examined at <strong>OH Dental Studio</strong>
+    This is to certify that the above-named patient was examined at <strong>${p.practiceName}</strong>
     on <strong>${displayDate(p.consultDate)}</strong> and is medically unfit for work / school
     for the period indicated below:
   </p>
@@ -128,10 +129,10 @@ function buildHtml(p: {
     <div class="sl">Treating Clinician</div>
     ${sig}
     <div class="cn">${p.clinicianName || '___________________________'}</div>
-    <div class="cp">OH Dental Studio</div>
+    <div class="cp">${p.practiceName}</div>
   </div>
   <div class="ft">
-    This certificate was issued by OH Dental Studio.<br>
+    This certificate was issued by ${p.practiceName}.<br>
     Confidential medical document — for patient use only.
   </div>
 </div>
@@ -153,6 +154,7 @@ type CalendarFor = 'from' | 'to' | null;
 
 export default function SickNoteModal({ visible, onClose, appointment }: Props) {
   const { width: sw } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const padWidth = sw - 80;
 
   const patient     = appointment.patients;
@@ -165,10 +167,12 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
   const [signatureSvg,   setSignatureSvg]   = useState<string | null>(null);
   const [calendarFor,    setCalendarFor]    = useState<CalendarFor>(null);
   const [generating,     setGenerating]     = useState(false);
+  const [webDocId,       setWebDocId]       = useState<string | null>(null);
+  const [practice,       setPractice]       = useState<PracticeConfig | null>(null);
 
   // Persist clinician name
   useEffect(() => {
-    AsyncStorage.getItem('clinician_name').then(v => { if (v) setClinicianName(v); });
+    AsyncStorage.getItem('clinician_name').then((v: string | null) => { if (v) setClinicianName(v); });
   }, []);
 
   const saveClinicianName = useCallback((name: string) => {
@@ -178,13 +182,27 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
 
   const setDuration = (days: number) => setToDate(addDays(fromDate, days - 1));
 
+  // Reset on open + fetch practice
+  useEffect(() => {
+    if (visible) {
+      setFromDate(consultDate);
+      setToDate(addDays(consultDate, 2));
+      setReason(appointment.clinical_notes?.trim() ?? '');
+      setSignatureSvg(null);
+      setCalendarFor(null);
+      setWebDocId(null);
+      getPractice().then(p => { if (p) setPractice(p); });
+    }
+  }, [visible, consultDate, appointment.clinical_notes]);
+
   const generateAndShare = async () => {
     if (!clinicianName.trim()) {
-      Alert.alert('Missing info', 'Please enter the clinician\'s name.');
+      Alert.alert('Missing info', "Please enter the clinician's name.");
       return;
     }
     setGenerating(true);
     try {
+      const practiceName = practice?.name || 'Dental Practice';
       const html = buildHtml({
         patientName:  patient ? `${patient.first_name} ${patient.last_name}` : 'Patient',
         idNumber:     patient?.id_number ?? null,
@@ -195,7 +213,21 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
         reason:       reason.trim(),
         clinicianName: clinicianName.trim(),
         signatureSvg,
+        practiceName,
       });
+
+      // Save to web (await for the ID so we can show the share link)
+      const patId = patient?.id;
+      const saved = await saveDocument({
+        type:           'sick_note',
+        appointment_id: appointment.id,
+        ...(patId ? { patient_id: patId } : {}),
+        title:          `Sick Note — ${patient ? patient.first_name + ' ' + patient.last_name : 'Patient'} — ${fromDate}`,
+        html_content:   html,
+      });
+      if (saved?.id) setWebDocId(saved.id);
+
+      // Generate and share PDF
       const { uri } = await Print.printToFileAsync({ html, width: 612, height: 792 });
       await Sharing.shareAsync(uri, {
         mimeType:    'application/pdf',
@@ -208,17 +240,6 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
       setGenerating(false);
     }
   };
-
-  // Reset on open
-  useEffect(() => {
-    if (visible) {
-      setFromDate(consultDate);
-      setToDate(addDays(consultDate, 2));
-      setReason(appointment.clinical_notes?.trim() ?? '');
-      setSignatureSvg(null);
-      setCalendarFor(null);
-    }
-  }, [visible, consultDate, appointment.clinical_notes]);
 
   const markedDates: Record<string, any> = {
     [fromDate]: { selected: true, selectedColor: C.sage },
@@ -276,126 +297,135 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
           <View style={{ width: 38 }} />
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={s.scroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Patient info */}
-            {patient && (
-              <View style={s.patientCard}>
-                <Text style={s.cardLabel}>PATIENT</Text>
-                <Text style={s.patientName}>{patient.first_name} {patient.last_name}</Text>
-                {patient.date_of_birth && (
-                  <Text style={s.patientSub}>DOB: {shortDate(patient.date_of_birth)}</Text>
-                )}
-                {patient.id_number && (
-                  <Text style={s.patientSub}>ID: {patient.id_number}</Text>
-                )}
-              </View>
-            )}
-
-            {/* Consultation date */}
-            <View style={s.infoRow}>
-              <Ionicons name="calendar-outline" size={14} color={C.muted} />
-              <Text style={s.infoText}>Consulted on <Text style={s.infoEmph}>{shortDate(consultDate)}</Text></Text>
-            </View>
-
-            {/* Rest period */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>REST PERIOD</Text>
-              <View style={s.dateRow}>
-                <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('from')}>
-                  <Text style={s.dateBtnLabel}>From</Text>
-                  <Text style={s.dateBtnValue}>{shortDate(fromDate)}</Text>
-                  <Ionicons name="calendar-outline" size={14} color={C.sage} />
-                </TouchableOpacity>
-                <Text style={s.dateSep}>→</Text>
-                <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('to')}>
-                  <Text style={s.dateBtnLabel}>To</Text>
-                  <Text style={s.dateBtnValue}>{shortDate(toDate)}</Text>
-                  <Ionicons name="calendar-outline" size={14} color={C.sage} />
-                </TouchableOpacity>
-              </View>
-              <Text style={s.daysCount}>{dayCount(fromDate, toDate)} day{dayCount(fromDate, toDate) !== 1 ? 's' : ''}</Text>
-              <View style={s.quickRow}>
-                {[1, 2, 3, 5, 7, 14].map(d => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[s.quickBtn, dayCount(fromDate, toDate) === d && s.quickBtnActive]}
-                    onPress={() => setDuration(d)}
-                  >
-                    <Text style={[s.quickBtnText, dayCount(fromDate, toDate) === d && s.quickBtnTextActive]}>
-                      {d}d
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Reason */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>REASON / DIAGNOSIS</Text>
-              <TextInput
-                style={s.textArea}
-                value={reason}
-                onChangeText={setReason}
-                multiline
-                placeholder="e.g. Dental extraction — post-operative pain and swelling"
-                placeholderTextColor={C.muted}
-                textAlignVertical="top"
-                scrollEnabled={false}
-                autoCapitalize="sentences"
-                autoCorrect
-              />
-            </View>
-
-            {/* Clinician name */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>TREATING CLINICIAN</Text>
-              <TextInput
-                style={s.input}
-                value={clinicianName}
-                onChangeText={saveClinicianName}
-                placeholder="Dr. Full Name"
-                placeholderTextColor={C.muted}
-                autoCapitalize="words"
-              />
-            </View>
-
-            {/* Signature */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>SIGNATURE</Text>
-              <Text style={s.sigHint}>Draw your signature below</Text>
-              <SignaturePad
-                key={visible ? 'open' : 'closed'}
-                width={padWidth}
-                height={140}
-                onChange={setSignatureSvg}
-              />
-            </View>
-
-            {/* Share button */}
-            <TouchableOpacity
-              style={[s.shareBtn, generating && s.shareBtnDim]}
-              onPress={generateAndShare}
-              disabled={generating}
-              activeOpacity={0.85}
-            >
-              {generating ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="share-outline" size={20} color="#fff" />
-                  <Text style={s.shareBtnText}>Generate & Share</Text>
-                </>
+        <ScrollView
+          contentContainerStyle={[s.scroll, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Patient info */}
+          {patient && (
+            <View style={s.patientCard}>
+              <Text style={s.cardLabel}>PATIENT</Text>
+              <Text style={s.patientName}>{patient.first_name} {patient.last_name}</Text>
+              {patient.date_of_birth && (
+                <Text style={s.patientSub}>DOB: {shortDate(patient.date_of_birth)}</Text>
               )}
-            </TouchableOpacity>
+              {patient.id_number && (
+                <Text style={s.patientSub}>ID: {patient.id_number}</Text>
+              )}
+            </View>
+          )}
 
-            <View style={{ height: 32 }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
+          {/* Consultation date */}
+          <View style={s.infoRow}>
+            <Ionicons name="calendar-outline" size={14} color={C.muted} />
+            <Text style={s.infoText}>Consulted on <Text style={s.infoEmph}>{shortDate(consultDate)}</Text></Text>
+          </View>
+
+          {/* Rest period */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>REST PERIOD</Text>
+            <View style={s.dateRow}>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('from')}>
+                <Text style={s.dateBtnLabel}>From</Text>
+                <Text style={s.dateBtnValue}>{shortDate(fromDate)}</Text>
+                <Ionicons name="calendar-outline" size={14} color={C.sage} />
+              </TouchableOpacity>
+              <Text style={s.dateSep}>→</Text>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('to')}>
+                <Text style={s.dateBtnLabel}>To</Text>
+                <Text style={s.dateBtnValue}>{shortDate(toDate)}</Text>
+                <Ionicons name="calendar-outline" size={14} color={C.sage} />
+              </TouchableOpacity>
+            </View>
+            <Text style={s.daysCount}>{dayCount(fromDate, toDate)} day{dayCount(fromDate, toDate) !== 1 ? 's' : ''}</Text>
+            <View style={s.quickRow}>
+              {[1, 2, 3, 5, 7, 14].map(d => (
+                <TouchableOpacity
+                  key={d}
+                  style={[s.quickBtn, dayCount(fromDate, toDate) === d && s.quickBtnActive]}
+                  onPress={() => setDuration(d)}
+                >
+                  <Text style={[s.quickBtnText, dayCount(fromDate, toDate) === d && s.quickBtnTextActive]}>
+                    {d}d
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Reason */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>REASON / DIAGNOSIS</Text>
+            <TextInput
+              style={s.textArea}
+              value={reason}
+              onChangeText={setReason}
+              multiline
+              placeholder="e.g. Dental extraction — post-operative pain and swelling"
+              placeholderTextColor={C.muted}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              autoCapitalize="sentences"
+              autoCorrect
+            />
+          </View>
+
+          {/* Clinician name */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>TREATING CLINICIAN</Text>
+            <TextInput
+              style={s.input}
+              value={clinicianName}
+              onChangeText={saveClinicianName}
+              placeholder="Dr. Full Name"
+              placeholderTextColor={C.muted}
+              autoCapitalize="words"
+            />
+          </View>
+
+          {/* Signature */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>SIGNATURE</Text>
+            <Text style={s.sigHint}>Draw your signature below</Text>
+            <SignaturePad
+              key={visible ? 'open' : 'closed'}
+              width={padWidth}
+              height={140}
+              onChange={setSignatureSvg}
+            />
+          </View>
+
+          {/* Share button */}
+          <TouchableOpacity
+            style={[s.shareBtn, generating && s.shareBtnDim]}
+            onPress={generateAndShare}
+            disabled={generating}
+            activeOpacity={0.85}
+          >
+            {generating ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="share-outline" size={20} color="#fff" />
+                <Text style={s.shareBtnText}>Generate & Share</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Web link share — appears after saving */}
+          {webDocId && (
+            <TouchableOpacity
+              style={s.webLinkBtn}
+              onPress={() => {
+                Share.share({ message: `View & print this document: ${API_BASE}/document.html?id=${webDocId}` });
+              }}
+            >
+              <Ionicons name="link-outline" size={16} color={C.sage} />
+              <Text style={s.webLinkText}>Share web link for printing</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -495,4 +525,13 @@ const s = StyleSheet.create({
   },
   shareBtnDim:  { opacity: 0.55 },
   shareBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  // Web link button
+  webLinkBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, marginTop: 10, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1, borderColor: C.rule,
+    backgroundColor: C.paper,
+  },
+  webLinkText: { fontSize: 13, color: C.sage, fontWeight: '600' },
 });

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Modal, ScrollView, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Alert, useWindowDimensions,
-  KeyboardAvoidingView, Platform,
+  StyleSheet, ActivityIndicator, Alert, useWindowDimensions, Share,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
@@ -13,6 +12,7 @@ import * as Sharing from 'expo-sharing';
 import SignaturePad from './SignaturePad';
 import { C } from '../constants/theme';
 import type { Appointment } from '../lib/api';
+import { getPractice, saveDocument, API_BASE, type PracticeConfig } from '../lib/api';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,7 @@ function buildHtml(p: {
   message: string;
   clinicianName: string;
   signatureSvg: string | null;
+  practiceName: string;
 }): string {
   const today    = displayDate(todayIso());
   const patSub   = [
@@ -106,7 +107,7 @@ function buildHtml(p: {
 <body>
 <div class="page">
   <div class="lh">
-    <div><div class="pn">OH Dental Studio</div><div class="ps">Professional Dental Care</div></div>
+    <div><div class="pn">${p.practiceName}</div><div class="ps">Professional Dental Care</div></div>
     <div class="dd">${today}</div>
   </div>
   <h2>Referral Letter</h2>
@@ -132,10 +133,10 @@ function buildHtml(p: {
     <div class="sl">Referring Clinician</div>
     ${sig}
     <div class="cn">${p.clinicianName || '___________________________'}</div>
-    <div class="cp">OH Dental Studio</div>
+    <div class="cp">${p.practiceName}</div>
   </div>
   <div class="ft">
-    This letter was issued by OH Dental Studio.<br>
+    This letter was issued by ${p.practiceName}.<br>
     Confidential medical document — for recipient use only.
   </div>
 </div>
@@ -157,6 +158,7 @@ type CalendarFor = 'from' | 'to' | null;
 
 export default function ReferralLetterModal({ visible, onClose, appointment }: Props) {
   const { width: sw } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const padWidth = sw - 80;
 
   const patient = appointment.patients;
@@ -170,10 +172,12 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
   const [signatureSvg,  setSignatureSvg]  = useState<string | null>(null);
   const [calendarFor,   setCalendarFor]   = useState<CalendarFor>(null);
   const [generating,    setGenerating]    = useState(false);
+  const [webDocId,      setWebDocId]      = useState<string | null>(null);
+  const [practice,      setPractice]      = useState<PracticeConfig | null>(null);
 
   // Persist clinician name across sessions
   useEffect(() => {
-    AsyncStorage.getItem('clinician_name').then(v => { if (v) setClinicianName(v); });
+    AsyncStorage.getItem('clinician_name').then((v: string | null) => { if (v) setClinicianName(v); });
   }, []);
 
   const saveClinicianName = useCallback((name: string) => {
@@ -181,7 +185,7 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
     AsyncStorage.setItem('clinician_name', name);
   }, []);
 
-  // Reset on open
+  // Reset on open + fetch practice
   useEffect(() => {
     if (visible) {
       const t = todayIso();
@@ -190,12 +194,14 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
       setMessage(appointment.clinical_notes?.trim() ?? '');
       setSignatureSvg(null);
       setCalendarFor(null);
+      setWebDocId(null);
+      getPractice().then(p => { if (p) setPractice(p); });
     }
   }, [visible, appointment.clinical_notes]);
 
   const generateAndShare = async () => {
     if (!clinicianName.trim()) {
-      Alert.alert('Missing info', 'Please enter the clinician\'s name.');
+      Alert.alert('Missing info', "Please enter the clinician's name.");
       return;
     }
     if (!referTo.trim()) {
@@ -204,6 +210,7 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
     }
     setGenerating(true);
     try {
+      const practiceName = practice?.name || 'Dental Practice';
       const html = buildHtml({
         patientName:  patient ? `${patient.first_name} ${patient.last_name}` : 'Patient',
         idNumber:     patient?.id_number ?? null,
@@ -216,7 +223,21 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
         message:      message.trim(),
         clinicianName: clinicianName.trim(),
         signatureSvg,
+        practiceName,
       });
+
+      // Save to web (await for the ID so we can show the share link)
+      const patId = patient?.id;
+      const saved = await saveDocument({
+        type:           'referral_letter',
+        appointment_id: appointment.id,
+        ...(patId ? { patient_id: patId } : {}),
+        title:          `Referral Letter — ${patient ? patient.first_name + ' ' + patient.last_name : 'Patient'} — ${fromDate}`,
+        html_content:   html,
+      });
+      if (saved?.id) setWebDocId(saved.id);
+
+      // Generate and share PDF
       const { uri } = await Print.printToFileAsync({ html, width: 612, height: 792 });
       await Sharing.shareAsync(uri, {
         mimeType:    'application/pdf',
@@ -286,144 +307,153 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
           <View style={{ width: 38 }} />
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView
-            contentContainerStyle={s.scroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Patient info */}
-            {patient && (
-              <View style={s.patientCard}>
-                <Text style={s.cardLabel}>PATIENT</Text>
-                <Text style={s.patientName}>{patient.first_name} {patient.last_name}</Text>
-                {patient.date_of_birth && (
-                  <Text style={s.patientSub}>DOB: {shortDate(patient.date_of_birth)}</Text>
-                )}
-                {patient.id_number && (
-                  <Text style={s.patientSub}>ID: {patient.id_number}</Text>
-                )}
-                {patient.phone && (
-                  <Text style={s.patientSub}>{patient.phone}</Text>
-                )}
-              </View>
-            )}
-
-            {/* Refer to */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>REFER TO</Text>
-              <TextInput
-                style={s.input}
-                value={referTo}
-                onChangeText={setReferTo}
-                placeholder="e.g. Maxillofacial Surgeon, Dr. Naidoo"
-                placeholderTextColor={C.muted}
-                autoCapitalize="words"
-                returnKeyType="next"
-              />
-            </View>
-
-            {/* Referral validity period */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>VALIDITY PERIOD</Text>
-              <View style={s.dateRow}>
-                <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('from')}>
-                  <Text style={s.dateBtnLabel}>From</Text>
-                  <Text style={s.dateBtnValue}>{shortDate(fromDate)}</Text>
-                  <Ionicons name="calendar-outline" size={14} color={C.sage} />
-                </TouchableOpacity>
-                <Text style={s.dateSep}>→</Text>
-                <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('to')}>
-                  <Text style={s.dateBtnLabel}>To</Text>
-                  <Text style={s.dateBtnValue}>{shortDate(toDate)}</Text>
-                  <Ionicons name="calendar-outline" size={14} color={C.sage} />
-                </TouchableOpacity>
-              </View>
-              <View style={s.quickRow}>
-                {[
-                  { label: '1 month',  months: 1 },
-                  { label: '3 months', months: 3 },
-                  { label: '6 months', months: 6 },
-                  { label: '1 year',   months: 12 },
-                ].map(({ label, months }) => {
-                  const targetTo = addMonths(fromDate, months);
-                  return (
-                    <TouchableOpacity
-                      key={label}
-                      style={[s.quickBtn, toDate === targetTo && s.quickBtnActive]}
-                      onPress={() => setToDate(targetTo)}
-                    >
-                      <Text style={[s.quickBtnText, toDate === targetTo && s.quickBtnTextActive]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Clinical message */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>REASON FOR REFERRAL</Text>
-              <TextInput
-                style={s.textArea}
-                value={message}
-                onChangeText={setMessage}
-                multiline
-                placeholder="Clinical findings, treatment history, specific requests for the specialist…"
-                placeholderTextColor={C.muted}
-                textAlignVertical="top"
-                scrollEnabled={false}
-                autoCapitalize="sentences"
-                autoCorrect
-              />
-            </View>
-
-            {/* Clinician name */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>REFERRING CLINICIAN</Text>
-              <TextInput
-                style={s.input}
-                value={clinicianName}
-                onChangeText={saveClinicianName}
-                placeholder="Dr. Full Name"
-                placeholderTextColor={C.muted}
-                autoCapitalize="words"
-              />
-            </View>
-
-            {/* Signature */}
-            <View style={s.fieldCard}>
-              <Text style={s.fieldLabel}>SIGNATURE</Text>
-              <Text style={s.sigHint}>Draw your signature below</Text>
-              <SignaturePad
-                key={visible ? 'open' : 'closed'}
-                width={padWidth}
-                height={140}
-                onChange={setSignatureSvg}
-              />
-            </View>
-
-            {/* Share button */}
-            <TouchableOpacity
-              style={[s.shareBtn, generating && s.shareBtnDim]}
-              onPress={generateAndShare}
-              disabled={generating}
-              activeOpacity={0.85}
-            >
-              {generating ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="share-outline" size={20} color="#fff" />
-                  <Text style={s.shareBtnText}>Generate & Share</Text>
-                </>
+        <ScrollView
+          contentContainerStyle={[s.scroll, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Patient info */}
+          {patient && (
+            <View style={s.patientCard}>
+              <Text style={s.cardLabel}>PATIENT</Text>
+              <Text style={s.patientName}>{patient.first_name} {patient.last_name}</Text>
+              {patient.date_of_birth && (
+                <Text style={s.patientSub}>DOB: {shortDate(patient.date_of_birth)}</Text>
               )}
-            </TouchableOpacity>
+              {patient.id_number && (
+                <Text style={s.patientSub}>ID: {patient.id_number}</Text>
+              )}
+              {patient.phone && (
+                <Text style={s.patientSub}>{patient.phone}</Text>
+              )}
+            </View>
+          )}
 
-            <View style={{ height: 32 }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
+          {/* Refer to */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>REFER TO</Text>
+            <TextInput
+              style={s.input}
+              value={referTo}
+              onChangeText={setReferTo}
+              placeholder="e.g. Maxillofacial Surgeon, Dr. Naidoo"
+              placeholderTextColor={C.muted}
+              autoCapitalize="words"
+              returnKeyType="next"
+            />
+          </View>
+
+          {/* Referral validity period */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>VALIDITY PERIOD</Text>
+            <View style={s.dateRow}>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('from')}>
+                <Text style={s.dateBtnLabel}>From</Text>
+                <Text style={s.dateBtnValue}>{shortDate(fromDate)}</Text>
+                <Ionicons name="calendar-outline" size={14} color={C.sage} />
+              </TouchableOpacity>
+              <Text style={s.dateSep}>→</Text>
+              <TouchableOpacity style={s.dateBtn} onPress={() => setCalendarFor('to')}>
+                <Text style={s.dateBtnLabel}>To</Text>
+                <Text style={s.dateBtnValue}>{shortDate(toDate)}</Text>
+                <Ionicons name="calendar-outline" size={14} color={C.sage} />
+              </TouchableOpacity>
+            </View>
+            <View style={s.quickRow}>
+              {[
+                { label: '1 month',  months: 1 },
+                { label: '3 months', months: 3 },
+                { label: '6 months', months: 6 },
+                { label: '1 year',   months: 12 },
+              ].map(({ label, months }) => {
+                const targetTo = addMonths(fromDate, months);
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={[s.quickBtn, toDate === targetTo && s.quickBtnActive]}
+                    onPress={() => setToDate(targetTo)}
+                  >
+                    <Text style={[s.quickBtnText, toDate === targetTo && s.quickBtnTextActive]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Clinical message */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>REASON FOR REFERRAL</Text>
+            <TextInput
+              style={s.textArea}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              placeholder="Clinical findings, treatment history, specific requests for the specialist…"
+              placeholderTextColor={C.muted}
+              textAlignVertical="top"
+              scrollEnabled={false}
+              autoCapitalize="sentences"
+              autoCorrect
+            />
+          </View>
+
+          {/* Clinician name */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>REFERRING CLINICIAN</Text>
+            <TextInput
+              style={s.input}
+              value={clinicianName}
+              onChangeText={saveClinicianName}
+              placeholder="Dr. Full Name"
+              placeholderTextColor={C.muted}
+              autoCapitalize="words"
+            />
+          </View>
+
+          {/* Signature */}
+          <View style={s.fieldCard}>
+            <Text style={s.fieldLabel}>SIGNATURE</Text>
+            <Text style={s.sigHint}>Draw your signature below</Text>
+            <SignaturePad
+              key={visible ? 'open' : 'closed'}
+              width={padWidth}
+              height={140}
+              onChange={setSignatureSvg}
+            />
+          </View>
+
+          {/* Share button */}
+          <TouchableOpacity
+            style={[s.shareBtn, generating && s.shareBtnDim]}
+            onPress={generateAndShare}
+            disabled={generating}
+            activeOpacity={0.85}
+          >
+            {generating ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name="share-outline" size={20} color="#fff" />
+                <Text style={s.shareBtnText}>Generate & Share</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Web link share — appears after saving */}
+          {webDocId && (
+            <TouchableOpacity
+              style={s.webLinkBtn}
+              onPress={() => {
+                Share.share({ message: `View & print this document: ${API_BASE}/document.html?id=${webDocId}` });
+              }}
+            >
+              <Ionicons name="link-outline" size={16} color={C.sage} />
+              <Text style={s.webLinkText}>Share web link for printing</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -505,4 +535,13 @@ const s = StyleSheet.create({
   },
   shareBtnDim:  { opacity: 0.55 },
   shareBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+
+  // Web link button
+  webLinkBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, marginTop: 10, paddingVertical: 10,
+    borderRadius: 12, borderWidth: 1, borderColor: C.rule,
+    backgroundColor: C.paper,
+  },
+  webLinkText: { fontSize: 13, color: C.sage, fontWeight: '600' },
 });
