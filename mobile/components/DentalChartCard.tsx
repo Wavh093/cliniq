@@ -10,7 +10,7 @@ import {
   type ToothStatus, type ToothNote, type ToothRecord, type DentalScan,
 } from '../lib/api';
 import { C } from '../constants/theme';
-import DentalChart from './DentalChart';
+import DentalChart, { TOOTH_COLORS } from './DentalChart';
 import ToothDetailModal from './ToothDetailModal';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -30,15 +30,19 @@ function fmtDate(iso: string): string {
 interface Props {
   patientId: string;
   appointmentId?: string | null;
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
-export default function DentalChartCard({ patientId, appointmentId }: Props) {
+export default function DentalChartCard({ patientId, appointmentId, onUploadingChange }: Props) {
   const [loading,      setLoading]      = useState(true);
   const [toothMap,     setToothMap]     = useState<Partial<Record<number, ToothCell>>>({});
   const [notesByTooth, setNotesByTooth] = useState<Record<number, ToothNote[]>>({});
   const [scans,        setScans]        = useState<DentalScan[]>([]);
   const [scansLoading, setScansLoading] = useState(true);
   const [uploading,    setUploading]    = useState(false);
+
+  // Notify parent when upload state changes so it can guard navigation
+  React.useEffect(() => { onUploadingChange?.(uploading); }, [uploading, onUploadingChange]);
 
   // Tooth detail modal
   const [selectedFdi, setSelectedFdi] = useState<number | null>(null);
@@ -112,22 +116,16 @@ export default function DentalChartCard({ patientId, appointmentId }: Props) {
     }));
   }, []);
 
-  const handleNoteDeleted = useCallback((noteId: string) => {
-    setNotesByTooth(prev => {
-      const next = { ...prev };
-      for (const fdi of Object.keys(next)) {
-        const key = Number(fdi);
-        next[key] = next[key].filter(n => n.id !== noteId);
-        if (next[key].length === 0) {
-          setToothMap(m => ({
-            ...m,
-            [key]: { ...(m[key] ?? { status: 'healthy' }), hasNotes: false },
-          }));
-        }
-      }
-      return next;
-    });
-  }, []);
+  const handleNoteDeleted = useCallback((noteId: string, toothFdi: number) => {
+    const remaining = (notesByTooth[toothFdi] ?? []).filter(n => n.id !== noteId);
+    setNotesByTooth(prev => ({ ...prev, [toothFdi]: remaining }));
+    if (remaining.length === 0) {
+      setToothMap(m => ({
+        ...m,
+        [toothFdi]: { ...(m[toothFdi] ?? { status: 'healthy' }), hasNotes: false },
+      }));
+    }
+  }, [notesByTooth]);
 
   // ── Scan upload ───────────────────────────────────────────────────────────
   const handleAddScan = useCallback(() => {
@@ -235,8 +233,8 @@ export default function DentalChartCard({ patientId, appointmentId }: Props) {
         setViewingImage(scan.signed_url);
       }
     } else {
-      // Regenerate signed URL via supabase client
-      const { data } = await supabase.storage
+      // Regenerate signed URL via supabase client (requires active authenticated session)
+      const { data, error } = await supabase.storage
         .from('dental-scans')
         .createSignedUrl(scan.file_path, 3600);
       if (data?.signedUrl) {
@@ -245,6 +243,9 @@ export default function DentalChartCard({ patientId, appointmentId }: Props) {
         } else {
           setViewingImage(data.signedUrl);
         }
+      } else {
+        console.warn('[DentalChartCard] createSignedUrl failed:', error?.message);
+        Alert.alert('Cannot open scan', 'Could not generate a link. Please try again or re-login.');
       }
     }
   }, []);
@@ -290,17 +291,20 @@ export default function DentalChartCard({ patientId, appointmentId }: Props) {
         {/* ── Legend ──────────────────────────────────────────── */}
         <View style={s.legend}>
           {([
-            ['#FEF3C7', '#F59E0B', 'Cavity'],
-            ['#DBEAFE', '#60A5FA', 'Filled'],
-            ['#FEF9C3', '#CA8A04', 'Crown'],
-            ['#D1FAE5', '#34D399', 'Implant'],
-            ['#FEE2E2', '#EF4444', 'Treatment'],
-          ] as [string, string, string][]).map(([fill, stroke, label]) => (
-            <View key={label} style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: fill, borderColor: stroke }]} />
-              <Text style={s.legendLabel}>{label}</Text>
-            </View>
-          ))}
+            ['cavity',          'Cavity'],
+            ['filled',          'Filled'],
+            ['crown',           'Crown'],
+            ['implant',         'Implant'],
+            ['needs_treatment', 'Treatment'],
+          ] as [ToothStatus, string][]).map(([status, label]) => {
+            const colors = TOOTH_COLORS[status];
+            return (
+              <View key={label} style={s.legendItem}>
+                <View style={[s.legendDot, { backgroundColor: colors.fill, borderColor: colors.stroke }]} />
+                <Text style={s.legendLabel}>{label}</Text>
+              </View>
+            );
+          })}
         </View>
 
         {/* ── Divider ─────────────────────────────────────────── */}

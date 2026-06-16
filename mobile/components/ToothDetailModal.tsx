@@ -47,7 +47,7 @@ interface Props {
   notes: ToothNote[];
   onStatusChange: (fdi: number, status: ToothStatus) => void;
   onNoteAdded: (note: ToothNote) => void;
-  onNoteDeleted: (noteId: string) => void;
+  onNoteDeleted: (noteId: string, toothFdi: number) => void;
 }
 
 export default function ToothDetailModal({
@@ -109,7 +109,7 @@ export default function ToothDetailModal({
         onPress: async () => {
           try {
             await deleteToothNote(note.id);
-            onNoteDeleted(note.id);
+            onNoteDeleted(note.id, note.tooth_fdi);
           } catch (e: any) {
             Alert.alert('Could not delete', e.message ?? 'Please try again.');
           }

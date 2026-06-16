@@ -81,6 +81,8 @@ export default function SessionScreen() {
     clinicalNotes !== origClinical.current ||
     internalNotes !== origInternal.current;
 
+  const chartUploadingRef = useRef(false);
+
   useFocusEffect(useCallback(() => {
     if (!id) return;
     setLoading(true);
@@ -148,6 +150,10 @@ export default function SessionScreen() {
   // ── Back ──────────────────────────────────────────────────────
 
   const handleBack = useCallback(() => {
+    if (chartUploadingRef.current) {
+      Alert.alert('Upload in progress', 'A scan is still uploading. Please wait for it to finish before leaving.');
+      return;
+    }
     if (isDirty) {
       Alert.alert('Unsaved notes', 'You have unsaved clinical notes.', [
         {
@@ -405,6 +411,7 @@ export default function SessionScreen() {
             <DentalChartCard
               patientId={patient.id}
               appointmentId={appt.id}
+              onUploadingChange={(v) => { chartUploadingRef.current = v; }}
             />
           )}
 

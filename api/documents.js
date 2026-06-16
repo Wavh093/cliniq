@@ -156,7 +156,7 @@ module.exports = async function handler(req, res) {
         'healthy','cavity','filled','crown',
         'extraction','implant','missing','bridge','needs_treatment',
       ];
-      if (status && !VALID_STATUSES.includes(status)) {
+      if (status !== undefined && !VALID_STATUSES.includes(status)) {
         return res.status(400).json({ error: 'Invalid status value' });
       }
 
@@ -192,8 +192,8 @@ module.exports = async function handler(req, res) {
 
         if (fetchErr || !scan) return res.status(404).json({ error: 'Scan not found' });
 
-        await db.storage.from('dental-scans').remove([scan.file_path]);
-
+        // Delete DB row first — if this fails the file is preserved and recoverable.
+        // A DB row pointing at a missing storage object is unrecoverable from the UI.
         const { error } = await db
           .from('dental_scans')
           .delete()
@@ -201,6 +201,14 @@ module.exports = async function handler(req, res) {
           .eq('practice_id', PRACTICE_ID);
 
         if (error) return res.status(500).json({ error: error.message });
+
+        const { error: storageErr } = await db.storage
+          .from('dental-scans')
+          .remove([scan.file_path]);
+        if (storageErr) {
+          console.error('[dental scan DELETE] storage remove error (non-fatal):', storageErr.message);
+        }
+
         return res.status(200).json({ success: true });
       }
 
