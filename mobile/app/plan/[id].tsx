@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   ActivityIndicator, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getTreatmentPlan,
@@ -42,17 +42,18 @@ export default function PlanDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!id) {
       setError('Plan ID missing');
       setLoading(false);
       return;
     }
+    setLoading(true);
     getTreatmentPlan(id)
       .then(({ plan: p }) => setPlan(p as FullPlan))
       .catch(e => setError(e.message ?? 'Could not load plan'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id]));
 
   if (loading) {
     return (
@@ -175,7 +176,7 @@ export default function PlanDetailScreen() {
               return (
                 <Wrapper
                   key={sess.id}
-                  style={[s.sessionRow, i === sessions.length - 1 && { borderBottomWidth: 0 }]}
+                  style={[s.sessionRow, i === sessions.length - 1 && { borderBottomWidth: 0 }, !hasAppt && { opacity: 0.6 }]}
                   {...wrapperProps}
                 >
                   <View style={s.sessLeft}>
@@ -199,8 +200,10 @@ export default function PlanDetailScreen() {
                     {sess.amount_charged != null && (
                       <Text style={s.sessAmount}>{R(sess.amount_charged)}</Text>
                     )}
-                    {hasAppt && (
+                    {hasAppt ? (
                       <Ionicons name="chevron-forward" size={16} color={C.muted} style={{ marginTop: 2 }} />
+                    ) : (
+                      <Text style={{ fontSize: 10, color: C.muted, fontStyle: 'italic' }}>No appt</Text>
                     )}
                   </View>
                 </Wrapper>
