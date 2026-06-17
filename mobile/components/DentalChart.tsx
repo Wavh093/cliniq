@@ -74,7 +74,7 @@ const LOWER_ARCH: ToothRef[] = [
 const N     = 16;  // teeth per arch
 const PAD_T = 4;   // minimum top padding inside arch row (px)
 const DEPTH = 46;  // vertical amplitude of the curve (px)
-export const T_H  = 26;  // tooth height (px)
+export const T_H  = 32;  // tooth height (px)
 
 function archMarginTop(i: number, inverted: boolean): number {
   const dist = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2); // 0 = centre, 1 = edge

@@ -337,6 +337,26 @@ export async function saveDocument(payload: {
   }
 }
 
+// ── Clinician Signatures ─────────────────────────────────────────────────────
+
+export async function getMySignature(): Promise<{ signatureData: string | null; displayName: string | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { signatureData: null, displayName: null };
+    const { data } = await supabase
+      .from('clinician_signatures')
+      .select('signature_data, display_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    return {
+      signatureData: data?.signature_data ?? null,
+      displayName:   data?.display_name   ?? null,
+    };
+  } catch {
+    return { signatureData: null, displayName: null };
+  }
+}
+
 // ── Dental Chart ─────────────────────────────────────────────────────────────
 
 export type ToothStatus =

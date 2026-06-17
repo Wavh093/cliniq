@@ -156,7 +156,7 @@ export default function ToothDetailModal({
         style={s.sheet}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[s.sheetInner, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[s.sheetInner, { paddingBottom: 16 }]}>
           {/* Drag handle */}
           <View style={s.handle} />
 
@@ -287,6 +287,8 @@ export default function ToothDetailModal({
             </TouchableOpacity>
           </View>
         </View>
+        {/* Fills safe-area gap below rounded sheet on iPhone home-bar devices */}
+        <View style={{ backgroundColor: C.paper, height: insets.bottom }} />
       </KeyboardAvoidingView>
     </Modal>
   );

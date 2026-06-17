@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, Modal, ScrollView, TextInput, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Alert, useWindowDimensions, Share,
+  StyleSheet, ActivityIndicator, Alert, Image, Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,10 +9,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import SignaturePad from './SignaturePad';
 import { C } from '../constants/theme';
 import type { Appointment } from '../lib/api';
-import { getPractice, saveDocument, API_BASE, type PracticeConfig } from '../lib/api';
+import { getPractice, saveDocument, getMySignature, API_BASE, type PracticeConfig } from '../lib/api';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -68,7 +67,9 @@ function buildHtml(p: {
   ].filter(Boolean).join('  |  ');
   const contact  = [p.phone, p.email].filter(Boolean).join('  |  ');
   const sig      = p.signatureSvg
-    ? `<div style="margin:6px 0 2px;">${p.signatureSvg}</div>`
+    ? p.signatureSvg.startsWith('data:')
+      ? `<img src="${p.signatureSvg}" style="height:64px;max-width:220px;display:block;margin:6px 0 2px;object-fit:contain;">`
+      : `<div style="margin:6px 0 2px;">${p.signatureSvg}</div>`
     : `<div style="border-top:1.5px solid #bbb;width:220px;margin:24px 0 6px;"></div>`;
 
   return `<!DOCTYPE html>
@@ -157,9 +158,7 @@ type CalendarFor = 'from' | 'to' | null;
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ReferralLetterModal({ visible, onClose, appointment }: Props) {
-  const { width: sw } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const padWidth = sw - 80;
 
   const patient = appointment.patients;
   const today   = todayIso();
@@ -170,6 +169,7 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
   const [message,       setMessage]       = useState(appointment.clinical_notes?.trim() ?? '');
   const [clinicianName, setClinicianName] = useState('');
   const [signatureSvg,  setSignatureSvg]  = useState<string | null>(null);
+  const [sigLoading,    setSigLoading]    = useState(false);
   const [calendarFor,   setCalendarFor]   = useState<CalendarFor>(null);
   const [generating,    setGenerating]    = useState(false);
   const [webDocId,      setWebDocId]      = useState<string | null>(null);
@@ -185,17 +185,22 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
     AsyncStorage.setItem('clinician_name', name);
   }, []);
 
-  // Reset on open + fetch practice
+  // Reset on open + fetch practice + load stored signature
   useEffect(() => {
     if (visible) {
       const t = todayIso();
       setFromDate(t);
       setToDate(addMonths(t, 3));
       setMessage(appointment.clinical_notes?.trim() ?? '');
-      setSignatureSvg(null);
       setCalendarFor(null);
       setWebDocId(null);
       getPractice().then(p => { if (p) setPractice(p); });
+      setSigLoading(true);
+      getMySignature().then(({ signatureData, displayName }) => {
+        setSignatureSvg(signatureData);
+        if (displayName && !clinicianName.trim()) setClinicianName(displayName);
+        setSigLoading(false);
+      });
     }
   }, [visible, appointment.clinical_notes]);
 
@@ -412,16 +417,23 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
             />
           </View>
 
-          {/* Signature */}
+          {/* Signature — loaded from clinician profile */}
           <View style={s.fieldCard}>
             <Text style={s.fieldLabel}>SIGNATURE</Text>
-            <Text style={s.sigHint}>Draw your signature below</Text>
-            <SignaturePad
-              key={visible ? 'open' : 'closed'}
-              width={padWidth}
-              height={140}
-              onChange={setSignatureSvg}
-            />
+            {sigLoading ? (
+              <ActivityIndicator size="small" color={C.sage} style={{ marginVertical: 12 }} />
+            ) : signatureSvg ? (
+              <>
+                <Image source={{ uri: signatureSvg }} style={s.sigPreview} resizeMode="contain" />
+                <Text style={s.sigNote}>From your clinician profile</Text>
+              </>
+            ) : (
+              <View style={s.sigMissing}>
+                <Text style={s.sigMissingText}>
+                  No signature uploaded. Go to Settings in the web app to add yours.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Share button */}
@@ -526,7 +538,16 @@ const s = StyleSheet.create({
   },
   input: { fontSize: 15, color: C.ink, paddingVertical: 2 },
 
-  sigHint: { fontSize: 12, color: C.muted, marginBottom: 8 },
+  sigPreview: {
+    width: '100%', height: 72, borderRadius: 8,
+    backgroundColor: '#f8fafc', marginBottom: 4,
+  },
+  sigNote:    { fontSize: 11, color: C.muted, fontStyle: 'italic' },
+  sigMissing: {
+    borderWidth: 1, borderColor: C.rule, borderRadius: 10,
+    padding: 14, backgroundColor: C.bg,
+  },
+  sigMissingText: { fontSize: 13, color: C.muted, lineHeight: 19 },
 
   shareBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

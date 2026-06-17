@@ -7321,6 +7321,54 @@ function SettingsPage({ supabase, session }) {
     finally { setAuditLoading(false); }
   };
 
+  // ── Clinician signatures ────────────────────────────────────
+  const [signatures,  setSignatures]  = useState([]);
+  const [sigsLoaded,  setSigsLoaded]  = useState(false);
+  const [mySigDraft,  setMySigDraft]  = useState(null);   // data URL before saving
+  const [mySigName,   setMySigName]   = useState('');
+  const [sigSaving,   setSigSaving]   = useState(false);
+  const [sigErr,      setSigErr]      = useState('');
+
+  useEffect(() => {
+    if (!supabase || sigsLoaded) return;
+    supabase.from('clinician_signatures').select('user_id, display_name, signature_data')
+      .then(({ data }) => {
+        const list = data || [];
+        setSignatures(list);
+        setSigsLoaded(true);
+        const mine = list.find(s => s.user_id === user?.id);
+        if (mine?.display_name) setMySigName(mine.display_name);
+      });
+  }, [supabase, sigsLoaded, user?.id]);
+
+  const saveSig = async () => {
+    if (!mySigName.trim()) { setSigErr('Please enter your display name.'); return; }
+    const existingSig = signatures.find(s => s.user_id === user?.id);
+    const dataToSave  = mySigDraft || existingSig?.signature_data || null;
+    setSigSaving(true); setSigErr('');
+    try {
+      const { error } = await supabase.from('clinician_signatures')
+        .upsert({ user_id: user.id, display_name: mySigName.trim(), signature_data: dataToSave, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+      if (error) throw error;
+      setSignatures(prev => {
+        const others = prev.filter(s => s.user_id !== user.id);
+        return [...others, { user_id: user.id, display_name: mySigName.trim(), signature_data: dataToSave }];
+      });
+      setMySigDraft(null);
+      showToast('Signature saved');
+    } catch(e) { setSigErr(e.message || 'Could not save. Please try again.'); }
+    finally { setSigSaving(false); }
+  };
+
+  const removeSig = async () => {
+    try {
+      await supabase.from('clinician_signatures').delete().eq('user_id', user.id);
+      setSignatures(prev => prev.filter(s => s.user_id !== user.id));
+      setMySigDraft(null);
+      showToast('Signature removed');
+    } catch(e) { showToast('Could not remove signature.', 'error'); }
+  };
+
   // ── Staff list + invite ─────────────────────────────────────
   const [staff,        setStaff]        = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
@@ -7496,6 +7544,104 @@ function SettingsPage({ supabase, session }) {
               {inviting ? 'Sending…' : 'Send invite'}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ── Clinician Signatures ── */}
+      <div className="card" style={{marginTop:24}}>
+        <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:4}}>Clinician signatures</div>
+        <div style={{fontSize:13,color:'var(--ink-soft)',marginBottom:20,lineHeight:1.5}}>
+          Upload your signature once — it will be used automatically on sick notes and referral letters generated from the mobile app.
+          Each clinician manages their own signature when logged in.
+        </div>
+
+        {/* My signature slot */}
+        <div style={{borderBottom:'1px solid var(--border)',paddingBottom:22,marginBottom:22}}>
+          <div style={{fontWeight:600,fontSize:13,marginBottom:14}}>Your signature</div>
+          <div style={{display:'flex',flexDirection:'column',gap:12,maxWidth:420}}>
+            <div className="field">
+              <label>Display name (shown on documents)</label>
+              <input value={mySigName} placeholder="e.g. Dr. A. Nkosi"
+                onChange={e => { setMySigName(e.target.value); setSigErr(''); }} />
+            </div>
+
+            {(() => {
+              const existingSig  = signatures.find(s => s.user_id === user?.id);
+              const previewUrl   = mySigDraft || existingSig?.signature_data;
+              return (
+                <div>
+                  <div style={{fontSize:12,fontWeight:600,marginBottom:8,color:'var(--ink-soft)'}}>Signature image</div>
+                  {previewUrl ? (
+                    <div style={{border:'1.5px solid var(--border)',borderRadius:10,padding:'10px 14px',background:'#f8fafc',marginBottom:10,display:'flex',alignItems:'center',gap:14}}>
+                      <img src={previewUrl} alt="signature preview" style={{height:56,maxWidth:200,objectFit:'contain'}} />
+                      {mySigDraft && <span style={{fontSize:11,color:'var(--amber)',fontWeight:600,flexShrink:0}}>Unsaved</span>}
+                    </div>
+                  ) : (
+                    <div style={{border:'1.5px dashed var(--border)',borderRadius:10,padding:'14px 20px',background:'#f8fafc',marginBottom:10,fontSize:13,color:'var(--muted)',textAlign:'center'}}>
+                      No signature uploaded yet
+                    </div>
+                  )}
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    <label className="btn btn-ghost btn-sm" style={{cursor:'pointer',fontSize:12,margin:0}}>
+                      {previewUrl ? 'Replace image' : 'Upload image'}
+                      <input type="file" accept="image/*" style={{display:'none'}} onChange={e => {
+                        const f = e.target.files[0];
+                        if (!f) return;
+                        if (f.size > 600 * 1024) { setSigErr('Image must be under 600 KB.'); return; }
+                        const reader = new FileReader();
+                        reader.onload = ev => { setMySigDraft(ev.target.result); setSigErr(''); };
+                        reader.readAsDataURL(f);
+                        e.target.value = '';
+                      }} />
+                    </label>
+                    {previewUrl && (
+                      <button className="btn btn-ghost btn-sm"
+                        style={{fontSize:12,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
+                        onClick={removeSig}>Remove</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {sigErr && <div className="alert alert-error" style={{marginBottom:0}}>{sigErr}</div>}
+            <button className="btn btn-primary btn-sm" style={{alignSelf:'flex-start'}}
+              disabled={sigSaving} onClick={saveSig}>
+              {sigSaving ? 'Saving…' : 'Save signature'}
+            </button>
+          </div>
+        </div>
+
+        {/* Other clinicians' status */}
+        <div>
+          <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Other clinicians</div>
+          {!sigsLoaded ? (
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[1,2].map(i => <div key={i} className="skel" style={{height:52,borderRadius:10}} />)}
+            </div>
+          ) : staff.filter(s => s.auth_user_id !== user?.id).length === 0 ? (
+            <div style={{fontSize:13,color:'var(--muted)'}}>No other staff members found.</div>
+          ) : (
+            staff.filter(s => s.auth_user_id !== user?.id).map(s => {
+              const sig = signatures.find(x => x.user_id === s.auth_user_id);
+              return (
+                <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,background:'var(--bg-3)',marginBottom:8}}>
+                  <div className="user-avatar" style={{width:36,height:36,fontSize:14,flexShrink:0}}>
+                    {(s.name || s.email || '?')[0].toUpperCase()}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:500,fontSize:13}}>{sig?.display_name || s.name || '—'}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.email}</div>
+                  </div>
+                  {sig?.signature_data ? (
+                    <img src={sig.signature_data} alt="sig" style={{height:38,maxWidth:90,objectFit:'contain',borderRadius:6,border:'1px solid var(--border)',background:'#fff',padding:'2px 6px',flexShrink:0}} />
+                  ) : (
+                    <span style={{fontSize:11,color:'var(--muted)',fontStyle:'italic',flexShrink:0}}>No signature</span>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
