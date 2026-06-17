@@ -10,22 +10,26 @@ import {
   type ToothStatus, type ToothNote,
 } from '../lib/api';
 import { C } from '../constants/theme';
-import { TOOTH_COLORS, STATUS_LABELS, ALL_STATUSES } from './DentalChart';
+import { TOOTH_COLORS, STATUS_LABELS, ALL_STATUSES, FDI_TO_QUAD } from './DentalChart';
 
 // ── Tooth names (SA quadrant convention) ────────────────────────────────────
 const TOOTH_NAMES: Record<number, string> = {
-  11: 'UR Central', 12: 'UR Lateral', 13: 'UR Canine',
-  14: 'UR 1st Premolar', 15: 'UR 2nd Premolar',
-  16: 'UR 1st Molar',   17: 'UR 2nd Molar', 18: 'UR Wisdom',
-  21: 'UL Central', 22: 'UL Lateral', 23: 'UL Canine',
-  24: 'UL 1st Premolar', 25: 'UL 2nd Premolar',
-  26: 'UL 1st Molar',   27: 'UL 2nd Molar', 28: 'UL Wisdom',
-  31: 'LL Central', 32: 'LL Lateral', 33: 'LL Canine',
-  34: 'LL 1st Premolar', 35: 'LL 2nd Premolar',
-  36: 'LL 1st Molar',   37: 'LL 2nd Molar', 38: 'LL Wisdom',
-  41: 'LR Central', 42: 'LR Lateral', 43: 'LR Canine',
-  44: 'LR 1st Premolar', 45: 'LR 2nd Premolar',
-  46: 'LR 1st Molar',   47: 'LR 2nd Molar', 48: 'LR Wisdom',
+  // a = Upper Right
+  11: 'Upper Right Central',   12: 'Upper Right Lateral',   13: 'Upper Right Canine',
+  14: 'Upper Right 1st PM',    15: 'Upper Right 2nd PM',
+  16: 'Upper Right 1st Molar', 17: 'Upper Right 2nd Molar', 18: 'Upper Right Wisdom',
+  // b = Upper Left
+  21: 'Upper Left Central',    22: 'Upper Left Lateral',    23: 'Upper Left Canine',
+  24: 'Upper Left 1st PM',     25: 'Upper Left 2nd PM',
+  26: 'Upper Left 1st Molar',  27: 'Upper Left 2nd Molar',  28: 'Upper Left Wisdom',
+  // c = Lower Left
+  31: 'Lower Left Central',    32: 'Lower Left Lateral',    33: 'Lower Left Canine',
+  34: 'Lower Left 1st PM',     35: 'Lower Left 2nd PM',
+  36: 'Lower Left 1st Molar',  37: 'Lower Left 2nd Molar',  38: 'Lower Left Wisdom',
+  // d = Lower Right
+  41: 'Lower Right Central',   42: 'Lower Right Lateral',   43: 'Lower Right Canine',
+  44: 'Lower Right 1st PM',    45: 'Lower Right 2nd PM',
+  46: 'Lower Right 1st Molar', 47: 'Lower Right 2nd Molar', 48: 'Lower Right Wisdom',
 };
 
 // Short labels that fit comfortably in a 3-column grid button
@@ -161,7 +165,7 @@ export default function ToothDetailModal({
             <View style={s.headerLeft}>
               <View style={[s.statusIndicator, { backgroundColor: TOOTH_COLORS[selectedStatus].fill, borderColor: TOOTH_COLORS[selectedStatus].stroke }]} />
               <View>
-                <Text style={s.toothNumber}>Tooth {toothFdi}</Text>
+                <Text style={s.toothNumber}>{FDI_TO_QUAD[toothFdi] ?? `FDI ${toothFdi}`}</Text>
                 <Text style={s.toothName}>{TOOTH_NAMES[toothFdi] ?? `FDI ${toothFdi}`}</Text>
               </View>
             </View>

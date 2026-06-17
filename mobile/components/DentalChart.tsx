@@ -33,79 +33,199 @@ export const ALL_STATUSES: ToothStatus[] = [
   'crown', 'implant', 'missing', 'extraction', 'bridge',
 ];
 
-// ── SA quadrant layout ───────────────────────────────────────────────────────
-// Each row reads from midline (tooth 1 = central incisor) outward (tooth 8 = wisdom).
-// UR = Q1 FDI 11–18 | UL = Q2 FDI 21–28 | LL = Q3 FDI 31–38 | LR = Q4 FDI 41–48
-const ROWS = [
-  { key: 'UR', fdis: [11, 12, 13, 14, 15, 16, 17, 18] },
-  { key: 'UL', fdis: [21, 22, 23, 24, 25, 26, 27, 28] },
-  { key: 'LL', fdis: [31, 32, 33, 34, 35, 36, 37, 38] },
-  { key: 'LR', fdis: [41, 42, 43, 44, 45, 46, 47, 48] },
-] as const;
+// ── SA quadrant / position → FDI mapping ─────────────────────────────────────
+// Quadrants (patient-view from front):
+//   a = upper right (viewer's left)   FDI Q1: 11–18
+//   b = upper left  (viewer's right)  FDI Q2: 21–28
+//   c = lower left  (viewer's right)  FDI Q3: 31–38
+//   d = lower right (viewer's left)   FDI Q4: 41–48
+// Position 1 = outermost molar · position 8 = central incisor (midline)
+export const QUAD_TO_FDI: Record<string, number> = {
+  a1:18, a2:17, a3:16, a4:15, a5:14, a6:13, a7:12, a8:11,
+  b1:28, b2:27, b3:26, b4:25, b5:24, b6:23, b7:22, b8:21,
+  c1:38, c2:37, c3:36, c4:35, c5:34, c6:33, c7:32, c8:31,
+  d1:48, d2:47, d3:46, d4:45, d5:44, d6:43, d7:42, d8:41,
+};
 
-// ── Component ────────────────────────────────────────────────────────────────
+export const FDI_TO_QUAD: Record<number, string> = Object.fromEntries(
+  Object.entries(QUAD_TO_FDI).map(([q, f]) => [f, q])
+);
+
+// ── Arch order (viewed from front of patient) ─────────────────────────────────
+// Upper L→R: a1…a8 | b8…b1   (a1 = upper-right wisdom, b1 = upper-left wisdom)
+// Lower L→R: d1…d8 | c8…c1   (d1 = lower-right wisdom, c1 = lower-left wisdom)
+type ToothRef = { quad: string; pos: number };
+
+const UPPER_ARCH: ToothRef[] = [
+  {quad:'a',pos:1},{quad:'a',pos:2},{quad:'a',pos:3},{quad:'a',pos:4},
+  {quad:'a',pos:5},{quad:'a',pos:6},{quad:'a',pos:7},{quad:'a',pos:8},
+  {quad:'b',pos:8},{quad:'b',pos:7},{quad:'b',pos:6},{quad:'b',pos:5},
+  {quad:'b',pos:4},{quad:'b',pos:3},{quad:'b',pos:2},{quad:'b',pos:1},
+];
+
+const LOWER_ARCH: ToothRef[] = [
+  {quad:'d',pos:1},{quad:'d',pos:2},{quad:'d',pos:3},{quad:'d',pos:4},
+  {quad:'d',pos:5},{quad:'d',pos:6},{quad:'d',pos:7},{quad:'d',pos:8},
+  {quad:'c',pos:8},{quad:'c',pos:7},{quad:'c',pos:6},{quad:'c',pos:5},
+  {quad:'c',pos:4},{quad:'c',pos:3},{quad:'c',pos:2},{quad:'c',pos:1},
+];
+
+// ── Parabolic arch curve ──────────────────────────────────────────────────────
+const N     = 16;  // teeth per arch
+const PAD_T = 4;   // minimum top padding inside arch row (px)
+const DEPTH = 46;  // vertical amplitude of the curve (px)
+export const T_H  = 26;  // tooth height (px)
+
+function archMarginTop(i: number, inverted: boolean): number {
+  const dist = Math.abs(i - (N - 1) / 2) / ((N - 1) / 2); // 0 = centre, 1 = edge
+  return inverted
+    ? PAD_T + DEPTH * (dist * dist)       // lower arch: edges sink down
+    : PAD_T + DEPTH * (1 - dist * dist);  // upper arch: centre sinks down
+}
+
+// ── Arch row sub-component ────────────────────────────────────────────────────
 interface Props {
   teeth: Partial<Record<number, { status: ToothStatus; hasNotes: boolean }>>;
   onToothPress?: (fdi: number) => void;
 }
 
-export default function DentalChart({ teeth, onToothPress }: Props) {
+function ArchRow({ arch, inverted, teeth, onToothPress }: {
+  arch: ToothRef[];
+  inverted: boolean;
+  teeth: Props['teeth'];
+  onToothPress?: (fdi: number) => void;
+}) {
   return (
-    <View style={s.chart}>
-      {ROWS.map((row, i) => (
-        <React.Fragment key={row.key}>
-          {/* Oral midline separator between upper and lower arches */}
-          {i === 2 && (
-            <View style={s.midline}>
-              <View style={s.midlineRule} />
-              <Text style={s.midlineText}>oral midline</Text>
-              <View style={s.midlineRule} />
-            </View>
-          )}
-
-          <View style={s.row}>
-            {/* Quadrant label */}
-            <Text style={s.quadLabel}>{row.key}</Text>
-
-            {/* Tooth cells — flex:1 on each cell means width is always correct
-                regardless of screen size or parent padding */}
-            <View style={s.teeth}>
-              {row.fdis.map(fdi => {
-                const data   = teeth[fdi];
-                const status = data?.status ?? 'healthy';
-                const col    = TOOTH_COLORS[status];
-                return (
-                  <TouchableOpacity
-                    key={fdi}
-                    style={[s.tooth, { backgroundColor: col.fill, borderColor: col.stroke }]}
-                    onPress={() => onToothPress?.(fdi)}
-                    activeOpacity={0.65}
-                    accessibilityLabel={`Tooth ${fdi}: ${STATUS_LABELS[status]}`}
-                    accessibilityRole="button"
-                  >
-                    {data?.hasNotes && <View style={s.noteDot} />}
-                    <Text style={[s.fdiNum, { color: col.stroke }]}>{fdi}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </React.Fragment>
-      ))}
+    <View style={s.archRow}>
+      {arch.map((t, i) => {
+        const key    = `${t.quad}${t.pos}`;
+        const fdi    = QUAD_TO_FDI[key];
+        const data   = teeth[fdi];
+        const status = data?.status ?? 'healthy';
+        const col    = TOOTH_COLORS[status];
+        return (
+          <TouchableOpacity
+            key={key}
+            style={[
+              s.tooth,
+              {
+                marginTop:       archMarginTop(i, inverted),
+                backgroundColor: col.fill,
+                borderColor:     col.stroke,
+              },
+            ]}
+            onPress={() => onToothPress?.(fdi)}
+            activeOpacity={0.65}
+            accessibilityLabel={`${key}: ${STATUS_LABELS[status]}`}
+            accessibilityRole="button"
+          >
+            {data?.hasNotes && <View style={s.noteDot} />}
+            <Text style={[s.toothPos, { color: col.stroke }]}>{t.pos}</Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
+export default function DentalChart({ teeth, onToothPress }: Props) {
+  return (
+    <View style={s.chart}>
+      {/* Upper arch quadrant labels */}
+      <View style={s.quadRow}>
+        <View style={s.quadHalf}>
+          <Text style={s.quadLabel}>a</Text>
+        </View>
+        <View style={[s.quadHalf, s.quadHalfRight]}>
+          <Text style={s.quadLabel}>b</Text>
+        </View>
+      </View>
+
+      <ArchRow arch={UPPER_ARCH} inverted={false} teeth={teeth} onToothPress={onToothPress} />
+
+      <View style={s.midline}>
+        <View style={s.midlineRule} />
+        <Text style={s.midlineText}>oral midline</Text>
+        <View style={s.midlineRule} />
+      </View>
+
+      <ArchRow arch={LOWER_ARCH} inverted teeth={teeth} onToothPress={onToothPress} />
+
+      {/* Lower arch quadrant labels */}
+      <View style={s.quadRow}>
+        <View style={s.quadHalf}>
+          <Text style={s.quadLabel}>d</Text>
+        </View>
+        <View style={[s.quadHalf, s.quadHalfRight]}>
+          <Text style={s.quadLabel}>c</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  chart: { gap: 3 },
+  chart: {},
+
+  quadRow: {
+    flexDirection:     'row',
+    paddingHorizontal: 2,
+    marginVertical:    3,
+  },
+  quadHalf: {
+    flex:        1,
+    alignItems:  'flex-start',
+  },
+  quadHalfRight: {
+    alignItems: 'flex-end',
+  },
+  quadLabel: {
+    fontSize:      12,
+    fontWeight:    '800',
+    color:         C.inkSoft,
+    letterSpacing: 0.5,
+  },
+
+  archRow: {
+    flexDirection:     'row',
+    alignItems:        'flex-start',
+    paddingHorizontal: 2,
+  },
+
+  tooth: {
+    flex:             1,
+    height:           T_H,
+    borderRadius:     4,
+    borderWidth:      1,
+    marginHorizontal: 1,
+    alignItems:       'center',
+    justifyContent:   'center',
+  },
+
+  noteDot: {
+    position:        'absolute',
+    top:             2,
+    right:           2,
+    width:           4,
+    height:          4,
+    borderRadius:    2,
+    backgroundColor: C.sage,
+  },
+
+  toothPos: {
+    fontSize:      7,
+    fontWeight:    '700',
+    letterSpacing: -0.3,
+  },
 
   midline: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            6,
-    marginVertical: 5,
-    paddingLeft:    30,
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               6,
+    marginVertical:    6,
+    paddingHorizontal: 2,
   },
   midlineRule: {
     flex:            1,
@@ -113,49 +233,10 @@ const s = StyleSheet.create({
     backgroundColor: C.rule,
   },
   midlineText: {
-    fontSize:    9,
-    color:       C.muted,
-    fontStyle:   'italic',
-    fontWeight:  '500',
+    fontSize:      9,
+    color:         C.muted,
+    fontStyle:     'italic',
+    fontWeight:    '500',
     letterSpacing: 0.4,
-  },
-
-  row: { flexDirection: 'row', alignItems: 'stretch' },
-
-  quadLabel: {
-    width:       30,
-    fontSize:    9,
-    fontWeight:  '700',
-    color:       C.muted,
-    letterSpacing: 0.5,
-    lineHeight:  40,   // matches tooth height → vertically centres single-line text
-    textAlign:   'center',
-  },
-
-  teeth: { flex: 1, flexDirection: 'row', gap: 2 },
-
-  tooth: {
-    flex:          1,
-    height:        40,
-    borderRadius:  4,
-    borderWidth:   1,
-    alignItems:    'center',
-    justifyContent: 'center',
-  },
-
-  noteDot: {
-    position:        'absolute',
-    top:             3,
-    right:           3,
-    width:           5,
-    height:          5,
-    borderRadius:    3,
-    backgroundColor: C.sage,
-  },
-
-  fdiNum: {
-    fontSize:    8,
-    fontWeight:  '700',
-    letterSpacing: -0.5,
   },
 });
