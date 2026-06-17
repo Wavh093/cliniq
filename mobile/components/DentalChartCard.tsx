@@ -131,6 +131,10 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
   const handleAddScan = useCallback(() => {
     Alert.alert('Add Scan', 'Select the type of scan to upload.', [
       {
+        text: 'Take Photo',
+        onPress: () => pickAndUpload('camera'),
+      },
+      {
         text: 'Photo / X-ray (JPEG)',
         onPress: () => pickAndUpload('image'),
       },
@@ -142,12 +146,12 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
     ]);
   }, []);
 
-  const pickAndUpload = useCallback(async (type: 'image' | 'pdf') => {
+  const pickAndUpload = useCallback(async (type: 'image' | 'pdf' | 'camera') => {
     let ImagePicker: any;
     let DocumentPicker: any;
 
     try {
-      if (type === 'image') {
+      if (type === 'image' || type === 'camera') {
         ImagePicker = require('expo-image-picker');
       } else {
         DocumentPicker = require('expo-document-picker');
@@ -167,7 +171,22 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
       let filename: string;
       let mimeType: string;
 
-      if (type === 'image') {
+      if (type === 'camera') {
+        const cameraPerm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!cameraPerm.granted) {
+          Alert.alert('Permission required', 'Allow camera access in Settings to take photos.');
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          quality: 0.85,
+          allowsEditing: false,
+        });
+        if (result.canceled || !result.assets?.length) return;
+        const asset = result.assets[0];
+        uri      = asset.uri;
+        filename = asset.fileName ?? `scan-${Date.now()}.jpg`;
+        mimeType = asset.mimeType ?? 'image/jpeg';
+      } else if (type === 'image') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
           Alert.alert('Permission required', 'Allow photo library access in Settings.');
