@@ -1,29 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
-import Svg, { G, Rect, Text as SvgText, Line } from 'react-native-svg';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { C } from '../constants/theme';
 import type { ToothStatus } from '../lib/api';
 
-// ── Layout constants (SVG units = logical pixels) ────────────────────────────
-const LABEL_H    = 12;
-const BODY_H     = 28;
-const ARCH_GAP   = 8;
-const MIDLINE_W  = 6;
-const TOOTH_GAP  = 1.5;
-const CARD_PAD   = 32; // card horizontal padding consumed by parent
-
-const UPPER_LABEL_Y   = LABEL_H;                                        // baseline
-const UPPER_BODY_Y    = LABEL_H + 2;
-const LOWER_BODY_Y    = UPPER_BODY_Y + BODY_H + ARCH_GAP;
-const LOWER_LABEL_Y   = LOWER_BODY_Y + BODY_H + 2 + LABEL_H - 2;      // baseline
-const CHART_H         = LOWER_LABEL_Y + 4;
-
-// FDI column order — 16 slots: 0-7 = left half, 8-15 = right half
-// upper: 18 17 16 15 14 13 12 11 | 21 22 23 24 25 26 27 28
-// lower: 48 47 46 45 44 43 42 41 | 31 32 33 34 35 36 37 38
-const UPPER_FDIS = [18, 17, 16, 15, 14, 13, 12, 11, 21, 22, 23, 24, 25, 26, 27, 28];
-const LOWER_FDIS = [48, 47, 46, 45, 44, 43, 42, 41, 31, 32, 33, 34, 35, 36, 37, 38];
-
+// ── Colour map ────────────────────────────────────────────────────────────────
 export const TOOTH_COLORS: Record<ToothStatus, { fill: string; stroke: string }> = {
   healthy:         { fill: '#EFF9F8', stroke: '#B5D5D8' },
   cavity:          { fill: '#FEF3C7', stroke: '#F59E0B' },
@@ -53,141 +33,129 @@ export const ALL_STATUSES: ToothStatus[] = [
   'crown', 'implant', 'missing', 'extraction', 'bridge',
 ];
 
+// ── SA quadrant layout ───────────────────────────────────────────────────────
+// Each row reads from midline (tooth 1 = central incisor) outward (tooth 8 = wisdom).
+// UR = Q1 FDI 11–18 | UL = Q2 FDI 21–28 | LL = Q3 FDI 31–38 | LR = Q4 FDI 41–48
+const ROWS = [
+  { key: 'UR', fdis: [11, 12, 13, 14, 15, 16, 17, 18] },
+  { key: 'UL', fdis: [21, 22, 23, 24, 25, 26, 27, 28] },
+  { key: 'LL', fdis: [31, 32, 33, 34, 35, 36, 37, 38] },
+  { key: 'LR', fdis: [41, 42, 43, 44, 45, 46, 47, 48] },
+] as const;
+
+// ── Component ────────────────────────────────────────────────────────────────
 interface Props {
   teeth: Partial<Record<number, { status: ToothStatus; hasNotes: boolean }>>;
   onToothPress?: (fdi: number) => void;
 }
 
 export default function DentalChart({ teeth, onToothPress }: Props) {
-  const { width: screenW } = useWindowDimensions();
-  const chartW    = screenW - CARD_PAD;
-  const halfW     = (chartW - MIDLINE_W) / 2;
-  const cellW     = halfW / 8;
-  const bodyW     = cellW - TOOTH_GAP;
-
-  function toothX(col: number): number {
-    return col < 8
-      ? col * cellW
-      : halfW + MIDLINE_W + (col - 8) * cellW;
-  }
-
-  function renderTooth(fdi: number, col: number, isUpper: boolean) {
-    const data   = teeth[fdi];
-    const status = data?.status ?? 'healthy';
-    const colors = TOOTH_COLORS[status] ?? TOOTH_COLORS.healthy;
-    const x      = toothX(col);
-    const bodyX  = x + TOOTH_GAP / 2;
-    const bodyY  = isUpper ? UPPER_BODY_Y : LOWER_BODY_Y;
-    const labelY = isUpper ? UPPER_LABEL_Y : LOWER_LABEL_Y;
-    // hit area covers full cell height including label
-    const hitY   = isUpper ? 0 : LOWER_BODY_Y - 2;
-    const hitH   = BODY_H + LABEL_H + 4;
-
-    return (
-      <G key={fdi} onPress={() => onToothPress?.(fdi)}>
-        {/* Transparent hit area for easier tapping */}
-        <Rect x={x} y={hitY} width={cellW} height={hitH} fill="transparent" />
-        {/* Tooth body */}
-        <Rect
-          x={bodyX}
-          y={bodyY}
-          width={bodyW}
-          height={BODY_H}
-          rx={2.5}
-          fill={colors.fill}
-          stroke={colors.stroke}
-          strokeWidth={1}
-        />
-        {/* Note indicator dot */}
-        {data?.hasNotes && (
-          <Rect
-            x={bodyX + bodyW - 5}
-            y={bodyY + 3}
-            width={4}
-            height={4}
-            rx={2}
-            fill={C.sage}
-          />
-        )}
-        {/* FDI number label */}
-        <SvgText
-          x={x + cellW / 2}
-          y={labelY}
-          textAnchor="middle"
-          fontSize={7.5}
-          fill={C.muted}
-          fontWeight="600"
-          letterSpacing={-0.2}
-        >
-          {fdi}
-        </SvgText>
-      </G>
-    );
-  }
-
   return (
-    <View>
-      {/* Arch orientation labels */}
-      <View style={s.orientRow}>
-        <Text style={s.orientSide}>R</Text>
-        <Text style={s.orientArch}>UPPER</Text>
-        <Text style={s.orientSide}>L</Text>
-      </View>
+    <View style={s.chart}>
+      {ROWS.map((row, i) => (
+        <React.Fragment key={row.key}>
+          {/* Oral midline separator between upper and lower arches */}
+          {i === 2 && (
+            <View style={s.midline}>
+              <View style={s.midlineRule} />
+              <Text style={s.midlineText}>oral midline</Text>
+              <View style={s.midlineRule} />
+            </View>
+          )}
 
-      <Svg width={chartW} height={CHART_H}>
-        {/* Vertical midline */}
-        <Line
-          x1={halfW + MIDLINE_W / 2}
-          y1={0}
-          x2={halfW + MIDLINE_W / 2}
-          y2={CHART_H}
-          stroke={C.rule}
-          strokeWidth={0.75}
-          strokeDasharray="3,3"
-        />
-        {/* Horizontal arch separator */}
-        <Line
-          x1={0}
-          y1={UPPER_BODY_Y + BODY_H + ARCH_GAP / 2}
-          x2={chartW}
-          y2={UPPER_BODY_Y + BODY_H + ARCH_GAP / 2}
-          stroke={C.rule}
-          strokeWidth={0.75}
-          strokeDasharray="3,3"
-        />
-        {/* Upper teeth */}
-        {UPPER_FDIS.map((fdi, col) => renderTooth(fdi, col, true))}
-        {/* Lower teeth */}
-        {LOWER_FDIS.map((fdi, col) => renderTooth(fdi, col, false))}
-      </Svg>
+          <View style={s.row}>
+            {/* Quadrant label */}
+            <Text style={s.quadLabel}>{row.key}</Text>
 
-      <View style={[s.orientRow, { marginTop: 2 }]}>
-        <Text style={s.orientSide}>R</Text>
-        <Text style={s.orientArch}>LOWER</Text>
-        <Text style={s.orientSide}>L</Text>
-      </View>
+            {/* Tooth cells — flex:1 on each cell means width is always correct
+                regardless of screen size or parent padding */}
+            <View style={s.teeth}>
+              {row.fdis.map(fdi => {
+                const data   = teeth[fdi];
+                const status = data?.status ?? 'healthy';
+                const col    = TOOTH_COLORS[status];
+                return (
+                  <TouchableOpacity
+                    key={fdi}
+                    style={[s.tooth, { backgroundColor: col.fill, borderColor: col.stroke }]}
+                    onPress={() => onToothPress?.(fdi)}
+                    activeOpacity={0.65}
+                    accessibilityLabel={`Tooth ${fdi}: ${STATUS_LABELS[status]}`}
+                    accessibilityRole="button"
+                  >
+                    {data?.hasNotes && <View style={s.noteDot} />}
+                    <Text style={[s.fdiNum, { color: col.stroke }]}>{fdi}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </React.Fragment>
+      ))}
     </View>
   );
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  orientRow: {
+  chart: { gap: 3 },
+
+  midline: {
     flexDirection:  'row',
-    justifyContent: 'space-between',
     alignItems:     'center',
-    paddingHorizontal: 2,
+    gap:            6,
+    marginVertical: 5,
+    paddingLeft:    30,
   },
-  orientArch: {
+  midlineRule: {
+    flex:            1,
+    height:          StyleSheet.hairlineWidth,
+    backgroundColor: C.rule,
+  },
+  midlineText: {
+    fontSize:    9,
+    color:       C.muted,
+    fontStyle:   'italic',
+    fontWeight:  '500',
+    letterSpacing: 0.4,
+  },
+
+  row: { flexDirection: 'row', alignItems: 'stretch' },
+
+  quadLabel: {
+    width:       30,
     fontSize:    9,
     fontWeight:  '700',
     color:       C.muted,
-    letterSpacing: 1.2,
+    letterSpacing: 0.5,
+    lineHeight:  40,   // matches tooth height → vertically centres single-line text
+    textAlign:   'center',
   },
-  orientSide: {
-    fontSize:   9,
-    fontWeight: '700',
-    color:      C.muted,
-    width:      16,
-    textAlign:  'center',
+
+  teeth: { flex: 1, flexDirection: 'row', gap: 2 },
+
+  tooth: {
+    flex:          1,
+    height:        40,
+    borderRadius:  4,
+    borderWidth:   1,
+    alignItems:    'center',
+    justifyContent: 'center',
+  },
+
+  noteDot: {
+    position:        'absolute',
+    top:             3,
+    right:           3,
+    width:           5,
+    height:          5,
+    borderRadius:    3,
+    backgroundColor: C.sage,
+  },
+
+  fdiNum: {
+    fontSize:    8,
+    fontWeight:  '700',
+    letterSpacing: -0.5,
   },
 });

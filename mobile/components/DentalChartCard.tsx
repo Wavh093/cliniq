@@ -292,10 +292,13 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
         <View style={s.legend}>
           {([
             ['cavity',          'Cavity'],
+            ['needs_treatment', 'Treatment'],
             ['filled',          'Filled'],
             ['crown',           'Crown'],
             ['implant',         'Implant'],
-            ['needs_treatment', 'Treatment'],
+            ['missing',         'Missing'],
+            ['extraction',      'Extracted'],
+            ['bridge',          'Bridge'],
           ] as [ToothStatus, string][]).map(([status, label]) => {
             const colors = TOOTH_COLORS[status];
             return (
