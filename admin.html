@@ -7375,6 +7375,7 @@ function SettingsPage({ supabase, session }) {
   const [sigErr,      setSigErr]      = useState('');
 
   useEffect(() => {
+    if (settingsTab !== 'signatures') return;
     if (!supabase || sigsLoaded) return;
     supabase.from('clinician_signatures').select('user_id, display_name, signature_data')
       .then(({ data }) => {
@@ -7383,8 +7384,9 @@ function SettingsPage({ supabase, session }) {
         setSigsLoaded(true);
         const mine = list.find(s => s.user_id === user?.id);
         if (mine?.display_name) setMySigName(mine.display_name);
-      });
-  }, [supabase, sigsLoaded, user?.id]);
+      })
+      .catch(() => { setSigsLoaded(true); });
+  }, [supabase, sigsLoaded, user?.id, settingsTab]);
 
   const saveSig = async () => {
     if (!mySigName.trim()) { setSigErr('Please enter your display name.'); return; }
@@ -7426,10 +7428,11 @@ function SettingsPage({ supabase, session }) {
   const [confirmRemove, setConfirmRemove] = useState(null); // staff member pending removal confirmation
 
   useEffect(() => {
+    if (settingsTab !== 'staff' && settingsTab !== 'signatures') return;
     api('/api/staff')
       .then(d => { setStaff(d.staff || []); setStaffLoading(false); })
       .catch(e => { showToast(e.message || 'Could not load staff list.', 'error'); setStaffLoading(false); });
-  }, []);
+  }, [settingsTab]);
 
   const sendInvite = async () => {
     setInviteErr(''); setInviteOk(false);
