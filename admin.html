@@ -7427,12 +7427,14 @@ function SettingsPage({ supabase, session }) {
   const [removing,     setRemoving]     = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(null); // staff member pending removal confirmation
 
+  const [staffLoaded, setStaffLoaded] = useState(false);
   useEffect(() => {
     if (settingsTab !== 'staff' && settingsTab !== 'signatures') return;
+    if (staffLoaded) return;
     api('/api/staff')
-      .then(d => { setStaff(d.staff || []); setStaffLoading(false); })
-      .catch(e => { showToast(e.message || 'Could not load staff list.', 'error'); setStaffLoading(false); });
-  }, [settingsTab]);
+      .then(d => { setStaff(d.staff || []); setStaffLoading(false); setStaffLoaded(true); })
+      .catch(() => { setStaffLoading(false); setStaffLoaded(true); });
+  }, [settingsTab, staffLoaded]);
 
   const sendInvite = async () => {
     setInviteErr(''); setInviteOk(false);
