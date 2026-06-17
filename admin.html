@@ -3013,7 +3013,7 @@ function MainMemberSearch({ picked, onSelect, onClear }) {
 
 /* ── Patient drawer ─────────────────────────────────────────── */
 function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
-  const TABS = ['Profile', 'Medical Aid', 'Health', 'Appointments'];
+  const TABS = ['Profile', 'Medical Aid', 'Health', 'Appointments', 'Documents'];
   const [tab,        setTab]        = useState('Profile');
   const [detail,     setDetail]     = useState(null);
   const [detailLoad, setDetailLoad] = useState(true);
@@ -3038,6 +3038,8 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const [ptSessions,   setPtSessions]   = useState({});   // { planId: session[] }
   const [ptSessLoad,   setPtSessLoad]   = useState({});   // { planId: bool }
   const [expandedPlan, setExpandedPlan] = useState(null);
+  const [ptDocs,       setPtDocs]       = useState([]);
+  const [ptDocsLoad,   setPtDocsLoad]   = useState(false);
 
   const loadPatient = useCallback(() => {
     setDetailLoad(true);
@@ -3074,6 +3076,15 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     api(`/api/appointments?resource=treatment_plans&patient_id=${detail.id}`)
       .then(d => { setPtPlans(d.plans || []); setPtPlansLoad(false); })
       .catch(e => { showToast(e.message || 'Could not load treatment plans.', 'error'); setPtPlansLoad(false); });
+  }, [tab, detail?.id]);
+
+  // Load documents when the Documents tab is opened
+  useEffect(() => {
+    if (tab !== 'Documents' || !detail?.id) return;
+    setPtDocsLoad(true); setPtDocs([]);
+    api(`/api/documents?patient_id=${detail.id}`)
+      .then(d => { setPtDocs(d.documents || []); setPtDocsLoad(false); })
+      .catch(e => { showToast(e.message || 'Could not load documents.', 'error'); setPtDocsLoad(false); });
   }, [tab, detail?.id]);
 
   const togglePlan = async (planId) => {
@@ -3784,6 +3795,39 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* ── Documents tab ── */}
+          {!detailLoad && d && !editing && tab === 'Documents' && (
+            <div className="pt-section">
+              <div className="pt-section-head">
+                <div className="pt-section-title">Patient Documents</div>
+              </div>
+              {ptDocsLoad ? (
+                <div style={{color:'var(--muted)',fontSize:13,padding:'8px 0'}}>Loading documents…</div>
+              ) : !ptDocs.length ? (
+                <div style={{color:'var(--muted)',fontSize:13,padding:'8px 0'}}>
+                  No documents on record. Sick notes and referral letters are generated from the mobile app after completing an appointment.
+                </div>
+              ) : ptDocs.map(doc => (
+                <div key={doc.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',background:'var(--bg-3)',borderRadius:10,marginBottom:8}}>
+                  <span className="material-symbols-outlined" style={{fontSize:20,color:doc.type==='sick_note'?'var(--amber)':'var(--sage)',flexShrink:0,fontVariationSettings:"'FILL' 1"}}>
+                    {doc.type === 'sick_note' ? 'medical_information' : 'send'}
+                  </span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:500,fontSize:13,color:'var(--ink)'}}>{doc.title || (doc.type === 'sick_note' ? 'Sick Note' : 'Referral Letter')}</div>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>
+                      {doc.type === 'sick_note' ? 'Sick Note' : 'Referral Letter'}
+                      {doc.created_at ? ' · ' + fmtDateShort(doc.created_at) : ''}
+                    </div>
+                  </div>
+                  <a href={'/document.html?id=' + doc.id} target="_blank" rel="noopener noreferrer"
+                    className="btn btn-ghost btn-sm" style={{fontSize:11,textDecoration:'none'}}>
+                    View
+                  </a>
+                </div>
+              ))}
             </div>
           )}
 
@@ -7277,6 +7321,7 @@ function ClaimsPage({ onNavigate, initialPayload }) {
 
 function SettingsPage({ supabase, session }) {
   const user = session?.user;
+  const [settingsTab, setSettingsTab] = useState('account');
 
   // ── Change my password ──────────────────────────────────────
   const [pwForm,     setPwForm]     = useState({ current:'', next:'', confirm:'' });
@@ -7427,13 +7472,37 @@ function SettingsPage({ supabase, session }) {
 
   return (
     <div style={{maxWidth:640}}>
-      <div style={{marginBottom:32}}>
+      <div style={{marginBottom:16}}>
         <div className="eyebrow">Account settings</div>
         <h2 style={{fontFamily:'Plus Jakarta Sans,sans-serif', fontSize:30, marginTop:4}}>Settings</h2>
       </div>
 
+      {/* ── Settings sub-tabs ── */}
+      <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:'1px solid var(--border)',paddingBottom:0}}>
+        {[
+          {id:'account',    label:'Account'},
+          {id:'staff',      label:'Staff & Access'},
+          {id:'signatures', label:'Signatures'},
+          {id:'data',       label:'Data Export'},
+          {id:'audit',      label:'Audit Log'},
+        ].map(t => (
+          <button key={t.id}
+            className={`btn btn-sm ${settingsTab===t.id?'':'btn-ghost'}`}
+            style={{
+              borderRadius:'8px 8px 0 0',
+              borderBottom:settingsTab===t.id?'2px solid var(--sage)':'2px solid transparent',
+              fontWeight:settingsTab===t.id?600:400,
+              color:settingsTab===t.id?'var(--sage)':'var(--muted)',
+              background:settingsTab===t.id?'rgba(10,74,92,0.04)':'transparent',
+            }}
+            onClick={() => setSettingsTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* ── My account ── */}
-      <div className="card" style={{marginBottom:24}}>
+      {settingsTab === 'account' && <div className="card" style={{marginBottom:24}}>
         <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:16}}>My account</div>
         <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:24,paddingBottom:20,borderBottom:'1px solid var(--border)'}}>
           <div className="user-avatar" style={{width:48,height:48,fontSize:20}}>
@@ -7463,10 +7532,10 @@ function SettingsPage({ supabase, session }) {
             {pwSaving ? 'Saving…' : 'Update password'}
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* ── Staff members ── */}
-      <div className="card">
+      {settingsTab === 'staff' && <div className="card">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)'}}>Staff &amp; access</div>
         </div>
@@ -7545,10 +7614,10 @@ function SettingsPage({ supabase, session }) {
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* ── Clinician Signatures ── */}
-      <div className="card" style={{marginTop:24}}>
+      {settingsTab === 'signatures' && <div className="card">
         <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:4}}>Clinician signatures</div>
         <div style={{fontSize:13,color:'var(--ink-soft)',marginBottom:20,lineHeight:1.5}}>
           Upload your signature once — it will be used automatically on sick notes and referral letters generated from the mobile app.
@@ -7643,19 +7712,19 @@ function SettingsPage({ supabase, session }) {
             })
           )}
         </div>
-      </div>
+      </div>}
 
       {/* ── Data export ── */}
-      <div className="card" style={{marginTop:24}}>
+      {settingsTab === 'data' && <div className="card">
         <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:4}}>Data export</div>
         <div style={{fontSize:13,color:'var(--ink-soft)',marginBottom:18,lineHeight:1.5}}>
           Download all practice data as CSV files. Useful for backups, external reporting, or migrating to another system.
         </div>
         <ExportButtons />
-      </div>
+      </div>}
 
       {/* ── Audit logs ── */}
-      <div className="card" style={{marginTop:24}}>
+      {settingsTab === 'audit' && <div className="card">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,flexWrap:'wrap',gap:10}}>
           <div>
             <div style={{fontFamily:'Plus Jakarta Sans,sans-serif',fontSize:15,fontWeight:700}}>Audit log</div>
@@ -7726,7 +7795,7 @@ function SettingsPage({ supabase, session }) {
             </div>
           )
         )}
-      </div>
+      </div>}
     </div>
   );
 }
@@ -8567,6 +8636,12 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                         onClick={() => setPayModal(s)}>
                         {s.amount_charged != null ? 'Edit payment' : '+ Payment'}
                       </button>
+                      {appt?.id && (
+                        <button className="btn btn-ghost btn-sm" style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}
+                          onClick={() => { setSelected(null); onNavigate?.({ page:'patients', payload:{ patient: selected.patients } }); }}>
+                          <span className="material-symbols-outlined" style={{fontSize:13}}>open_in_new</span> View appointment
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -8650,24 +8725,31 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
 
 /* ── Add Session Modal ───────────────────────────────────────── */
 function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
-  const [form, setForm] = useState({ session_date: '', notes: '' });
+  const [form, setForm] = useState({ session_date: '', appointment_time: '', notes: '', service_id: '' });
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState('');
+  const [services, setServices] = useState([]);
   const set = p => setForm(f => ({...f, ...p}));
+
+  useEffect(() => {
+    api('/api/services').then(d => setServices(d.services || [])).catch(() => {});
+  }, []);
 
   const save = async () => {
     setSaving(true); setErr('');
     try {
       const body = {
-        plan_id:        plan.id,
-        session_number: nextNumber,
-        session_date:   form.session_date || null,
-        notes:          form.notes.trim() || null,
+        plan_id:          plan.id,
+        session_number:   nextNumber,
+        session_date:     form.session_date || null,
+        appointment_time: form.appointment_time || null,
+        notes:            form.notes.trim() || null,
+        service_id:       form.service_id || null,
       };
       const d = await api('/api/appointments?resource=plan_sessions', {
         method: 'POST', body: JSON.stringify(body),
       });
-      showToast(`Session ${nextNumber} added`);
+      showToast(`Session ${nextNumber} added` + (form.session_date ? ' — appointment created' : ''));
       onSaved(d.session);
     } catch(e) { setErr(e.message || 'Could not add session.'); setSaving(false); }
   };
@@ -8677,10 +8759,32 @@ function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
       <div className="modal" style={{maxWidth:420}} onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">Add session {nextNumber}</h3>
         <p className="modal-sub">{plan.title}</p>
+        {form.session_date && (
+          <div style={{fontSize:12,color:'var(--sage)',fontWeight:500,marginBottom:12,background:'rgba(10,74,92,0.06)',padding:'6px 10px',borderRadius:6}}>
+            An appointment will be auto-created for this date
+          </div>
+        )}
 
         <div className="field" style={{marginBottom:14}}>
           <label>Session date</label>
           <input type="date" value={form.session_date} onChange={e => set({session_date: e.target.value})} />
+        </div>
+
+        <div className="field" style={{marginBottom:14}}>
+          <label>Appointment time</label>
+          <input type="time" value={form.appointment_time} onChange={e => set({appointment_time: e.target.value})}
+            placeholder="09:00" />
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>Defaults to 09:00 if not set</div>
+        </div>
+
+        <div className="field" style={{marginBottom:14}}>
+          <label>Service</label>
+          <select value={form.service_id} onChange={e => set({service_id: e.target.value})}>
+            <option value="">— Select service (optional) —</option>
+            {services.map(svc => (
+              <option key={svc.id} value={svc.id}>{svc.name}{svc.price_from ? ` (from R${svc.price_from})` : ''}</option>
+            ))}
+          </select>
         </div>
 
         <div className="field" style={{marginBottom:16}}>

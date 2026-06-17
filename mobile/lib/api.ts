@@ -35,6 +35,18 @@ export interface Appointment {
     medications: string[];
   } | null;
   services: { id: string; name: string; category: string; price_from: number | null } | null;
+  treatment_plan_session?: {
+    id: string;
+    session_number: number;
+    plan_id: string;
+    treatment_plans: {
+      id: string;
+      title: string;
+      status: string;
+      total_sessions: number;
+      sessions_done: number;
+    } | null;
+  } | null;
 }
 
 export interface AppointmentSummary {
@@ -181,6 +193,7 @@ export interface TreatmentPlanSession {
   status: 'scheduled' | 'completed' | 'missed' | 'rescheduled';
   session_date: string | null;
   notes: string | null;
+  service_id: string | null;
   amount_charged: number | null;
   amount_paid: number | null;
   payment_method: string | null;

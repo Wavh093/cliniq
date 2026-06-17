@@ -357,6 +357,22 @@ export default function SessionScreen() {
             ) : null}
           </View>
 
+          {/* ── Treatment plan context badge ───────────────────── */}
+          {appt.treatment_plan_session?.treatment_plans && (
+            <TouchableOpacity
+              style={s.planBadge}
+              activeOpacity={0.7}
+              onPress={() => router.push(`/plan/${appt.treatment_plan_session!.treatment_plans!.id}`)}
+            >
+              <Ionicons name="clipboard-outline" size={14} color={C.sage} />
+              <Text style={s.planBadgeText} numberOfLines={1}>
+                Session {appt.treatment_plan_session.session_number} of{' '}
+                {appt.treatment_plan_session.treatment_plans.title}
+              </Text>
+              <Ionicons name="chevron-forward" size={14} color={C.sage} />
+            </TouchableOpacity>
+          )}
+
           {/* ── Clinical notes ─────────────────────────────────── */}
           <View style={s.notesCard}>
             <View style={s.notesLabelRow}>
@@ -669,6 +685,15 @@ const s = StyleSheet.create({
   sessionMeta:    { fontSize: 13, color: C.muted },
   patientNoteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 10 },
   patientNoteText:{ fontSize: 12, color: C.inkSoft, flex: 1, fontStyle: 'italic', lineHeight: 18 },
+
+  // Treatment plan badge
+  planBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(10,74,92,0.06)', borderRadius: 10,
+    paddingVertical: 10, paddingHorizontal: 14, marginBottom: 12,
+    borderWidth: 1, borderColor: 'rgba(10,74,92,0.12)',
+  },
+  planBadgeText: { flex: 1, fontSize: 13, fontWeight: '600', color: C.sage },
 
   // Notes cards
   notesCard: {

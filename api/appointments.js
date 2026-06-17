@@ -132,7 +132,7 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await parseBody(req);
-      const { plan_id, session_number, appointment_id, session_date, notes } = body;
+      const { plan_id, session_number, appointment_id, session_date, notes, service_id, appointment_time } = body;
       if (!plan_id)                             return res.status(400).json({ error: 'plan_id is required' });
       if (!session_number)                      return res.status(400).json({ error: 'session_number is required' });
       if (Number(session_number) < 1 || isNaN(Number(session_number))) return res.status(400).json({ error: 'session_number must be a positive integer' });
@@ -143,10 +143,45 @@ module.exports = async function handler(req, res) {
         .select('id').eq('plan_id', plan_id).eq('session_number', Number(session_number)).maybeSingle();
       if (existing) return res.status(409).json({ error: `Session ${session_number} already exists for this plan` });
 
+      // Look up plan to get patient_id for auto-creating appointment
+      const { data: plan } = await db.from('treatment_plans')
+        .select('patient_id, practice_id').eq('id', plan_id).single();
+      if (!plan) return res.status(404).json({ error: 'Treatment plan not found' });
+
       const { data, error } = await db.from('treatment_plan_sessions')
-        .insert({ plan_id, session_number: Number(session_number), appointment_id: appointment_id || null, session_date: session_date || null, notes: notes || null })
+        .insert({
+          plan_id, session_number: Number(session_number),
+          appointment_id: appointment_id || null,
+          session_date: session_date || null,
+          notes: notes || null,
+          service_id: service_id || null,
+        })
         .select().single();
       if (error) { console.error('[plan_sessions POST]', error); return res.status(500).json({ error: 'Could not add session' }); }
+
+      // Auto-create a linked appointment if session_date is provided and no appointment_id was given
+      if (session_date && !appointment_id) {
+        const { data: appt, error: apptErr } = await db.from('appointments')
+          .insert({
+            practice_id: PRACTICE_ID,
+            patient_id: plan.patient_id,
+            service_id: service_id || null,
+            appointment_date: session_date,
+            appointment_time: appointment_time || '09:00:00',
+            duration_minutes: 30,
+            status: 'pending',
+            internal_notes: 'Auto-created from treatment plan — confirm time with patient',
+            treatment_plan_session_id: data.id,
+          })
+          .select('id').single();
+        if (!apptErr && appt) {
+          await db.from('treatment_plan_sessions')
+            .update({ appointment_id: appt.id })
+            .eq('id', data.id);
+          data.appointment_id = appt.id;
+        }
+      }
+
       return res.status(201).json({ session: data });
     }
 
@@ -162,6 +197,7 @@ module.exports = async function handler(req, res) {
       if (body.notes           !== undefined) updates.notes           = body.notes || null;
       if (body.appointment_id  !== undefined) updates.appointment_id  = body.appointment_id || null;
       if (body.session_date    !== undefined) updates.session_date    = body.session_date || null;
+      if (body.service_id      !== undefined) updates.service_id      = body.service_id || null;
       // Payment fields (migration 019)
       if (body.amount_charged !== undefined) {
         const charged = body.amount_charged != null ? Number(body.amount_charged) : null;
@@ -186,8 +222,50 @@ module.exports = async function handler(req, res) {
       if (body.payment_notes !== undefined) updates.payment_notes = body.payment_notes || null;
       if (body.paid_at       !== undefined) updates.paid_at       = body.paid_at       || null;
       if (!Object.keys(updates).length) return res.status(400).json({ error: 'No fields to update' });
+
+      // Fetch current session state for lazy appointment creation and status sync
+      const { data: currentSess } = await db.from('treatment_plan_sessions')
+        .select('appointment_id, plan_id, service_id').eq('id', id).single();
+
       const { error } = await db.from('treatment_plan_sessions').update(updates).eq('id', id);
       if (error) { console.error('[plan_sessions PATCH]', error); return res.status(500).json({ error: 'Could not update session' }); }
+
+      // Lazy appointment creation: date assigned to a session that has no appointment
+      if (updates.session_date && currentSess && !currentSess.appointment_id && !updates.appointment_id) {
+        const { data: plan } = await db.from('treatment_plans')
+          .select('patient_id').eq('id', currentSess.plan_id).single();
+        if (plan) {
+          const svcId = updates.service_id || currentSess.service_id || null;
+          const { data: appt } = await db.from('appointments')
+            .insert({
+              practice_id: PRACTICE_ID,
+              patient_id: plan.patient_id,
+              service_id: svcId,
+              appointment_date: updates.session_date,
+              appointment_time: body.appointment_time || '09:00:00',
+              duration_minutes: 30,
+              status: 'pending',
+              internal_notes: 'Auto-created from treatment plan — confirm time with patient',
+              treatment_plan_session_id: id,
+            })
+            .select('id').single();
+          if (appt) {
+            await db.from('treatment_plan_sessions').update({ appointment_id: appt.id }).eq('id', id);
+          }
+        }
+      }
+
+      // Sync session status → appointment status
+      if (updates.status && currentSess?.appointment_id) {
+        const apptStatus = updates.status === 'completed' ? 'completed'
+          : updates.status === 'missed' ? 'no_show'
+          : null;
+        if (apptStatus) {
+          await db.from('appointments').update({ status: apptStatus })
+            .eq('id', currentSess.appointment_id);
+        }
+      }
+
       return res.status(200).json({ success: true });
     }
 
@@ -573,6 +651,7 @@ module.exports = async function handler(req, res) {
         id, appointment_date, appointment_time, duration_minutes, status,
         patient_notes, internal_notes, clinical_notes, icd10_codes, tariff_codes,
         branch_id, cancellation_reason, cancelled_at, created_at,
+        treatment_plan_session_id,
         patients ( id, first_name, last_name, email, phone, date_of_birth, id_number, allergies, medical_conditions, medications ),
         services ( id, name, category, price_from ),
         branches ( id, name )
@@ -585,6 +664,16 @@ module.exports = async function handler(req, res) {
         .is('deleted_at', null)
         .single();
       if (sErr || !singleAppt) return res.status(404).json({ error: 'Appointment not found' });
+
+      // Attach treatment plan context if this appointment belongs to a plan session
+      if (singleAppt.treatment_plan_session_id) {
+        const { data: tpSess } = await db.from('treatment_plan_sessions')
+          .select('id, session_number, plan_id, treatment_plans(id, title, status, total_sessions, sessions_done)')
+          .eq('id', singleAppt.treatment_plan_session_id)
+          .single();
+        singleAppt.treatment_plan_session = tpSess || null;
+      }
+
       return res.status(200).json({ appointment: singleAppt });
     }
 

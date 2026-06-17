@@ -167,10 +167,16 @@ export default function PlanDetailScreen() {
                 : sess.session_date
                   ? formatDate(sess.session_date)
                   : null;
+              const hasAppt = !!appt?.id;
+              const Wrapper = hasAppt ? TouchableOpacity : View;
+              const wrapperProps = hasAppt
+                ? { activeOpacity: 0.7, onPress: () => router.push(`/appointment/${appt!.id}`) }
+                : {};
               return (
-                <View
+                <Wrapper
                   key={sess.id}
                   style={[s.sessionRow, i === sessions.length - 1 && { borderBottomWidth: 0 }]}
+                  {...wrapperProps}
                 >
                   <View style={s.sessLeft}>
                     <Text style={s.sessNum}>Session {sess.session_number}</Text>
@@ -193,8 +199,11 @@ export default function PlanDetailScreen() {
                     {sess.amount_charged != null && (
                       <Text style={s.sessAmount}>{R(sess.amount_charged)}</Text>
                     )}
+                    {hasAppt && (
+                      <Ionicons name="chevron-forward" size={16} color={C.muted} style={{ marginTop: 2 }} />
+                    )}
                   </View>
-                </View>
+                </Wrapper>
               );
             })}
           </View>
