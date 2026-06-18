@@ -3456,6 +3456,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
           relationship_to_member: linkDepRel || 'other',
           dependant_code:         nextCode,
           main_member_patient_id: patient.id,
+          main_member_name:       `${d.first_name} ${d.last_name}`,
         }),
       });
       showToast(`${p.first_name} ${p.last_name} linked as a dependant`);
@@ -4454,23 +4455,6 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                 )}
               </div>
 
-              {/* Clinical notes */}
-              <div className="pt-section" style={{borderTop:'1px solid var(--border)',paddingTop:20}}>
-                <div className="pt-section-title" style={{marginBottom:14}}>Clinical notes</div>
-                <div className="field" style={{marginBottom:12}}>
-                  <label>Dental anxiety</label>
-                  <select value={editForm.dental_anxiety} onChange={ef('dental_anxiety')}>
-                    <option value="">None / unknown</option>
-                    <option value="mild">Mild</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="severe">Severe</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>Intake notes</label>
-                  <textarea value={editForm.intake_notes} onChange={ef('intake_notes')} rows={4} placeholder="Any additional notes…" style={{resize:'vertical'}} />
-                </div>
-              </div>
 
               {/* Consent */}
               <div className="pt-section" style={{borderTop:'1px solid var(--border)',paddingTop:20}}>
