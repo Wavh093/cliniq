@@ -384,9 +384,11 @@ module.exports = async function handler(req, res) {
       if (updates[f] === '') updates[f] = null;
     }
 
-    // Handle consent timestamps
+    // Handle consent timestamps — set on grant, clear on revoke.
     if (updates.consent_signed === true) updates.consent_date = new Date().toISOString();
+    if (updates.consent_signed === false) updates.consent_date = null;
     if (updates.popia_consent === true) updates.popia_consent_date = new Date().toISOString();
+    if (updates.popia_consent === false) updates.popia_consent_date = null;
 
     const { error: updateErr } = await db
       .from('patients')

@@ -374,12 +374,12 @@
   .pt-overlay {
     position: fixed; inset: 0; background: rgba(13,45,62,0.4);
     backdrop-filter: blur(4px);
-    z-index: 200; cursor: pointer;
+    z-index: 9998; cursor: pointer;
   }
   .pt-drawer {
     position: fixed; top: 0; right: 0; bottom: 0; width: 540px; max-width: 100vw;
     background: var(--card); border-left: 1px solid var(--border-2);
-    display: flex; flex-direction: column; z-index: 201;
+    display: flex; flex-direction: column; z-index: 9999;
     animation: ptSlideIn 0.22s cubic-bezier(0.16,1,0.3,1);
   }
   @keyframes ptSlideIn { from { transform: translateX(48px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -3029,8 +3029,19 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const [maPick,       setMaPick]       = useState(null);
   const [maSaving,     setMaSaving]     = useState(false);
   const [maSaveErr,    setMaSaveErr]    = useState('');
+  // Inline Health edit (H3+H5) + consent toggles (H4)
+  const [editingHealth, setEditingHealth] = useState(false);
+  const [healthForm,    setHealthForm]    = useState({});
+  const [healthSaving,  setHealthSaving]  = useState(false);
+  const [healthSaveErr, setHealthSaveErr] = useState('');
+  const [consentSaving, setConsentSaving] = useState(null);
   const [editMmPick,      setEditMmPick]      = useState(null);
   const [addDependantOpen, setAddDependantOpen] = useState(false);
+  // M1 — link an existing patient as a dependant
+  const [linkDepOpen,  setLinkDepOpen]  = useState(false);
+  const [linkDepPick,  setLinkDepPick]  = useState(null);
+  const [linkDepRel,   setLinkDepRel]   = useState('other');
+  const [linkDepSaving, setLinkDepSaving] = useState(false);
   const [expandedAppt,    setExpandedAppt]    = useState(null);
   const [mmRecord,        setMmRecord]        = useState(null);  // main member's full patient record
   const [ptPlans,      setPtPlans]      = useState([]);
@@ -3100,7 +3111,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
 
   // Load dental chart data when Health tab is opened
   useEffect(() => {
-    if (tab !== 'Health' || !detail?.id) return;
+    if (tab !== 'Health' || !detail?.id) { setSelectedTooth(null); return; }
     setDentalLoading(true);
     Promise.all([
       api(`/api/documents?resource=dental&patient_id=${detail.id}`),
@@ -3122,7 +3133,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     { key: 'filled',          label: 'Filled',          bg: '#DBEAFE', border: '#60A5FA' },
     { key: 'crown',           label: 'Crown',           bg: '#FEF9C3', border: '#CA8A04' },
     { key: 'extraction',      label: 'Extraction',      bg: '#F1F5F9', border: '#94A3B8' },
-    { key: 'missing',         label: 'Missing',         bg: '#F8FAFC', border: '#E2E8F0' },
+    { key: 'missing',         label: 'Missing',         bg: '#F8FAFC', border: '#94A3B8' },
     { key: 'implant',         label: 'Implant',         bg: '#D1FAE5', border: '#34D399' },
     { key: 'bridge',          label: 'Bridge',          bg: '#E0F2FE', border: '#38BDF8' },
   ];
@@ -3132,6 +3143,40 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const UPPER_RIGHT = [21,22,23,24,25,26,27,28];
   const LOWER_LEFT  = [48,47,46,45,44,43,42,41];
   const LOWER_RIGHT = [31,32,33,34,35,36,37,38];
+
+  // Abbreviate a tooth status to a short, legible label (max ~4 chars).
+  const STATUS_ABBR = {
+    cavity: 'CAV', filled: 'FILL', crown: 'CRWN', extraction: 'EXT',
+    missing: 'MISS', implant: 'IMPL', bridge: 'BRDG', needs_treatment: 'TX',
+  };
+
+  // Single source of truth for a tooth cell (H1 highlight, H2 legible label,
+  // H6 notes dot). Replaces 4 previously-duplicated blocks.
+  const ToothCell = ({ fdi }) => {
+    const rec = dentalRecords[fdi];
+    const c = toothColor(rec?.status);
+    const isSel = selectedTooth?.fdi === fdi;
+    const hasNotes = dentalNotes.some(n => n.tooth_fdi === fdi);
+    return (
+      <div onClick={() => { setSelectedTooth(isSel ? null : { fdi, status: rec?.status || 'healthy' }); setToothNoteText(''); }}
+        style={{
+          position:'relative',
+          width:32,height:36,borderRadius:4,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
+          cursor:'pointer',border:`1.5px solid ${isSel ? 'var(--sage)' : c.border}`,background:isSel ? 'rgba(70,130,110,0.08)' : c.bg,
+          transition:'all 0.15s',fontSize:10,fontWeight:600,color:'var(--ink)',lineHeight:1.2,
+          boxShadow: isSel ? '0 0 0 2px var(--sage)' : 'none',
+        }}
+        title={`Tooth ${fdi}: ${rec?.status || 'healthy'}${hasNotes ? ' • has notes' : ''}`}>
+        {hasNotes && (
+          <span style={{position:'absolute',top:2,right:2,width:5,height:5,borderRadius:'50%',background:'var(--sage)'}} />
+        )}
+        <span style={{fontSize:11,fontWeight:700}}>{fdi}</span>
+        {rec?.status && rec.status !== 'healthy' && (
+          <span style={{fontSize:8,color:c.border,marginTop:1,textTransform:'uppercase',letterSpacing:0.3,lineHeight:1,fontWeight:700}}>{STATUS_ABBR[rec.status] || rec.status.slice(0,4).toUpperCase()}</span>
+        )}
+      </div>
+    );
+  };
 
   const updateToothStatus = async (fdi, newStatus) => {
     try {
@@ -3324,6 +3369,104 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     finally { setMaSaving(false); }
   };
 
+  // ── Inline Health edit (H3 + H5) ──
+  const startEditHealth = () => {
+    const d = detail;
+    setHealthForm({
+      allergies:          Array.isArray(d.allergies)          ? d.allergies.join(', ')          : '',
+      medications:        Array.isArray(d.medications)        ? d.medications.join(', ')        : '',
+      medical_conditions: Array.isArray(d.medical_conditions) ? d.medical_conditions.join(', ') : '',
+      dental_anxiety:     d.dental_anxiety || '',
+      intake_notes:       d.intake_notes   || '',
+    });
+    setHealthSaveErr('');
+    setEditingHealth(true);
+  };
+
+  const saveHealthEdit = async () => {
+    setHealthSaving(true); setHealthSaveErr('');
+    const toArr = (s) => (s || '').split(',').map(x => x.trim()).filter(Boolean);
+    try {
+      const payload = {
+        allergies:          toArr(healthForm.allergies),
+        medications:        toArr(healthForm.medications),
+        medical_conditions: toArr(healthForm.medical_conditions),
+        dental_anxiety:     healthForm.dental_anxiety || null,
+        intake_notes:       healthForm.intake_notes?.trim() || null,
+      };
+      await api(`/api/patients?id=${patient.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      const merged = { ...detail, ...payload };
+      setDetail(merged);
+      onUpdate(merged);
+      setEditingHealth(false);
+      showToast('Health record saved');
+    } catch(e) { setHealthSaveErr(e.message || 'Could not save. Please try again.'); }
+    finally { setHealthSaving(false); }
+  };
+
+  // ── Consent quick-toggle (H4) — PATCH immediately, optimistic + re-fetch ──
+  const toggleConsent = async (key) => {
+    if (consentSaving) return;
+    const next = !detail[key];
+    setConsentSaving(key);
+    const optimistic = { ...detail, [key]: next };
+    setDetail(optimistic);
+    try {
+      await api(`/api/patients?id=${patient.id}`, { method: 'PATCH', body: JSON.stringify({ [key]: next }) });
+      onUpdate(optimistic);
+      await refreshPatient();
+    } catch(e) {
+      setDetail(detail);
+      showToast(e.message || 'Could not update consent. Please try again.', 'error');
+    } finally { setConsentSaving(null); }
+  };
+
+  const refreshDependants = () =>
+    api(`/api/patients?main_member_id=${patient.id}`)
+      .then(r => setDependants(r.patients || []))
+      .catch(() => {});
+
+  // M1 — link an existing patient as a dependant on this policy.
+  const linkExistingDependant = async () => {
+    const p = linkDepPick;
+    if (!p || linkDepSaving) return;
+    const d = detail;
+    // Reuse the dependant guard — a patient who is themselves a dependant
+    // cannot be re-linked under another member.
+    if (p.relationship_to_member && p.relationship_to_member !== 'main_member') {
+      showToast(`${p.first_name} ${p.last_name} is already a dependant on another policy.`, 'error');
+      return;
+    }
+    // Confirm before overwriting an existing, different medical aid.
+    if (p.medical_aid_name && p.medical_aid_name !== d.medical_aid_name) {
+      if (!window.confirm(`${p.first_name} ${p.last_name} already has a different medical aid (${p.medical_aid_name}). Overwrite it with ${d.medical_aid_name}?`)) return;
+    }
+    setLinkDepSaving(true);
+    try {
+      // Auto-suggest next dependant code (01 = main member, dependants start at 02).
+      const existing = await api(`/api/patients?main_member_id=${patient.id}`);
+      const nextCode = String((existing.patients?.length || 0) + 2).padStart(2, '0');
+      await api(`/api/patients?id=${p.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          has_medical_aid:        true,
+          medical_aid_name:       d.medical_aid_name   || null,
+          medical_aid_number:     d.medical_aid_number || null,
+          medical_aid_plan:       d.medical_aid_plan   || null,
+          relationship_to_member: linkDepRel || 'other',
+          dependant_code:         nextCode,
+          main_member_patient_id: patient.id,
+        }),
+      });
+      showToast(`${p.first_name} ${p.last_name} linked as a dependant`);
+      setLinkDepOpen(false);
+      setLinkDepPick(null);
+      await refreshDependants();
+    } catch(e) {
+      showToast(e.message || 'Could not link dependant. Please try again.', 'error');
+    } finally { setLinkDepSaving(false); }
+  };
+
   const del = async () => {
     setDeleting(true);
     try {
@@ -3403,7 +3546,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
             <div className="pt-tabs" role="tablist" aria-label="Patient record sections">
               {TABS.map(t => (
                 <button key={t} role="tab" aria-selected={tab===t} aria-controls={`pt-tab-panel-${t.replace(/\s+/g,'-')}`}
-                  className={`pt-tab${tab===t?' on':''}`} onClick={()=>setTab(t)}
+                  className={`pt-tab${tab===t?' on':''}`} onClick={()=>{ setSelectedTooth(null); setEditingHealth(false); setLinkDepOpen(false); setTab(t); }}
                   style={{background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
                   {t}
                 </button>
@@ -3578,13 +3721,56 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   {/* Add dependant — shown only for main members */}
                   {d.has_medical_aid && (!d.relationship_to_member || d.relationship_to_member === 'main_member') && (
                     <div className="pt-section" style={{borderTop:'1px solid var(--border)',paddingTop:20}}>
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        style={{width:'100%',justifyContent:'center',gap:6,color:'var(--sage)',borderColor:'var(--border-2)'}}
-                        onClick={() => setAddDependantOpen(true)}
-                      >
-                        + Add dependant on this policy
-                      </button>
+                      <div style={{display:'flex',gap:10}}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{flex:1,justifyContent:'center',gap:6,minHeight:44,color:'var(--sage)',borderColor:'var(--border-2)'}}
+                          onClick={() => setAddDependantOpen(true)}
+                        >
+                          + Add new dependant
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{flex:1,justifyContent:'center',gap:6,minHeight:44,color:'var(--sage)',borderColor:'var(--border-2)'}}
+                          onClick={() => { setLinkDepOpen(o => !o); setLinkDepPick(null); setLinkDepRel('other'); }}
+                        >
+                          Link existing patient
+                        </button>
+                      </div>
+                      {linkDepOpen && (
+                        <div style={{marginTop:14,padding:14,border:'1px solid var(--border)',borderRadius:10,background:'var(--bg-2)'}}>
+                          <MainMemberSearch
+                            picked={linkDepPick}
+                            onSelect={async p => {
+                              if (p.id === patient.id) { showToast('A patient cannot be their own dependant.', 'error'); return; }
+                              // Search results omit relationship_to_member — fetch the
+                              // full record so the dependant guard is reliable.
+                              try {
+                                const full = await api(`/api/patients?id=${p.id}`);
+                                const fp = full.patient || p;
+                                if (fp.relationship_to_member && fp.relationship_to_member !== 'main_member') { showToast(`${p.first_name} ${p.last_name} is already a dependant on another policy.`, 'error'); return; }
+                                setLinkDepPick(fp);
+                              } catch { setLinkDepPick(p); }
+                            }}
+                            onClear={() => setLinkDepPick(null)}
+                          />
+                          {linkDepPick && (
+                            <div className="field" style={{marginTop:12}}>
+                              <label>Role on policy</label>
+                              <select value={linkDepRel} onChange={e => setLinkDepRel(e.target.value)}>
+                                <option value="spouse">Spouse / partner</option>
+                                <option value="child">Child</option>
+                                <option value="parent">Parent</option>
+                                <option value="other">Other dependant</option>
+                              </select>
+                            </div>
+                          )}
+                          <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:12}}>
+                            <button className="btn btn-ghost btn-sm" style={{minHeight:44,paddingTop:8,paddingBottom:8}} onClick={() => { setLinkDepOpen(false); setLinkDepPick(null); }} disabled={linkDepSaving}>Cancel</button>
+                            <button className="btn btn-primary btn-sm" style={{minHeight:44,paddingTop:8,paddingBottom:8}} onClick={linkExistingDependant} disabled={!linkDepPick || linkDepSaving}>{linkDepSaving ? 'Linking…' : 'Link as dependant'}</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -3622,56 +3808,112 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
             <>
               <div className="pt-section">
                 <div className="pt-section-head">
-                  <div className="pt-section-title">Medical notes</div>
-                  <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={startEdit}>Edit</button>
+                  <div className="pt-section-title">Clinical notes</div>
+                  {!editingHealth && (
+                    <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={startEditHealth}>Edit</button>
+                  )}
                 </div>
-                {d.allergies?.length > 0 && (
-                  <div style={{marginBottom:16}}>
-                    <div className="pt-label" style={{marginBottom:8}}>Allergies</div>
-                    <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                      {d.allergies.map(a => (
-                        <span key={a} style={{background:'rgba(220,38,38,0.08)',color:'var(--danger)',border:'1px solid rgba(220,38,38,0.22)',borderRadius:20,padding:'2px 10px',fontSize:12}}>{a}</span>
-                      ))}
+                {!editingHealth ? (
+                  <>
+                    {d.allergies?.length > 0 && (
+                      <div style={{marginBottom:16}}>
+                        <div className="pt-label" style={{marginBottom:8}}>Allergies</div>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                          {d.allergies.map(a => (
+                            <span key={a} style={{background:'rgba(220,38,38,0.08)',color:'var(--danger)',border:'1px solid rgba(220,38,38,0.22)',borderRadius:20,padding:'2px 10px',fontSize:12}}>{a}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {d.medications?.length > 0 && (
+                      <div style={{marginBottom:14}}>
+                        <div className="pt-label" style={{marginBottom:4}}>Medications</div>
+                        <div style={{fontSize:13}}>{d.medications.join(', ')}</div>
+                      </div>
+                    )}
+                    {d.medical_conditions?.length > 0 && (
+                      <div style={{marginBottom:14}}>
+                        <div className="pt-label" style={{marginBottom:4}}>Medical conditions</div>
+                        <div style={{fontSize:13}}>{d.medical_conditions.join(', ')}</div>
+                      </div>
+                    )}
+                    {d.dental_anxiety && (
+                      <div style={{marginBottom:14}}>
+                        <div className="pt-label" style={{marginBottom:4}}>Dental anxiety</div>
+                        <div style={{fontSize:13}}>{d.dental_anxiety}</div>
+                      </div>
+                    )}
+                    {d.intake_notes && (
+                      <div>
+                        <div className="pt-label" style={{marginBottom:4}}>Clinical notes</div>
+                        <div style={{fontSize:13,lineHeight:1.6,color:'var(--ink-soft)'}}>{d.intake_notes}</div>
+                      </div>
+                    )}
+                    {!d.allergies?.length && !d.medications?.length && !d.medical_conditions?.length && !d.dental_anxiety && !d.intake_notes && (
+                      <div style={{color:'var(--muted)',fontSize:13,padding:'8px 0'}}>No health notes recorded.</div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="field" style={{marginBottom:12}}>
+                      <label>Allergies</label>
+                      <input type="text" value={healthForm.allergies}
+                        onChange={e => setHealthForm(v => ({ ...v, allergies: e.target.value }))}
+                        placeholder="Comma-separated, e.g. Penicillin, Latex" />
                     </div>
-                  </div>
-                )}
-                {d.medications?.length > 0 && (
-                  <div style={{marginBottom:14}}>
-                    <div className="pt-label" style={{marginBottom:4}}>Medications</div>
-                    <div style={{fontSize:13}}>{d.medications.join(', ')}</div>
-                  </div>
-                )}
-                {d.medical_conditions?.length > 0 && (
-                  <div style={{marginBottom:14}}>
-                    <div className="pt-label" style={{marginBottom:4}}>Medical conditions</div>
-                    <div style={{fontSize:13}}>{d.medical_conditions.join(', ')}</div>
-                  </div>
-                )}
-                {d.dental_anxiety && (
-                  <div style={{marginBottom:14}}>
-                    <div className="pt-label" style={{marginBottom:4}}>Dental anxiety</div>
-                    <div style={{fontSize:13}}>{d.dental_anxiety}</div>
-                  </div>
-                )}
-                {d.intake_notes && (
-                  <div>
-                    <div className="pt-label" style={{marginBottom:4}}>Clinical notes</div>
-                    <div style={{fontSize:13,lineHeight:1.6,color:'var(--ink-soft)'}}>{d.intake_notes}</div>
-                  </div>
-                )}
-                {!d.allergies?.length && !d.medications?.length && !d.medical_conditions?.length && !d.dental_anxiety && !d.intake_notes && (
-                  <div style={{color:'var(--muted)',fontSize:13,padding:'8px 0'}}>No health notes recorded.</div>
+                    <div className="field" style={{marginBottom:12}}>
+                      <label>Medications</label>
+                      <input type="text" value={healthForm.medications}
+                        onChange={e => setHealthForm(v => ({ ...v, medications: e.target.value }))}
+                        placeholder="Comma-separated" />
+                    </div>
+                    <div className="field" style={{marginBottom:12}}>
+                      <label>Medical conditions</label>
+                      <input type="text" value={healthForm.medical_conditions}
+                        onChange={e => setHealthForm(v => ({ ...v, medical_conditions: e.target.value }))}
+                        placeholder="Comma-separated" />
+                    </div>
+                    <div className="field" style={{marginBottom:12}}>
+                      <label>Dental anxiety</label>
+                      <select value={healthForm.dental_anxiety}
+                        onChange={e => setHealthForm(v => ({ ...v, dental_anxiety: e.target.value }))}>
+                        <option value="">None / unknown</option>
+                        <option value="mild">Mild</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="severe">Severe</option>
+                      </select>
+                    </div>
+                    <div className="field" style={{marginBottom:12}}>
+                      <label>Clinical notes</label>
+                      <textarea value={healthForm.intake_notes} rows={4}
+                        onChange={e => setHealthForm(v => ({ ...v, intake_notes: e.target.value }))}
+                        placeholder="Any additional notes…" style={{resize:'vertical'}} />
+                    </div>
+                    {healthSaveErr && <div style={{color:'var(--danger)',fontSize:12,marginBottom:10}}>{healthSaveErr}</div>}
+                    <div style={{display:'flex',gap:10,justifyContent:'flex-end'}}>
+                      <button className="btn btn-ghost btn-sm" style={{minHeight:44,paddingTop:8,paddingBottom:8}} onClick={() => setEditingHealth(false)} disabled={healthSaving}>Cancel</button>
+                      <button className="btn btn-primary btn-sm" style={{minHeight:44,paddingTop:8,paddingBottom:8}} onClick={saveHealthEdit} disabled={healthSaving}>{healthSaving ? 'Saving…' : 'Save'}</button>
+                    </div>
+                  </>
                 )}
               </div>
 
               <div className="pt-section">
                 <div className="pt-section-title" style={{marginBottom:12}}>Consent</div>
                 {[
-                  ['Treatment consent', d.consent_signed, d.consent_date],
-                  ['POPIA consent',     d.popia_consent,  d.popia_consent_date],
-                  ['Marketing',         d.marketing_consent, null],
-                ].map(([label, ok, date]) => (
-                  <div key={label} style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                  ['consent_signed',    'Treatment consent', d.consent_signed, d.consent_date],
+                  ['popia_consent',     'POPIA consent',     d.popia_consent,  d.popia_consent_date],
+                  ['marketing_consent', 'Marketing',         d.marketing_consent, null],
+                ].map(([key, label, ok, date]) => (
+                  <div
+                    key={key}
+                    role="checkbox"
+                    aria-checked={!!ok}
+                    aria-label={label}
+                    tabIndex={0}
+                    onClick={() => toggleConsent(key)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleConsent(key); } }}
+                    style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,minHeight:44,cursor:consentSaving?'wait':'pointer',userSelect:'none',opacity:consentSaving===key?0.6:1}}>
                     <div style={{
                       width:18,height:18,borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',
                       background: ok ? 'rgba(21,128,61,0.12)' : 'var(--bg-3)',
@@ -3704,94 +3946,18 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                     <div style={{marginBottom:4}}>
                       <div style={{fontSize:10,color:'var(--muted)',marginBottom:4,textAlign:'center',letterSpacing:1,textTransform:'uppercase'}}>Upper</div>
                       <div style={{display:'flex',justifyContent:'center',gap:2}}>
-                        {UPPER_LEFT.map(fdi => {
-                          const rec = dentalRecords[fdi];
-                          const c = toothColor(rec?.status);
-                          const isSel = selectedTooth?.fdi === fdi;
-                          return (
-                            <div key={fdi} onClick={() => { setSelectedTooth(isSel ? null : { fdi, status: rec?.status || 'healthy' }); setToothNoteText(''); }}
-                              style={{
-                                width:32,height:36,borderRadius:4,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                                cursor:'pointer',border:`1.5px solid ${isSel ? 'var(--sage)' : c.border}`,background:isSel ? 'rgba(70,130,110,0.08)' : c.bg,
-                                transition:'all 0.15s',fontSize:10,fontWeight:600,color:'var(--ink)',lineHeight:1.2,
-                                boxShadow: isSel ? '0 0 0 2px var(--sage)' : 'none',
-                              }}
-                              title={`Tooth ${fdi}: ${rec?.status || 'healthy'}`}>
-                              <span style={{fontSize:11,fontWeight:700}}>{fdi}</span>
-                              {rec?.status && rec.status !== 'healthy' && (
-                                <span style={{fontSize:7,color:c.border,marginTop:1,textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>{rec.status.replace('_',' ').slice(0,6)}</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {UPPER_LEFT.map(fdi => <ToothCell key={fdi} fdi={fdi} />)}
                         <div style={{width:8}} />
-                        {UPPER_RIGHT.map(fdi => {
-                          const rec = dentalRecords[fdi];
-                          const c = toothColor(rec?.status);
-                          const isSel = selectedTooth?.fdi === fdi;
-                          return (
-                            <div key={fdi} onClick={() => { setSelectedTooth(isSel ? null : { fdi, status: rec?.status || 'healthy' }); setToothNoteText(''); }}
-                              style={{
-                                width:32,height:36,borderRadius:4,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                                cursor:'pointer',border:`1.5px solid ${isSel ? 'var(--sage)' : c.border}`,background:isSel ? 'rgba(70,130,110,0.08)' : c.bg,
-                                transition:'all 0.15s',fontSize:10,fontWeight:600,color:'var(--ink)',lineHeight:1.2,
-                                boxShadow: isSel ? '0 0 0 2px var(--sage)' : 'none',
-                              }}
-                              title={`Tooth ${fdi}: ${rec?.status || 'healthy'}`}>
-                              <span style={{fontSize:11,fontWeight:700}}>{fdi}</span>
-                              {rec?.status && rec.status !== 'healthy' && (
-                                <span style={{fontSize:7,color:c.border,marginTop:1,textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>{rec.status.replace('_',' ').slice(0,6)}</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {UPPER_RIGHT.map(fdi => <ToothCell key={fdi} fdi={fdi} />)}
                       </div>
                     </div>
 
                     {/* Lower jaw */}
                     <div style={{marginBottom:12}}>
                       <div style={{display:'flex',justifyContent:'center',gap:2}}>
-                        {LOWER_LEFT.map(fdi => {
-                          const rec = dentalRecords[fdi];
-                          const c = toothColor(rec?.status);
-                          const isSel = selectedTooth?.fdi === fdi;
-                          return (
-                            <div key={fdi} onClick={() => { setSelectedTooth(isSel ? null : { fdi, status: rec?.status || 'healthy' }); setToothNoteText(''); }}
-                              style={{
-                                width:32,height:36,borderRadius:4,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                                cursor:'pointer',border:`1.5px solid ${isSel ? 'var(--sage)' : c.border}`,background:isSel ? 'rgba(70,130,110,0.08)' : c.bg,
-                                transition:'all 0.15s',fontSize:10,fontWeight:600,color:'var(--ink)',lineHeight:1.2,
-                                boxShadow: isSel ? '0 0 0 2px var(--sage)' : 'none',
-                              }}
-                              title={`Tooth ${fdi}: ${rec?.status || 'healthy'}`}>
-                              <span style={{fontSize:11,fontWeight:700}}>{fdi}</span>
-                              {rec?.status && rec.status !== 'healthy' && (
-                                <span style={{fontSize:7,color:c.border,marginTop:1,textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>{rec.status.replace('_',' ').slice(0,6)}</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {LOWER_LEFT.map(fdi => <ToothCell key={fdi} fdi={fdi} />)}
                         <div style={{width:8}} />
-                        {LOWER_RIGHT.map(fdi => {
-                          const rec = dentalRecords[fdi];
-                          const c = toothColor(rec?.status);
-                          const isSel = selectedTooth?.fdi === fdi;
-                          return (
-                            <div key={fdi} onClick={() => { setSelectedTooth(isSel ? null : { fdi, status: rec?.status || 'healthy' }); setToothNoteText(''); }}
-                              style={{
-                                width:32,height:36,borderRadius:4,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
-                                cursor:'pointer',border:`1.5px solid ${isSel ? 'var(--sage)' : c.border}`,background:isSel ? 'rgba(70,130,110,0.08)' : c.bg,
-                                transition:'all 0.15s',fontSize:10,fontWeight:600,color:'var(--ink)',lineHeight:1.2,
-                                boxShadow: isSel ? '0 0 0 2px var(--sage)' : 'none',
-                              }}
-                              title={`Tooth ${fdi}: ${rec?.status || 'healthy'}`}>
-                              <span style={{fontSize:11,fontWeight:700}}>{fdi}</span>
-                              {rec?.status && rec.status !== 'healthy' && (
-                                <span style={{fontSize:7,color:c.border,marginTop:1,textTransform:'uppercase',letterSpacing:0.5,lineHeight:1}}>{rec.status.replace('_',' ').slice(0,6)}</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {LOWER_RIGHT.map(fdi => <ToothCell key={fdi} fdi={fdi} />)}
                       </div>
                       <div style={{fontSize:10,color:'var(--muted)',marginTop:4,textAlign:'center',letterSpacing:1,textTransform:'uppercase'}}>Lower</div>
                     </div>
@@ -4023,10 +4189,13 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                     </span>
                   )}
                 </div>
-                <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
-                  onClick={() => onNavigate?.({ page:'treatment_plans', payload:{ patient: d } })}>
-                  View all →
-                </button>
+                {(ptPlansLoad || ptPlans.length > 0) && (
+                  <button className="btn btn-ghost btn-sm" style={{fontSize:11, opacity: ptPlansLoad ? 0.5 : 1, pointerEvents: ptPlansLoad ? 'none' : 'auto'}}
+                    disabled={ptPlansLoad}
+                    onClick={() => onNavigate?.({ page:'treatment_plans', payload:{ patient: d } })}>
+                    View all →
+                  </button>
+                )}
               </div>
 
               {ptPlansLoad ? (
@@ -4197,12 +4366,12 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
               <div className="pt-section">
                 <div className="pt-section-title" style={{marginBottom:14}}>Personal information</div>
                 <div className="pt-grid">
-                  <div className="field"><label>First name *</label><input value={editForm.first_name} onChange={ef('first_name')} /></div>
-                  <div className="field"><label>Last name *</label><input value={editForm.last_name} onChange={ef('last_name')} /></div>
+                  <div className="field"><label>First name *</label><input value={editForm.first_name} readOnly disabled /></div>
+                  <div className="field"><label>Last name *</label><input value={editForm.last_name} readOnly disabled /></div>
                   <div className="field"><label>Email</label><input type="email" value={editForm.email} onChange={ef('email')} /></div>
                   <div className="field"><label>Phone</label><input value={editForm.phone} onChange={ef('phone')} /></div>
-                  <div className="field"><label>SA ID number</label><input value={editForm.id_number} onChange={ef('id_number')} placeholder="13-digit SA ID" maxLength={13} /></div>
-                  <div className="field"><label>Date of birth</label><DobPicker value={editForm.date_of_birth} onChange={v => setEditForm(p => ({...p, date_of_birth: v}))} /></div>
+                  <div className="field"><label>SA ID number</label><input value={editForm.id_number} readOnly disabled placeholder="13-digit SA ID" /></div>
+                  <div className="field"><label>Date of birth</label><div style={{fontSize:13,color:'var(--ink-soft)',padding:'9px 0'}}>{editForm.date_of_birth ? fmtDate(editForm.date_of_birth) : '—'}</div></div>
                   <div className="field">
                     <label>Gender</label>
                     <select value={editForm.gender} onChange={ef('gender')}>
@@ -4224,14 +4393,6 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                       {PROVINCES.map(p => <option key={p}>{p}</option>)}
                     </select>
                   </div>
-                  <div className="field">
-                    <label>Referral source</label>
-                    <select value={editForm.referral_source} onChange={ef('referral_source')}>
-                      <option value="">Select…</option>
-                      {REFERRALS.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </div>
-                  <div className="field"><label>Referral detail</label><input value={editForm.referral_detail} onChange={ef('referral_detail')} placeholder="e.g. Dr Smith" /></div>
                 </div>
               </div>
 
