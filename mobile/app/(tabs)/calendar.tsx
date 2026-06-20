@@ -8,7 +8,7 @@ import { Calendar } from 'react-native-calendars';
 import { useFocusEffect, router } from 'expo-router';
 import { getAppointments, type Appointment } from '../../lib/api';
 import AppointmentCard from '../../components/AppointmentCard';
-import { C } from '../../constants/theme';
+import { C, T } from '../../constants/theme';
 
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function dateStr(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -82,20 +82,25 @@ export default function CalendarScreen() {
           selectedDotColor:           '#fff',
           arrowColor:                 C.sageDep,
           monthTextColor:             C.ink,
-          textMonthFontWeight:        '600',
-          textDayFontSize:            14,
-          textMonthFontSize:          16,
+          textMonthFontWeight:        '700',
+          textDayFontWeight:          '500',
+          textDayHeaderFontWeight:    '600',
+          textDayFontSize:            15,
+          textMonthFontSize:          17,
+          textDayHeaderFontSize:      12,
         }}
         style={s.calendar}
       />
 
       <View style={s.dayBar}>
         <Text style={s.dayLabel}>{formatSelected()}</Text>
-        <Text style={s.dayCount}>
-          {loading
-            ? 'Loading…'
-            : `${dayAppts.length} appt${dayAppts.length === 1 ? '' : 's'}`}
-        </Text>
+        <View style={[s.dayCountPill, dayAppts.length > 0 && s.dayCountPillActive]}>
+          <Text style={[s.dayCount, dayAppts.length > 0 && s.dayCountActive]}>
+            {loading
+              ? '…'
+              : `${dayAppts.length} appt${dayAppts.length === 1 ? '' : 's'}`}
+          </Text>
+        </View>
       </View>
 
       {loading ? (
@@ -148,15 +153,18 @@ const s = StyleSheet.create({
   dayBar: {
     flexDirection:    'row',
     justifyContent:   'space-between',
-    alignItems:       'baseline',
+    alignItems:       'center',
     paddingHorizontal: 20,
     paddingVertical:   12,
     borderBottomWidth: 1,
     borderBottomColor: C.rule,
     backgroundColor:   C.bg,
   },
-  dayLabel:  { fontSize: 15, fontWeight: '600', color: C.ink },
-  dayCount:  { fontSize: 12, color: C.muted },
+  dayLabel:  { ...T.headline, color: C.ink },
+  dayCountPill:       { backgroundColor: C.bg2, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 },
+  dayCountPillActive: { backgroundColor: C.sageSoft },
+  dayCount:        { fontSize: 12, color: C.muted, fontWeight: '600' },
+  dayCountActive:  { color: C.sage },
   loader:     { padding: 40, alignItems: 'center', gap: 10 },
   loaderText: { color: C.muted, fontSize: 13 },
   list:       { padding: 16, paddingBottom: 40 },

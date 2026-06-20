@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet,
-  ActivityIndicator, TouchableOpacity,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
@@ -11,7 +10,21 @@ import {
   type TreatmentPlan,
   type TreatmentPlanSession,
 } from '../../lib/api';
+import ErrorState from '../../components/ErrorState';
+import { SkeletonBox } from '../../components/Skeleton';
 import { C } from '../../constants/theme';
+
+/** Turn technical errors (404, network) into plain language for the user. */
+function friendlyError(raw: string | null): { title: string; message: string } {
+  const m = (raw ?? '').toLowerCase();
+  if (m.includes('404') || m.includes('not found')) {
+    return { title: "This plan couldn't be found", message: 'It may have been removed or the link is out of date.' };
+  }
+  if (m.includes('network') || m.includes('fetch') || m.includes('timeout')) {
+    return { title: "Couldn't load this plan", message: 'Check your connection and try again.' };
+  }
+  return { title: "Couldn't load this plan", message: 'Something went wrong on our end. Please try again.' };
+}
 
 const SESSION_STATUS: Record<string, { bg: string; text: string }> = {
   scheduled:   { bg: '#DBEAFE', text: '#1E40AF' },
@@ -42,18 +55,21 @@ export default function PlanDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
-  useFocusEffect(useCallback(() => {
+  const load = useCallback(() => {
     if (!id) {
       setError('Plan ID missing');
       setLoading(false);
       return;
     }
     setLoading(true);
+    setError(null);
     getTreatmentPlan(id)
       .then(({ plan: p }) => setPlan(p as FullPlan))
       .catch(e => setError(e.message ?? 'Could not load plan'))
       .finally(() => setLoading(false));
-  }, [id]));
+  }, [id]);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading) {
     return (
@@ -62,23 +78,31 @@ export default function PlanDetailScreen() {
           <Ionicons name="chevron-back" size={22} color={C.sage} />
           <Text style={s.backText}>Plans</Text>
         </TouchableOpacity>
-        <View style={s.center}>
-          <ActivityIndicator color={C.sage} size="large" />
+        <View style={s.scroll}>
+          <SkeletonBox width="70%" height={26} />
+          <SkeletonBox width="40%" height={14} style={{ marginTop: 10 }} />
+          <SkeletonBox width="100%" height={96} radius={16} style={{ marginTop: 20 }} />
+          <SkeletonBox width="100%" height={120} radius={16} style={{ marginTop: 12 }} />
         </View>
       </SafeAreaView>
     );
   }
 
   if (error || !plan) {
+    const fe = friendlyError(error);
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={C.sage} />
           <Text style={s.backText}>Plans</Text>
         </TouchableOpacity>
-        <View style={s.center}>
-          <Text style={s.errText}>{error ?? 'Plan not found'}</Text>
-        </View>
+        <ErrorState
+          title={fe.title}
+          message={fe.message}
+          icon="document-text-outline"
+          onRetry={load}
+          onBack={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
@@ -276,6 +300,4 @@ const s = StyleSheet.create({
   sessAmount:   { fontSize: 12, color: C.muted },
   statusBadge:  { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
   statusText:   { fontSize: 10, fontWeight: '600', textTransform: 'capitalize' },
-
-  errText: { color: C.danger, fontSize: 14, textAlign: 'center', padding: 20 },
 });

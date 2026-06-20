@@ -9,7 +9,8 @@ import { useFocusEffect, router } from 'expo-router';
 import { getAppointments, type Appointment } from '../../lib/api';
 import AppointmentCard from '../../components/AppointmentCard';
 import StatCard from '../../components/StatCard';
-import { C } from '../../constants/theme';
+import Avatar from '../../components/Avatar';
+import { C, T } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 
 
@@ -90,14 +91,30 @@ export default function TodayScreen() {
 
   const header = useMemo(() => (
     <View style={s.header}>
-      <Text style={s.greet}>
-        {greet()}{doctorName ? `, Dr ${doctorName}.` : '.'}
-      </Text>
-      <Text style={s.date}>{formatLong(today)}</Text>
+      <View style={s.greetRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.greet}>
+            {greet()}{doctorName ? `, Dr ${doctorName}` : ''}
+          </Text>
+          <Text style={s.date}>{formatLong(today)}</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => router.push('/settings')}
+          activeOpacity={0.8}
+          accessibilityLabel="Your profile and settings"
+          accessibilityRole="button"
+        >
+          <Avatar
+            name={doctorName ?? 'Doctor'}
+            initials={(doctorName ?? 'Dr')[0].toUpperCase()}
+            size={40}
+          />
+        </TouchableOpacity>
+      </View>
       <View style={s.stats}>
-        <StatCard label="Total"     value={total} />
-        <StatCard label="Done"      value={completed} accent={completed > 0 && completed === total} />
-        <StatCard label="Remaining" value={remaining} accent={remaining > 0} />
+        <StatCard label="Total"     value={total}     tone="neutral"  icon="calendar-outline" />
+        <StatCard label="Done"      value={completed} tone="positive" icon="checkmark-circle-outline" />
+        <StatCard label="Remaining" value={remaining} tone={remaining > 0 ? 'urgent' : 'neutral'} icon="time-outline" />
       </View>
       <Text style={s.section}>
         {total === 0
@@ -144,7 +161,15 @@ export default function TodayScreen() {
             <View style={s.empty}>
               <Text style={s.emptyIcon}>🦷</Text>
               <Text style={s.emptyTitle}>No appointments today</Text>
-              <Text style={s.emptyText}>Enjoy the free time, or check the calendar for upcoming sessions.</Text>
+              <Text style={s.emptyText}>Enjoy the free time, or open the calendar to see what's coming up.</Text>
+              <TouchableOpacity
+                style={s.emptyCta}
+                onPress={() => router.push('/calendar')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="calendar-outline" size={17} color="#fff" />
+                <Text style={s.emptyCtaText}>Open calendar</Text>
+              </TouchableOpacity>
             </View>
           }
           contentContainerStyle={s.list}
@@ -166,15 +191,18 @@ const s = StyleSheet.create({
   center:    { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
   list:      { padding: 20, paddingBottom: 40 },
   header:    { marginBottom: 8 },
-  greet:     { fontSize: 28, fontWeight: '700', color: C.ink, marginBottom: 4 },
-  date:      { fontSize: 13, color: C.muted, marginBottom: 20, letterSpacing: 0.2 },
+  greetRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  greet:     { ...T.title, color: C.ink, marginBottom: 3 },
+  date:      { ...T.subhead, color: C.muted, fontWeight: '400', letterSpacing: 0.2 },
   stats:     { flexDirection: 'row', gap: 10, marginBottom: 24 },
-  section:   { fontSize: 11, letterSpacing: 0.8, color: C.muted, fontWeight: '500', marginBottom: 12 },
+  section:   { ...T.eyebrow, color: C.muted, marginBottom: 12 },
   loadingText: { color: C.muted, fontSize: 14, marginTop: 12 },
   empty:      { paddingVertical: 48, alignItems: 'center', paddingHorizontal: 32 },
   emptyIcon:  { fontSize: 40, marginBottom: 12 },
-  emptyTitle: { fontSize: 17, fontWeight: '600', color: C.ink, marginBottom: 6, textAlign: 'center' },
+  emptyTitle: { ...T.headline, color: C.ink, marginBottom: 6, textAlign: 'center' },
   emptyText:  { color: C.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  emptyCta:   { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: C.sage, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 22, marginTop: 20 },
+  emptyCtaText: { ...T.headline, color: '#fff' },
   err:        { color: C.danger, fontSize: 14, textAlign: 'center', paddingHorizontal: 32, marginBottom: 16 },
   retryBtn:   { backgroundColor: C.bg2, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 24, borderWidth: 1, borderColor: C.rule },
   retryText:  { fontSize: 14, fontWeight: '600', color: C.inkSoft },

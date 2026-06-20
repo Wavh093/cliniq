@@ -19,11 +19,11 @@ interface Message {
 
 // ── Suggested starter questions ──────────────────────────────────
 
-const SUGGESTED = [
-  'Max lidocaine dose for a 70 kg adult?',
-  'Antibiotic prophylaxis for a patient with a prosthetic joint?',
-  'Managing a patient on warfarin before extraction?',
-  'Signs and management of local anaesthetic toxicity?',
+const SUGGESTED: { q: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
+  { q: 'Max lidocaine dose for a 70 kg adult?',                              icon: 'fitness-outline' },
+  { q: 'Antibiotic prophylaxis for a patient with a prosthetic joint?',     icon: 'shield-checkmark-outline' },
+  { q: 'Managing a patient on warfarin before extraction?',                 icon: 'water-outline' },
+  { q: 'Signs and management of local anaesthetic toxicity?',               icon: 'warning-outline' },
 ];
 
 // ── Screen ───────────────────────────────────────────────────────
@@ -33,6 +33,7 @@ export default function AIScreen() {
   const [input,     setInput]     = useState('');
   const [loading,   setLoading]   = useState(false);
   const [usage,     setUsage]     = useState({ used: 0, limit: 10, remaining: 10 });
+  const [showUsage, setShowUsage] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   // Refresh usage whenever the tab is focused
@@ -84,20 +85,30 @@ export default function AIScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       {/* ── Header ─────────────────────────────────────────── */}
       <View style={s.header}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={s.title}>Ask Klara</Text>
           <Text style={s.subtitle}>Your AI clinical assistant</Text>
+          {(showUsage || rateLimited) && (
+            <Text style={[s.usageLine, rateLimited && s.usageWarn]}>
+              {rateLimited
+                ? `Hourly limit reached (${usage.limit})`
+                : `${usage.remaining} of ${usage.limit} questions left this hour`}
+            </Text>
+          )}
         </View>
-        <View style={[s.usagePill, rateLimited && s.usagePillWarn]}>
+        <TouchableOpacity
+          style={[s.usageBtn, rateLimited && s.usagePillWarn]}
+          onPress={() => setShowUsage(v => !v)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel="Usage this hour"
+          accessibilityRole="button"
+        >
           <Ionicons
-            name="sparkles"
-            size={11}
-            color={rateLimited ? C.danger : C.sage}
+            name="information-circle-outline"
+            size={20}
+            color={rateLimited ? C.danger : C.muted}
           />
-          <Text style={[s.usageText, rateLimited && s.usageWarn]}>
-            {usage.remaining} / {usage.limit}
-          </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -133,20 +144,29 @@ export default function AIScreen() {
                 </Text>
               </View>
 
-              {/* Suggested questions */}
+              {/* Suggested questions — horizontally scrollable */}
               <Text style={s.suggestedLabel}>QUICK QUESTIONS</Text>
-              {SUGGESTED.map((q, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[s.suggestedChip, inputDisabled && { opacity: 0.4 }]}
-                  onPress={() => send(q)}
-                  disabled={inputDisabled}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.suggestedText} numberOfLines={2}>{q}</Text>
-                  <Ionicons name="arrow-forward" size={14} color={C.sage} />
-                </TouchableOpacity>
-              ))}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.chipScroll}
+                keyboardShouldPersistTaps="handled"
+              >
+                {SUGGESTED.map((item, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[s.suggestedChip, inputDisabled && { opacity: 0.4 }]}
+                    onPress={() => send(item.q)}
+                    disabled={inputDisabled}
+                    activeOpacity={0.7}
+                  >
+                    <View style={s.chipIcon}>
+                      <Ionicons name={item.icon} size={16} color={C.sage} />
+                    </View>
+                    <Text style={s.suggestedText} numberOfLines={3}>{item.q}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </>
           )}
 
@@ -261,14 +281,12 @@ const s = StyleSheet.create({
   title:    { fontSize: 22, fontWeight: '700', color: C.ink },
   subtitle: { fontSize: 12, color: C.muted, marginTop: 1 },
 
-  usagePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: C.paper, borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: C.rule,
+  usageBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
   },
-  usagePillWarn: { borderColor: '#fca5a5', backgroundColor: '#FEF2F2' },
-  usageText:  { fontSize: 13, fontWeight: '600', color: C.sage },
+  usagePillWarn: { backgroundColor: '#FEF2F2' },
+  usageLine:  { fontSize: 12, color: C.muted, marginTop: 4 },
   usageWarn:  { color: C.danger },
 
   // Messages
@@ -288,20 +306,26 @@ const s = StyleSheet.create({
   welcomeTitle:   { fontSize: 16, fontWeight: '700', color: C.ink, marginBottom: 6 },
   welcomeBody:    { fontSize: 14, color: C.inkSoft, lineHeight: 21 },
   welcomeDivider: { height: 1, backgroundColor: C.rule, marginVertical: 14 },
-  disclaimer:     { fontSize: 12, color: C.muted, lineHeight: 18, fontStyle: 'italic' },
+  disclaimer:     { fontSize: 11, color: C.muted, lineHeight: 17 },
 
   // Suggested chips
   suggestedLabel: {
     fontSize: 10, fontWeight: '700', letterSpacing: 0.8,
-    color: C.muted, marginBottom: 8,
+    color: C.muted, marginBottom: 10,
   },
+  chipScroll: { gap: 10, paddingRight: 16, paddingBottom: 2 },
   suggestedChip: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-    backgroundColor: C.paper, borderRadius: 12,
-    paddingVertical: 13, paddingHorizontal: 14,
-    borderWidth: 1, borderColor: C.rule, marginBottom: 6,
+    width: 190,
+    backgroundColor: C.paper, borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: C.rule,
+    gap: 10,
   },
-  suggestedText: { flex: 1, fontSize: 14, color: C.ink },
+  chipIcon: {
+    width: 32, height: 32, borderRadius: 9, backgroundColor: C.sageSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  suggestedText: { fontSize: 13, color: C.ink, lineHeight: 18, fontWeight: '500' },
 
   // Bubbles
   bubbleWrap:     { gap: 4 },

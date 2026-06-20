@@ -1,15 +1,18 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
-  ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getPatient, getDependants, updatePatientNotes, saveSessionNotes } from '../../lib/api';
 import DentalChartCard from '../../components/DentalChartCard';
+import Avatar from '../../components/Avatar';
+import SegmentedControl from '../../components/SegmentedControl';
+import { SkeletonBox } from '../../components/Skeleton';
 import type { Patient, LinkedPatient, AppointmentSummary } from '../../lib/api';
-import { C, STATUS } from '../../constants/theme';
+import { C, T, STATUS } from '../../constants/theme';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -81,6 +84,7 @@ export default function PatientDetailScreen() {
   const [dependants, setDependants] = useState<LinkedPatient[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
+  const [tab,        setTab]        = useState(0); // 0 Overview · 1 Chart · 2 History
   const [apptModal,    setApptModal]    = useState<AppointmentSummary | null>(null);
   const [apptClinical, setApptClinical] = useState('');
   const [apptInternal, setApptInternal] = useState('');
@@ -161,12 +165,21 @@ export default function PatientDetailScreen() {
           </TouchableOpacity>
           <Text style={s.topBarTitle}>Patient</Text>
         </View>
-        <View style={s.center}>
-          {loading
-            ? <ActivityIndicator color={C.sage} size="large" />
-            : <Text style={s.errText}>{error ?? 'Patient not found'}</Text>
-          }
-        </View>
+        {loading ? (
+          <View style={s.scroll}>
+            <View style={{ alignItems: 'center', paddingTop: 28, paddingBottom: 24 }}>
+              <SkeletonBox width={76} height={76} radius={38} />
+              <SkeletonBox width={160} height={20} style={{ marginTop: 16 }} />
+              <SkeletonBox width={100} height={13} style={{ marginTop: 8 }} />
+            </View>
+            <SkeletonBox width="100%" height={108} radius={16} style={{ marginTop: 8 }} />
+            <SkeletonBox width="100%" height={150} radius={16} style={{ marginTop: 16 }} />
+          </View>
+        ) : (
+          <View style={s.center}>
+            <Text style={s.errText}>{error ?? 'Patient not found'}</Text>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -197,34 +210,58 @@ export default function PatientDetailScreen() {
 
         {/* ── Hero ───────────────────────────────────────────────── */}
         <View style={s.hero}>
-          <View style={s.avatar}>
-            <Text style={s.avatarText}>{initials(patient)}</Text>
-          </View>
+          <Avatar
+            name={`${patient.first_name} ${patient.last_name}`}
+            initials={initials(patient)}
+            size={76}
+          />
           <Text style={s.heroName}>{patient.first_name} {patient.last_name}</Text>
           {age !== null && (
             <Text style={s.heroSub}>{age} years old</Text>
           )}
-          <View style={s.heroContacts}>
-            {patient.phone && (
-              <View style={s.contactPill}>
-                <Ionicons name="call-outline" size={12} color={C.inkSoft} />
-                <Text style={s.contactPillText}>{patient.phone}</Text>
-              </View>
-            )}
-            {patient.email && (
-              <View style={s.contactPill}>
-                <Ionicons name="mail-outline" size={12} color={C.inkSoft} />
-                <Text style={s.contactPillText}>{patient.email}</Text>
-              </View>
-            )}
-          </View>
           {patient.patient_type && (
             <View style={s.typePill}>
               <Text style={s.typePillText}>{patient.patient_type}</Text>
             </View>
           )}
+          {(patient.phone || patient.email) && (
+            <View style={s.heroActions}>
+              {patient.phone && (
+                <TouchableOpacity
+                  style={s.actionBtn}
+                  activeOpacity={0.8}
+                  onPress={() => Linking.openURL(`tel:${patient.phone}`)}
+                  accessibilityLabel={`Call ${patient.first_name}`}
+                >
+                  <Ionicons name="call" size={16} color={C.sage} />
+                  <Text style={s.actionText}>Call</Text>
+                </TouchableOpacity>
+              )}
+              {patient.email && (
+                <TouchableOpacity
+                  style={s.actionBtn}
+                  activeOpacity={0.8}
+                  onPress={() => Linking.openURL(`mailto:${patient.email}`)}
+                  accessibilityLabel={`Email ${patient.first_name}`}
+                >
+                  <Ionicons name="mail" size={16} color={C.sage} />
+                  <Text style={s.actionText}>Email</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
+        {/* ── Section switcher ───────────────────────────────────── */}
+        <View style={s.segmentWrap}>
+          <SegmentedControl
+            segments={['Overview', 'Chart', 'History']}
+            value={tab}
+            onChange={setTab}
+          />
+        </View>
+
+        {tab === 0 && (<>
         {/* ── Doctor's Notes (editable) ─────────────────────────── */}
         <View style={s.drNotesCard}>
           <View style={s.drNotesHeader}>
@@ -287,9 +324,6 @@ export default function PatientDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* ── Dental chart ────────────────────────────────────────── */}
-        <DentalChartCard patientId={patient.id} />
 
         {/* ── Profile ────────────────────────────────────────────── */}
         <Section title="PROFILE">
@@ -391,9 +425,13 @@ export default function PatientDetailScreen() {
             )}
           </Section>
         )}
+        </>)}
 
-        {/* ── Appointment history ──────────────────────────────────── */}
-        {appts.length > 0 && (
+        {/* ── Chart tab ──────────────────────────────────────────── */}
+        {tab === 1 && <DentalChartCard patientId={patient.id} />}
+
+        {/* ── History tab ────────────────────────────────────────── */}
+        {tab === 2 && (appts.length > 0 ? (
           <Section title={`APPOINTMENT HISTORY (${appts.length})`}>
             {appts.map((appt, i) => {
               const st = STATUS[appt.status] ?? STATUS.pending;
@@ -427,7 +465,12 @@ export default function PatientDetailScreen() {
               );
             })}
           </Section>
-        )}
+        ) : (
+          <View style={s.tabEmpty}>
+            <Ionicons name="time-outline" size={30} color={C.muted} />
+            <Text style={s.tabEmptyText}>No appointments recorded yet.</Text>
+          </View>
+        ))}
 
       </ScrollView>
 
@@ -565,16 +608,19 @@ const s = StyleSheet.create({
   topBarTitle: { fontSize: 16, fontWeight: '600', color: C.ink },
 
   // Hero
-  hero:          { alignItems: 'center', paddingTop: 28, paddingBottom: 24 },
-  avatar:        { width: 76, height: 76, borderRadius: 38, backgroundColor: C.sage, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  avatarText:    { fontSize: 28, fontWeight: '700', color: '#fff' },
-  heroName:      { fontSize: 22, fontWeight: '700', color: C.ink, textAlign: 'center' },
+  hero:          { alignItems: 'center', paddingTop: 24, paddingBottom: 20 },
+  heroName:      { ...T.title2, color: C.ink, textAlign: 'center', marginTop: 14 },
   heroSub:       { fontSize: 14, color: C.muted, marginTop: 4 },
-  heroContacts:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, justifyContent: 'center' },
-  contactPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.paper, borderWidth: 1, borderColor: C.rule, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5 },
-  contactPillText: { fontSize: 12, color: C.inkSoft },
   typePill:      { marginTop: 10, backgroundColor: C.bg2, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 4 },
   typePillText:  { fontSize: 12, color: C.inkSoft, textTransform: 'capitalize', fontWeight: '500' },
+  heroActions:   { flexDirection: 'row', gap: 10, marginTop: 18 },
+  actionBtn:     { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: C.sageSoft, borderRadius: 22, paddingHorizontal: 22, paddingVertical: 10 },
+  actionText:    { ...T.subhead, color: C.sage, fontWeight: '700' },
+
+  // Section switcher
+  segmentWrap:   { marginBottom: 20 },
+  tabEmpty:      { alignItems: 'center', paddingVertical: 56, gap: 12 },
+  tabEmptyText:  { fontSize: 14, color: C.muted },
 
   // Sections
   section:      { marginBottom: 20 },

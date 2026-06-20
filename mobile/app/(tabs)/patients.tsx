@@ -1,13 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, FlatList,
-  StyleSheet, ActivityIndicator, TouchableOpacity,
+  StyleSheet, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { searchPatients, type PatientSummary } from '../../lib/api';
-import { C } from '../../constants/theme';
+import Avatar from '../../components/Avatar';
+import { SkeletonList } from '../../components/Skeleton';
+import { C, T } from '../../constants/theme';
 
 function calcAge(dob: string | null): number | null {
   if (!dob) return null;
@@ -62,15 +64,18 @@ export default function PatientsScreen() {
   const renderItem = ({ item }: { item: PatientSummary }) => {
     const age = calcAge(item.date_of_birth);
     const sub = [item.phone, item.medical_aid_name].filter(Boolean).join('  ·  ');
+    const isNew = item.patient_type?.toLowerCase() === 'new';
     return (
       <TouchableOpacity
         style={s.row}
         onPress={() => router.push(`/patient/${item.id}`)}
         activeOpacity={0.7}
       >
-        <View style={s.avatar}>
-          <Text style={s.avatarText}>{initials(item.first_name, item.last_name)}</Text>
-        </View>
+        <Avatar
+          name={`${item.first_name} ${item.last_name}`}
+          initials={initials(item.first_name, item.last_name)}
+          size={44}
+        />
         <View style={s.rowBody}>
           <View style={s.rowTop}>
             <Text style={s.rowName} numberOfLines={1}>
@@ -80,8 +85,10 @@ export default function PatientsScreen() {
                 : null}
             </Text>
             {item.patient_type ? (
-              <View style={s.typeBadge}>
-                <Text style={s.typeText}>{item.patient_type}</Text>
+              <View style={[s.typeBadge, isNew ? s.typeBadgeNew : s.typeBadgeReturning]}>
+                <Text style={[s.typeText, isNew ? s.typeTextNew : s.typeTextReturning]}>
+                  {item.patient_type}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -128,9 +135,7 @@ export default function PatientsScreen() {
 
       {/* List / states */}
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator color={C.sage} size="large" />
-        </View>
+        <SkeletonList count={6} />
       ) : error ? (
         <View style={s.center}>
           <Text style={s.err}>{error}</Text>
@@ -170,30 +175,29 @@ export default function PatientsScreen() {
 const s = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: C.bg },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
-  title:  { fontSize: 28, fontWeight: '700', color: C.ink },
+  title:  { ...T.title, color: C.ink },
 
   searchWrap: {
     flexDirection:     'row',
     alignItems:        'center',
-    marginHorizontal:  16,
-    marginVertical:    10,
+    marginHorizontal:  20,
+    marginVertical:    12,
     backgroundColor:   C.paper,
-    borderRadius:      12,
+    borderRadius:      26,
     borderWidth:       1,
     borderColor:       C.rule,
-    paddingHorizontal: 12,
-    paddingVertical:   10,
+    paddingHorizontal: 16,
+    paddingVertical:   14,
   },
   searchIcon:  { marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 15, color: C.ink },
+  searchInput: { flex: 1, fontSize: 15, color: C.ink, padding: 0 },
 
   count: {
-    fontSize:          11,
+    ...T.caption,
     color:             C.muted,
     paddingHorizontal: 20,
     marginBottom:      6,
     letterSpacing:     0.4,
-    fontWeight:        '500',
   },
 
   center:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -214,15 +218,6 @@ const s = StyleSheet.create({
     borderColor:     C.rule,
     gap:             12,
   },
-  avatar: {
-    width:           44,
-    height:          44,
-    borderRadius:    22,
-    backgroundColor: C.bg2,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  avatarText: { fontSize: 15, fontWeight: '700', color: C.sage },
   rowBody:    { flex: 1, minWidth: 0 },
   rowTop: {
     flexDirection:   'row',
@@ -235,17 +230,19 @@ const s = StyleSheet.create({
   rowAge:   { fontSize: 13, color: C.muted, fontWeight: '400' },
   rowSub:   { fontSize: 13, color: C.muted },
   typeBadge: {
-    backgroundColor:   C.bg2,
-    borderRadius:      4,
-    paddingHorizontal: 6,
-    paddingVertical:   2,
+    borderRadius:      6,
+    paddingHorizontal: 8,
+    paddingVertical:   3,
     flexShrink:        0,
   },
+  typeBadgeNew:       { backgroundColor: C.sageSoft },
+  typeBadgeReturning: { backgroundColor: '#eceef0' },
   typeText: {
     fontSize:       10,
-    color:          C.sage,
     fontWeight:     '700',
     textTransform:  'capitalize',
     letterSpacing:  0.3,
   },
+  typeTextNew:       { color: C.sage },
+  typeTextReturning: { color: C.muted },
 });

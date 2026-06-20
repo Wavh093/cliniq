@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
-import { C } from '../../constants/theme';
+import Avatar from '../../components/Avatar';
+import { C, T } from '../../constants/theme';
 
 const PRACTICE_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -49,25 +50,19 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <Text style={s.title}>Settings</Text>
 
-        {/* ACCOUNT */}
-        <Text style={s.sectionLabel}>ACCOUNT</Text>
-        <View style={s.card}>
-          <Row
-            icon="person-circle-outline"
-            label="Signed in as"
-            value={email ?? '…'}
+        {/* Profile card */}
+        <View style={s.profileCard}>
+          <Avatar
+            name={email ?? 'Account'}
+            initials={(practiceName ?? email ?? '?')[0].toUpperCase()}
+            size={56}
           />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={s.profileName} numberOfLines={1}>{practiceName ?? 'Your practice'}</Text>
+            <Text style={s.profileEmail} numberOfLines={1}>{email ?? '…'}</Text>
+          </View>
         </View>
-
-        {/* PRACTICE */}
-        <Text style={s.sectionLabel}>PRACTICE</Text>
-        <View style={s.card}>
-          <Row
-            icon="business-outline"
-            label="Practice"
-            value={practiceName ?? '…'}
-          />
-        </View>
+        <Text style={s.readonlyHint}>Account and practice details are managed in the web portal.</Text>
 
         {/* APP */}
         <Text style={s.sectionLabel}>APP</Text>
@@ -79,9 +74,9 @@ export default function SettingsScreen() {
           />
         </View>
 
-        {/* LOGOUT */}
-        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.8} accessibilityLabel="Log out of Cliniq" accessibilityRole="button">
-          <Ionicons name="log-out-outline" size={20} color="#fff" />
+        {/* LOGOUT — de-emphasised, confirmation-gated */}
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.7} accessibilityLabel="Log out" accessibilityRole="button">
+          <Ionicons name="log-out-outline" size={18} color={C.danger} />
           <Text style={s.logoutText}>Log out</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -112,7 +107,16 @@ function Row({
 const s = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: C.bg },
   scroll: { padding: 20, paddingBottom: 60 },
-  title:  { fontSize: 28, fontWeight: '700', color: C.ink, marginBottom: 28 },
+  title:  { ...T.title, color: C.ink, marginBottom: 24 },
+
+  profileCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: C.paper, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: C.rule,
+  },
+  profileName:  { ...T.headline, color: C.ink },
+  profileEmail: { ...T.subhead, color: C.muted, fontWeight: '400', marginTop: 2 },
+  readonlyHint: { fontSize: 12, color: C.muted, marginTop: 10, marginBottom: 24, paddingHorizontal: 4, lineHeight: 17 },
 
   sectionLabel: {
     fontSize:          11,
@@ -146,11 +150,9 @@ const s = StyleSheet.create({
     flexDirection:   'row',
     alignItems:      'center',
     justifyContent:  'center',
-    gap:             8,
-    backgroundColor: C.danger,
-    borderRadius:    14,
-    paddingVertical: 16,
-    marginTop:       8,
+    gap:             7,
+    paddingVertical: 14,
+    marginTop:       24,
   },
-  logoutText: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  logoutText: { fontSize: 15, fontWeight: '600', color: C.danger },
 });

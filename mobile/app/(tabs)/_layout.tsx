@@ -2,22 +2,36 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { C } from '../../constants/theme';
 
-type IconProps = { color: string; size: number };
+type IconProps = { color: string; size: number; focused: boolean };
+
+/** Swap between outline (inactive) and filled (active) icon variants. */
+function tabIcon(base: string) {
+  return ({ color, size, focused }: IconProps) => (
+    <Ionicons
+      name={(focused ? base : `${base}-outline`) as any}
+      size={size - 1}
+      color={color}
+    />
+  );
+}
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown:             false,
-        tabBarShowLabel:         false,
-        tabBarActiveTintColor:   '#ffffff',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.40)',
+        tabBarShowLabel:         true,
+        tabBarActiveTintColor:   C.sage,
+        tabBarInactiveTintColor: C.muted,
+        tabBarLabelStyle:        { fontSize: 10, fontWeight: '600', marginTop: -2 },
+        tabBarItemStyle:         { paddingTop: 6 },
         tabBarStyle: {
-          backgroundColor: C.sage,
-          borderTopWidth:  0,
-          height:          72,
-          paddingBottom:   8,
-          paddingTop:      6,
+          backgroundColor:  C.paper,
+          borderTopWidth:   1,
+          borderTopColor:   C.rule,
+          height:           76,
+          paddingBottom:    10,
+          paddingTop:       4,
         },
       }}
     >
@@ -26,9 +40,7 @@ export default function TabLayout() {
         options={{
           title: 'Today',
           tabBarAccessibilityLabel: "Today's appointments",
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="today-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('today'),
         }}
       />
       <Tabs.Screen
@@ -36,9 +48,7 @@ export default function TabLayout() {
         options={{
           title: 'Calendar',
           tabBarAccessibilityLabel: 'Calendar',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('calendar'),
         }}
       />
       <Tabs.Screen
@@ -46,9 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'Patients',
           tabBarAccessibilityLabel: 'Patient search',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('people'),
         }}
       />
       <Tabs.Screen
@@ -56,19 +64,15 @@ export default function TabLayout() {
         options={{
           title: 'Plans',
           tabBarAccessibilityLabel: 'Treatment plans',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="document-text-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('document-text'),
         }}
       />
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Analytics',
+          title: 'Stats',
           tabBarAccessibilityLabel: 'Practice analytics',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('bar-chart'),
         }}
       />
       <Tabs.Screen
@@ -76,9 +80,7 @@ export default function TabLayout() {
         options={{
           title: 'Klara',
           tabBarAccessibilityLabel: 'Ask Klara AI assistant',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="sparkles-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('sparkles'),
         }}
       />
       <Tabs.Screen
@@ -86,9 +88,7 @@ export default function TabLayout() {
         options={{
           title: 'Settings',
           tabBarAccessibilityLabel: 'Settings',
-          tabBarIcon: ({ color, size }: IconProps) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
+          tabBarIcon: tabIcon('settings'),
         }}
       />
     </Tabs>

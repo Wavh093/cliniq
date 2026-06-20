@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet,
-  ActivityIndicator, TouchableOpacity,
+  View, Text, FlatList, StyleSheet, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getTreatmentPlans, type TreatmentPlan } from '../../lib/api';
-import { C } from '../../constants/theme';
+import { SkeletonList } from '../../components/Skeleton';
+import { C, T } from '../../constants/theme';
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total > 0 ? Math.min(done / total, 1) : 0;
@@ -20,11 +20,25 @@ function ProgressBar({ done, total }: { done: number; total: number }) {
 }
 const pb = StyleSheet.create({
   track: {
-    height: 5, borderRadius: 3, backgroundColor: C.bg2,
-    flexDirection: 'row', overflow: 'hidden', marginTop: 10,
+    height: 8, borderRadius: 4, backgroundColor: C.bg2,
+    flexDirection: 'row', overflow: 'hidden',
   },
-  fill: { backgroundColor: C.sage, borderRadius: 3 },
+  fill: { backgroundColor: C.sage, borderRadius: 4 },
 });
+
+/** Flag plans whose next session is overdue or imminent. */
+function planUrgency(item: TreatmentPlan): { color: string; label: string } | null {
+  if (item.status !== 'active' || !item.next_session_due) return null;
+  const m = String(item.next_session_due).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const due = new Date(+m[1], +m[2] - 1, +m[3]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+  if (days < 0)  return { color: C.danger, label: 'Overdue' };
+  if (days <= 3) return { color: C.warn,   label: 'Due soon' };
+  return null;
+}
 
 function formatDate(d: string | null) {
   if (!d) return null;
@@ -72,10 +86,11 @@ export default function PlansScreen() {
       ? Math.round((item.sessions_done / item.total_sessions) * 100) : 0;
     const nextDue  = formatDate(item.next_session_due);
     const dotColor = STATUS_COLOR[item.status] ?? C.muted;
+    const urg      = planUrgency(item);
 
     return (
       <TouchableOpacity
-        style={s.card}
+        style={[s.card, urg && { borderLeftWidth: 4, borderLeftColor: urg.color }]}
         onPress={() => router.push(`/plan/${item.id}`)}
         activeOpacity={0.75}
       >
@@ -88,24 +103,30 @@ export default function PlansScreen() {
               </Text>
             )}
           </View>
-          <View style={s.sessCounter}>
-            <Text style={s.sessNum}>{item.sessions_done}</Text>
-            <Text style={s.sessDen}>/{item.total_sessions}</Text>
-          </View>
-        </View>
-
-        <ProgressBar done={item.sessions_done} total={item.total_sessions} />
-
-        <View style={s.cardBottom}>
           <View style={[s.statusBadge, { backgroundColor: dotColor + '22', borderColor: dotColor + '44' }]}>
             <View style={[s.statusDot, { backgroundColor: dotColor }]} />
             <Text style={[s.statusBadgeText, { color: dotColor }]}>
               {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
             </Text>
           </View>
-          {nextDue
-            ? <Text style={s.nextDue}>Next: {nextDue}</Text>
-            : <Text style={s.pct}>{pct}% complete</Text>}
+        </View>
+
+        <View style={s.progressRow}>
+          <View style={{ flex: 1 }}>
+            <ProgressBar done={item.sessions_done} total={item.total_sessions} />
+          </View>
+          <Text style={s.pctInline}>{pct}%</Text>
+        </View>
+
+        <View style={s.cardBottom}>
+          <Text style={s.sessText}>
+            {item.sessions_done} of {item.total_sessions} sessions
+          </Text>
+          {urg
+            ? <Text style={[s.nextDue, { color: urg.color }]}>{urg.label} · {nextDue}</Text>
+            : nextDue
+              ? <Text style={s.nextDue}>Next: {nextDue}</Text>
+              : <Text style={s.pct}>Complete</Text>}
         </View>
       </TouchableOpacity>
     );
@@ -115,10 +136,15 @@ export default function PlansScreen() {
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <View style={s.header}>
         <Text style={s.title}>Plans</Text>
+        {!loading && !error && plans.length > 0 && (
+          <Text style={s.subtitle}>
+            {plans.length} active plan{plans.length === 1 ? '' : 's'}
+          </Text>
+        )}
       </View>
 
       {loading ? (
-        <View style={s.center}><ActivityIndicator color={C.sage} size="large" /></View>
+        <SkeletonList count={4} />
       ) : error ? (
         <View style={s.center}><Text style={s.err}>{error}</Text></View>
       ) : (
@@ -126,11 +152,6 @@ export default function PlansScreen() {
           data={plans}
           keyExtractor={item => item.id}
           renderItem={renderItem}
-          ListHeaderComponent={
-            plans.length > 0
-              ? <Text style={s.count}>{plans.length} active plan{plans.length === 1 ? '' : 's'}</Text>
-              : null
-          }
           ListEmptyComponent={
             <View style={s.empty}>
               <Ionicons name="document-text-outline" size={40} color={C.muted} style={{ marginBottom: 12 }} />
@@ -145,11 +166,11 @@ export default function PlansScreen() {
 }
 
 const s = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: C.bg },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4 },
-  title:  { fontSize: 28, fontWeight: '700', color: C.ink },
-  count:  { fontSize: 11, color: C.muted, fontWeight: '600', letterSpacing: 0.5, marginBottom: 8 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  safe:    { flex: 1, backgroundColor: C.bg },
+  header:  { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  title:   { ...T.title, color: C.ink },
+  subtitle:{ ...T.subhead, color: C.muted, fontWeight: '400', marginTop: 2 },
+  center:  { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list:   { padding: 16, paddingBottom: 40 },
   empty:  { paddingVertical: 64, alignItems: 'center' },
   emptyText: { color: C.muted, fontSize: 15 },
@@ -165,15 +186,16 @@ const s = StyleSheet.create({
   },
   cardTop: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
+    marginBottom: 14,
   },
   cardMid:   { flex: 1 },
-  planTitle: { fontSize: 15, fontWeight: '600', color: C.ink },
+  planTitle: { ...T.headline, color: C.ink },
   patientName: { fontSize: 13, color: C.muted, marginTop: 2 },
-  sessCounter: { flexDirection: 'row', alignItems: 'baseline' },
-  sessNum:     { fontSize: 20, fontWeight: '700', color: C.ink },
-  sessDen:     { fontSize: 13, color: C.muted },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pctInline:   { fontSize: 13, fontWeight: '700', color: C.sage, minWidth: 34, textAlign: 'right' },
+  sessText:    { ...T.subhead, color: C.inkSoft, fontWeight: '600' },
   cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -62,7 +62,8 @@ function DonutChart({
           />
         )}
       </Svg>
-      <Text style={{ fontSize: 18, fontWeight: '700', color: C.ink }}>{pctLabel}</Text>
+      <Text style={{ fontSize: 28, fontWeight: '700', color: C.ink, letterSpacing: -0.5 }}>{pctLabel}</Text>
+      <Text style={{ fontSize: 10, color: C.muted, fontWeight: '600', letterSpacing: 0.4, marginTop: -2 }}>ON AID</Text>
     </View>
   );
 }
@@ -159,15 +160,19 @@ export default function AnalyticsScreen() {
         {current ? (
           <>
             <View style={s.row}>
-              <StatCard label="Bookings"  value={current.total_bookings ?? 0} />
-              <StatCard label="Completed" value={current.completed ?? 0} accent={(current.completed ?? 0) > 0} />
+              <StatCard label="Bookings"  value={current.total_bookings ?? 0} tone="neutral"  icon="calendar-outline" />
+              <StatCard label="Completed" value={current.completed ?? 0}      tone="positive" icon="checkmark-circle-outline" />
             </View>
             <View style={s.row}>
               <StatCard
                 label="Est. Revenue"
                 value={currentRev?.total_price_from ? formatRand(currentRev.total_price_from) : '—'}
+                sub={currentRev?.total_price_from ? undefined : 'No data yet'}
+                empty={!currentRev?.total_price_from}
+                tone="brand"
+                icon="cash-outline"
               />
-              <StatCard label="Patients" value={current.unique_patients ?? 0} />
+              <StatCard label="Patients" value={current.unique_patients ?? 0} tone="neutral" icon="people-outline" />
             </View>
           </>
         ) : (
@@ -178,8 +183,8 @@ export default function AnalyticsScreen() {
         <Text style={[s.section, { marginTop: 28 }]}>ALL TIME</Text>
 
         <View style={s.row}>
-          <StatCard label="Total Patients" value={totalPts} />
-          <StatCard label="On Medical Aid" value={withAid} />
+          <StatCard label="Total Patients" value={totalPts} tone="neutral" icon="people-outline" />
+          <StatCard label="On Medical Aid" value={withAid}  tone="brand"   icon="card-outline" />
         </View>
 
         {/* Medical aid donut */}
@@ -211,8 +216,15 @@ export default function AnalyticsScreen() {
         {/* ── LOW STOCK ── */}
         {lowStock.length > 0 && (
           <>
-            <Text style={[s.section, { marginTop: 28 }]}>LOW STOCK</Text>
+            <Text style={[s.section, { marginTop: 28 }]}>SUPPLIES</Text>
             <View style={s.alertCard}>
+              <View style={s.alertHeader}>
+                <Ionicons name="warning-outline" size={16} color={C.warn} />
+                <Text style={s.alertHeaderText}>Running low</Text>
+                <View style={s.alertCountPill}>
+                  <Text style={s.alertCountText}>{lowStock.length}</Text>
+                </View>
+              </View>
               {lowStock.map((item: any, i: number) => (
                 <View
                   key={item.id}
@@ -268,12 +280,19 @@ const s = StyleSheet.create({
   // Low stock
   alertCard: {
     backgroundColor: C.paper, borderRadius: 16,
-    borderWidth: 1, borderColor: C.rule, overflow: 'hidden',
+    borderWidth: 1, borderColor: C.warnSoft, overflow: 'hidden',
   },
+  alertHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.warnSoft, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  alertHeaderText: { flex: 1, fontSize: 13, fontWeight: '700', color: C.warn },
+  alertCountPill:  { backgroundColor: C.warn, borderRadius: 10, minWidth: 20, paddingHorizontal: 6, paddingVertical: 1, alignItems: 'center' },
+  alertCountText:  { fontSize: 11, fontWeight: '700', color: '#fff' },
   alertRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     padding: 14, borderBottomWidth: 1, borderBottomColor: C.rule,
   },
   alertName: { fontSize: 14, color: C.ink },
-  alertQty:  { fontSize: 13, color: C.danger, fontWeight: '500' },
+  alertQty:  { fontSize: 13, color: C.warn, fontWeight: '600' },
 });

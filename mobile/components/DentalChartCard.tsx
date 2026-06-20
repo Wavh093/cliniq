@@ -357,32 +357,38 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
         )}
 
         {scans.map((scan) => (
-          <TouchableOpacity
-            key={scan.id}
-            style={s.scanRow}
-            onPress={() => openScan(scan)}
-            onLongPress={() => confirmDeleteScan(scan)}
-            activeOpacity={0.7}
-          >
-            <View style={s.scanIcon}>
-              <Ionicons
-                name={scan.mime_type === 'application/pdf' ? 'document-outline' : 'image-outline'}
-                size={20}
-                color={C.sage}
-              />
-            </View>
-            <View style={s.scanInfo}>
-              <Text style={s.scanFilename} numberOfLines={1}>{scan.filename}</Text>
-              <Text style={s.scanMeta}>
-                {fmtDate(scan.created_at)}
-                {scan.tooth_fdis?.length > 0 && `  ·  Teeth: ${scan.tooth_fdis.join(', ')}`}
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={14} color={C.muted} />
-          </TouchableOpacity>
+          <View key={scan.id} style={s.scanRow}>
+            <TouchableOpacity
+              style={s.scanOpen}
+              onPress={() => openScan(scan)}
+              activeOpacity={0.7}
+              accessibilityLabel={`Open ${scan.filename}`}
+            >
+              <View style={s.scanIcon}>
+                <Ionicons
+                  name={scan.mime_type === 'application/pdf' ? 'document-outline' : 'image-outline'}
+                  size={20}
+                  color={C.sage}
+                />
+              </View>
+              <View style={s.scanInfo}>
+                <Text style={s.scanFilename} numberOfLines={1}>{scan.filename}</Text>
+                <Text style={s.scanMeta}>
+                  {fmtDate(scan.created_at)}
+                  {scan.tooth_fdis?.length > 0 && `  ·  Teeth: ${scan.tooth_fdis.join(', ')}`}
+                </Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={s.scanDelete}
+              onPress={() => confirmDeleteScan(scan)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={`Delete ${scan.filename}`}
+            >
+              <Ionicons name="trash-outline" size={17} color={C.muted} />
+            </TouchableOpacity>
+          </View>
         ))}
-
-        <Text style={s.longPressHint}>Long-press a scan to delete it</Text>
       </View>
 
       {/* ── Tooth detail modal ──────────────────────────────────── */}
@@ -445,7 +451,7 @@ const s = StyleSheet.create({
     marginBottom:   12,
   },
   cardTitle: {
-    fontSize:     10,
+    fontSize:     11,
     fontWeight:   '700',
     letterSpacing: 0.8,
     color:        C.sage,
@@ -464,7 +470,7 @@ const s = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1.5,
   },
-  legendLabel: { fontSize: 10, color: C.muted, fontWeight: '500' },
+  legendLabel: { fontSize: 11, color: C.inkSoft, fontWeight: '500' },
 
   divider: {
     height:          1,
@@ -496,10 +502,15 @@ const s = StyleSheet.create({
   scanRow: {
     flexDirection:  'row',
     alignItems:     'center',
-    gap:            10,
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: C.rule,
+  },
+  scanOpen: {
+    flex:          1,
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           10,
   },
   scanIcon: {
     width:           36,
@@ -512,7 +523,7 @@ const s = StyleSheet.create({
   scanInfo:     { flex: 1 },
   scanFilename: { fontSize: 13, fontWeight: '600', color: C.ink },
   scanMeta:     { fontSize: 11, color: C.muted, marginTop: 1 },
-  longPressHint:{ fontSize: 10, color: C.muted, fontStyle: 'italic', marginTop: 6, textAlign: 'center' },
+  scanDelete:   { padding: 8, marginLeft: 4 },
 
   // Image viewer
   imageViewerBg: {
