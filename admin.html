@@ -1145,7 +1145,7 @@ function Overview({ onNavigate, unreadMsgs = 0, practiceName = 'Kliniq' }) {
 
       {/* ── Quick status update modal ── */}
       {quickEdit && (
-        <div className="overlay" onClick={() => setQuickEdit(null)}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setQuickEdit(null); }}>
           <div className="modal" style={{maxWidth:420}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
               <div>
@@ -1827,7 +1827,7 @@ function CreateAppointmentModal({ onClose, onDone, allowPastDates = false }) {
 
   return (
     <>
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:500}} onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">{allowPastDates ? 'Add historical appointment' : 'New appointment'}</h3>
         {allowPastDates && (
@@ -1954,23 +1954,33 @@ function CreateAppointmentModal({ onClose, onDone, allowPastDates = false }) {
                 </div>
               ) : (
                 <div style={{display:'flex', flexWrap:'wrap', gap:6, marginTop:2}}>
-                  {slots.map(sl => {
-                    const sel = time === sl;
-                    return (
-                      <button key={sl} type="button"
-                        onClick={() => setTime(sl)}
-                        style={{
-                          padding:'7px 12px', border:'none', borderRadius:8, fontSize:12,
-                          background: sel ? 'var(--sage)' : 'var(--bg-3)',
-                          color: sel ? '#fff' : 'var(--ink)',
-                          cursor:'pointer', fontWeight: sel ? 700 : 400,
-                          fontVariantNumeric:'tabular-nums', fontFamily:'monospace',
-                          transition:'background 0.12s, color 0.12s',
-                        }}>
-                        {sl}
-                      </button>
+                  {(() => {
+                    const isToday = date === today;
+                    const nowHHMM = isToday ? `${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}` : null;
+                    const available = isToday ? slots.filter(sl => sl > nowHHMM) : slots;
+                    if (available.length === 0 && isToday) return (
+                      <div style={{fontSize:12, color:'var(--amber)', padding:'4px 0'}}>
+                        No more available slots for today — try tomorrow.
+                      </div>
                     );
-                  })}
+                    return available.map(sl => {
+                      const sel = time === sl;
+                      return (
+                        <button key={sl} type="button"
+                          onClick={() => setTime(sl)}
+                          style={{
+                            padding:'7px 12px', border:'none', borderRadius:8, fontSize:12,
+                            background: sel ? 'var(--sage)' : 'var(--bg-3)',
+                            color: sel ? '#fff' : 'var(--ink)',
+                            cursor:'pointer', fontWeight: sel ? 700 : 400,
+                            fontVariantNumeric:'tabular-nums', fontFamily:'monospace',
+                            transition:'background 0.12s, color 0.12s',
+                          }}>
+                          {sl}
+                        </button>
+                      );
+                    });
+                  })()}
                 </div>
               )}
             </div>
@@ -2327,8 +2337,10 @@ function Appointments({ onNavigate }) {
         </div>
       )}
 
-      <div className="search-bar">
-        <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{maxWidth:180}} />
+      <div className="search-bar" style={{alignItems:'flex-start'}}>
+        <div style={{maxWidth:200,minWidth:170}}>
+          <ApptDatePicker value={dateFilter} onChange={v => setDateFilter(v)} placeholder="Filter by date" disablePast={false} />
+        </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All statuses</option>
           <option value="pending">Awaiting confirmation</option>
@@ -2415,7 +2427,7 @@ function Appointments({ onNavigate }) {
 
       {/* ── Appointment detail / edit modal ── */}
       {selected && (
-        <div className="overlay" onClick={() => { if (!editMode) closeModal(); }}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget && !editMode) closeModal(); }}>
           <div className="modal" style={{maxWidth:580}} onClick={e => e.stopPropagation()}>
             {!editMode ? (
               <>
@@ -4965,10 +4977,10 @@ function DobPicker({ value, onChange, placeholder = 'Date of birth' }) {
     transition:'border-color 0.15s',
   };
   const popStyle = {
-    position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:400,
+    position:'absolute', bottom:'calc(100% + 6px)', left:0, zIndex:400,
     background:'var(--card)', borderRadius:14,
     border:'1px solid var(--border-2)',
-    boxShadow:'0 16px 48px rgba(13,45,62,0.18)',
+    boxShadow:'0 -8px 48px rgba(13,45,62,0.18)',
     width:272, overflow:'hidden',
   };
   const hBtnStyle = {
@@ -5263,8 +5275,8 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
   );
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal" style={{maxWidth:540}} onClick={e=>e.stopPropagation()}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{maxWidth:640}} onClick={e=>e.stopPropagation()}>
 
         {/* header */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
@@ -5909,7 +5921,7 @@ function InventoryPage() {
 
       {/* Item detail modal */}
       {selected && (
-        <div className="overlay" onClick={()=>{setSelected(null);setDetail(null);}}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) { setSelected(null); setDetail(null); } }}>
           <div className="modal" style={{maxWidth:620}} onClick={e=>e.stopPropagation()}>
             <h3 className="modal-title">{selected.name}</h3>
             <p className="modal-sub">{selected.category} · {selected.unit}</p>
@@ -5990,7 +6002,7 @@ function TransactionModal({ item, onClose, onDone }) {
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
         <h3 className="modal-title">Update stock level</h3>
         <p className="modal-sub">{item.name} · currently {item.current_qty} {item.unit} in stock</p>
@@ -6047,7 +6059,7 @@ function AddItemModal({ onClose, onDone }) {
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:500}} onClick={e=>e.stopPropagation()}>
         <h3 className="modal-title">Add inventory item</h3>
         <p className="modal-sub" style={{marginBottom:20}}>New item starts at zero stock. Record a stock-in transaction after creating.</p>
@@ -6364,7 +6376,7 @@ function PaymentModal({ appt, onClose, onDone }) {
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:420}} onClick={e=>e.stopPropagation()}>
         <h3 className="modal-title">Record payment</h3>
         <p className="modal-sub">{appt.patient?.first_name} {appt.patient?.last_name} · {appt.service_name} · {fmtDateShort(appt.appointment_date)}</p>
@@ -6594,7 +6606,7 @@ function ServicesPage() {
       ))}
 
       {modal !== null && (
-        <div className="overlay" onClick={() => setModal(null)}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3 className="modal-title">{modal === 'create' ? 'New service' : 'Edit service'}</h3>
             <p className="modal-sub">{modal === 'create' ? 'Add a new treatment or procedure.' : `Editing "${modal.name}"`}</p>
@@ -6782,7 +6794,7 @@ function MessagesPage() {
       )}
 
       {selected && (
-        <div className="overlay" onClick={() => setSelected(null)}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
           <div className="modal" style={{maxWidth:560}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
               <h3 className="modal-title" style={{margin:0}}>{selected.name}</h3>
@@ -6993,7 +7005,7 @@ function CreateClaimModal({ show, onClose, onCreated, prefill }) {
 
   if (!show) return null;
   return (
-    <div className="overlay" onClick={e => e.target===e.currentTarget && onClose()}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:680,maxHeight:'90vh',overflowY:'auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
           <div style={{fontSize:18,fontWeight:700,color:'var(--ink)'}}>New MA Claim</div>
@@ -7145,7 +7157,7 @@ function RemittanceModal({ claim, lines, onClose, onSaved }) {
   const lineStatusColor = s => s==='approved' ? 'var(--green)' : s==='rejected' ? 'var(--danger)' : s==='partial' ? '#0d9488' : 'var(--muted)';
 
   return (
-    <div className="overlay" onClick={e => e.target===e.currentTarget && onClose()}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:640,maxHeight:'90vh',overflowY:'auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <div>
@@ -7289,7 +7301,7 @@ function PreAuthModal({ preAuth, patient: initPatient, onClose, onSaved }) {
   };
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:540}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <div style={{fontSize:18,fontWeight:700,color:'var(--ink)'}}>{isEdit?'Update Pre-Auth':'New Pre-Auth Request'}</div>
@@ -7443,7 +7455,7 @@ function ClaimDetailModal({ claimId, onClose, onUpdated }) {
   };
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:700,maxHeight:'92vh',overflowY:'auto'}}>
         {loading ? (
           <div style={{textAlign:'center',padding:40,color:'var(--muted)'}}>Loading…</div>
@@ -8577,7 +8589,7 @@ function ReviewsPage({ unreadCount = 0 }) {
 
       {/* Detail modal */}
       {selected && (
-        <div className="overlay" onClick={() => setSelected(null)}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
           <div className="modal" style={{maxWidth:500}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
               <div>
@@ -8811,7 +8823,7 @@ function SessionPaymentModal({ session, onClose, onSaved }) {
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:440}} onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">Payment — Session {session.session_number}</h3>
         {sub && <p className="modal-sub">{sub}</p>}
@@ -9056,7 +9068,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
 
       {/* ── Plan detail modal ── */}
       {selected && (
-        <div className="overlay" onClick={() => setSelected(null)}>
+        <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}>
           <div className="modal" style={{maxWidth:640}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:4}}>
               <h3 className="modal-title" style={{margin:0}}>{selected.title}</h3>
@@ -9309,7 +9321,7 @@ function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:420}} onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">Add session {nextNumber}</h3>
         <p className="modal-sub">{plan.title}</p>
@@ -9409,7 +9421,7 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
   };
 
   return (
-    <div className="overlay" onClick={onClose}>
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:520}} onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">New treatment plan</h3>
         <p className="modal-sub">Create a multi-session treatment plan for a patient.</p>

@@ -753,14 +753,14 @@ module.exports = async function handler(req, res) {
     }
 
     // Default sort: upcoming first (asc), then past (desc) is complex — use
-    // date desc so the most recent appointments appear first in the paginated list.
+    // date asc so today's appointments appear first, future dates below.
     let q = db
       .from('appointments')
       .select(SELECT, { count: 'exact' })
       .eq('practice_id', PRACTICE_ID)
       .is('deleted_at', null)
-      .order('appointment_date', { ascending: false })
-      .order('appointment_time', { ascending: false });
+      .order('appointment_date', { ascending: true })
+      .order('appointment_time', { ascending: true });
 
     if (date) {
       q = q.eq('appointment_date', date);
