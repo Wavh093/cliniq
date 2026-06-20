@@ -129,7 +129,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const { useState, useCallback } = React;
+const { useState, useCallback, useRef, useEffect } = React;
 
 const PROVINCES = [
   'Eastern Cape','Free State','Gauteng','KwaZulu-Natal',
@@ -188,7 +188,7 @@ function OnboardingApp() {
     dob: '', gender: '', id_number: '',
     hasMedAid: null,   // null=not chosen, true/false
     medical_aid_name: '', medical_aid_number: '', medical_aid_plan: '',
-    suburb: '', province: '',
+    home_address: '', suburb: '', city: '', postal_code: '', province: '',
     popia_consent: false, marketing_consent: false,
   });
   const [errors, setErrors] = useState({});
@@ -201,18 +201,65 @@ function OnboardingApp() {
     : null;
   const errId = (key) => errors[key] ? `err-${key}` : undefined;
 
+  const addressInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/staff?resource=config')
+      .then(r => r.json())
+      .then(({ googleMapsKey }) => {
+        if (!googleMapsKey || document.getElementById('gmap-script')) return;
+        const s = document.createElement('script');
+        s.id = 'gmap-script';
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsKey}&libraries=places`;
+        document.head.appendChild(s);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (step !== 2 || !addressInputRef.current || autocompleteRef.current) return;
+    if (!window.google?.maps?.places) return;
+    const ac = new google.maps.places.Autocomplete(addressInputRef.current, {
+      componentRestrictions: { country: 'za' },
+      types: ['address'],
+      fields: ['address_components'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (!place.address_components) return;
+      const g = (type) => (place.address_components.find(c => c.types.includes(type)) || {}).long_name || '';
+      const street = [g('street_number'), g('route')].filter(Boolean).join(' ');
+      const prov = g('administrative_area_level_1');
+      const matchedProv = PROVINCES.find(p => prov.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(prov.toLowerCase()));
+      set({
+        home_address: street,
+        suburb: g('sublocality') || g('sublocality_level_1') || g('neighborhood'),
+        city: g('locality') || g('administrative_area_level_2'),
+        postal_code: g('postal_code'),
+        province: matchedProv || prov,
+      });
+    });
+    autocompleteRef.current = ac;
+    return () => { google.maps.event.clearInstanceListeners(ac); autocompleteRef.current = null; };
+  }, [step]);
+
   /* ── Validation ── */
   const validateStep0 = () => {
     const e = {};
     if (!form.first_name.trim()) e.first_name = 'Please enter your first name';
     if (!form.last_name.trim())  e.last_name  = 'Please enter your surname';
     if (!form.phone.trim())      e.phone      = 'Please enter your phone number';
-    else if (form.phone.trim().replace(/\D/g,'').length < 7) {
-      e.phone = 'Please enter a valid phone number';
+    else {
+      const digits = form.phone.trim().replace(/\D/g,'');
+      if (digits.length < 7) e.phone = 'Please enter a valid phone number';
+      else if (!digits.startsWith('0')) e.phone = 'Phone number must start with 0';
     }
     if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) {
       e.email = 'Please enter a valid email address';
     }
+    if (!form.id_number.trim()) e.id_number = 'Please enter your ID number';
+    else if (!/^\d{13}$/.test(form.id_number.trim())) e.id_number = 'SA ID number must be exactly 13 digits';
     return e;
   };
 
@@ -377,9 +424,11 @@ function OnboardingApp() {
           </div>
 
           <div className="field">
-            <label htmlFor="ob-id">ID or Passport number <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+            <label htmlFor="ob-id">ID number <span className="req">*</span></label>
             <input id="ob-id" value={form.id_number} onChange={e => set({id_number: e.target.value})}
-              placeholder="South African ID or passport number" autoComplete="off" />
+              placeholder="13-digit SA ID number" autoComplete="off" maxLength={13} inputMode="numeric"
+              aria-required="true" aria-describedby={errId('id_number')} />
+            {fieldErr('id_number')}
           </div>
 
           <div className="btn-row">
@@ -456,14 +505,34 @@ function OnboardingApp() {
           <div className="card-title">Almost done!</div>
           <div className="card-sub">Just a few more optional details, then your consent.</div>
 
+          <div className="field">
+            <label htmlFor="ob-address">Street address <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+            <input id="ob-address" ref={addressInputRef} value={form.home_address}
+              onChange={e => set({home_address: e.target.value})}
+              placeholder="Start typing an address…" autoComplete="off" />
+          </div>
+
           <div className="row">
             <div className="field">
-              <label htmlFor="ob-suburb">Suburb <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+              <label htmlFor="ob-suburb">Suburb</label>
               <input id="ob-suburb" value={form.suburb} onChange={e => set({suburb: e.target.value})}
                 placeholder="e.g. Krugersdorp North" autoComplete="address-level2" />
             </div>
             <div className="field">
-              <label htmlFor="ob-province">Province <span style={{fontWeight:400,color:'var(--muted)'}}>(optional)</span></label>
+              <label htmlFor="ob-city">City / Town</label>
+              <input id="ob-city" value={form.city} onChange={e => set({city: e.target.value})}
+                placeholder="e.g. Krugersdorp" autoComplete="address-level2" />
+            </div>
+          </div>
+
+          <div className="row">
+            <div className="field">
+              <label htmlFor="ob-postal">Postal code</label>
+              <input id="ob-postal" value={form.postal_code} onChange={e => set({postal_code: e.target.value})}
+                placeholder="e.g. 1739" autoComplete="postal-code" inputMode="numeric" />
+            </div>
+            <div className="field">
+              <label htmlFor="ob-province">Province</label>
               <select id="ob-province" value={form.province} onChange={e => set({province: e.target.value})}
                 style={{color: form.province ? 'var(--ink)' : 'var(--muted)'}}>
                 <option value="">Select…</option>

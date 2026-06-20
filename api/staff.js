@@ -39,6 +39,7 @@ module.exports = async function handler(req, res) {
           return res.status(200).json({
             supabaseUrl:  process.env.SUPABASE_URL,
             supabaseAnon: process.env.SUPABASE_ANON_KEY,
+            googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || null,
             practice:     practice || null,
           });
         }
@@ -49,6 +50,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({
       supabaseUrl:  process.env.SUPABASE_URL,
       supabaseAnon: process.env.SUPABASE_ANON_KEY,
+      googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || null,
     });
   }
 

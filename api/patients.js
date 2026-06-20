@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
     const {
       first_name, last_name, phone,
       email = null, dob = null, gender = null, id_number = null,
-      suburb = null, province = null,
+      home_address = null, suburb = null, city = null, postal_code = null, province = null,
       medical_aid_name = null, medical_aid_number = null,
       medical_aid_plan = null, medical_aid_member_status = 'main_member',
       popia_consent = false, marketing_consent = false,
@@ -31,9 +31,17 @@ module.exports = async function handler(req, res) {
 
     if (!first_name?.trim()) return res.status(400).json({ error: 'First name is required' });
     if (!last_name?.trim())  return res.status(400).json({ error: 'Surname is required' });
+    if (!id_number?.trim())  return res.status(400).json({ error: 'ID number is required' });
+    if (!/^\d{13}$/.test(id_number.trim())) {
+      return res.status(400).json({ error: 'SA ID number must be exactly 13 digits' });
+    }
     if (!phone?.trim())      return res.status(400).json({ error: 'Phone number is required' });
-    if (phone.trim().replace(/\D/g, '').length < 7) {
+    const phoneDigits = phone.trim().replace(/\D/g, '');
+    if (phoneDigits.length < 7) {
       return res.status(400).json({ error: 'Please enter a valid phone number' });
+    }
+    if (!phoneDigits.startsWith('0')) {
+      return res.status(400).json({ error: 'Phone number must start with 0' });
     }
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return res.status(400).json({ error: 'Please enter a valid email address' });
@@ -58,7 +66,9 @@ module.exports = async function handler(req, res) {
         first_name: first_name.trim(), last_name: last_name.trim(), phone: phone.trim(),
         email: email?.toLowerCase().trim() || null,
         dob: dob || null, gender: gender || null, id_number: id_number?.trim() || null,
-        suburb: suburb?.trim() || null, province: province || null,
+        home_address: home_address?.trim() || null,
+        suburb: suburb?.trim() || null, city: city?.trim() || null,
+        postal_code: postal_code?.trim() || null, province: province || null,
         medical_aid_name: medical_aid_name?.trim() || null,
         medical_aid_number: medical_aid_number?.trim() || null,
         medical_aid_plan: medical_aid_plan?.trim() || null,
@@ -271,9 +281,25 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'first_name and last_name are required' });
     }
 
-    // SA ID number format: exactly 13 digits
-    if (id_number?.trim() && !/^\d{13}$/.test(id_number.trim())) {
+    // ID number is required and must be exactly 13 digits
+    if (!id_number?.trim()) {
+      return res.status(400).json({ error: 'ID number is required' });
+    }
+    if (!/^\d{13}$/.test(id_number.trim())) {
       return res.status(400).json({ error: 'SA ID number must be exactly 13 digits' });
+    }
+
+    // Email validation
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    // Phone must start with 0
+    if (phone?.trim()) {
+      const phoneDigits = phone.trim().replace(/\D/g, '');
+      if (!phoneDigits.startsWith('0')) {
+        return res.status(400).json({ error: 'Phone number must start with 0' });
+      }
     }
 
     // Prevent duplicates — but dependants legitimately share the main member's

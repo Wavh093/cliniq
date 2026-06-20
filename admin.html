@@ -289,6 +289,7 @@
   .modal-title { font-size: 22px; margin-bottom: 6px; }
   .modal-sub   { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
   .modal-foot  { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+  .pac-container { z-index: 10000 !important; }
   .form-cols   { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
   /* ── Chart wrapper ────────────────────────────────────────── */
@@ -5112,7 +5113,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
   const [step,   setStep]   = useState(0);
   const [form,   setForm]   = useState({
     first_name:'', last_name:'', email:'', phone:'',
-    date_of_birth:'', gender:'',
+    date_of_birth:'', gender:'', id_number:'',
     has_medical_aid: false,
     medical_aid_name:'', medical_aid_number:'', medical_aid_plan:'',
     relationship_to_member:'main_member', dependant_code:'',
@@ -5137,7 +5138,47 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
 
   const isDependent = form.has_medical_aid && form.relationship_to_member && form.relationship_to_member !== 'main_member';
   const dependentUnlinked = isDependent && !form.main_member_patient_id;
-  const canSave = form.first_name.trim() && form.last_name.trim();
+  const canSave = form.first_name.trim() && form.last_name.trim() && form.id_number.trim();
+
+  const validateStep0 = () => {
+    const errs = [];
+    if (!form.first_name.trim() || !form.last_name.trim()) errs.push('First name and last name are required.');
+    if (!form.id_number.trim()) errs.push('ID number is required.');
+    else if (!/^\d{13}$/.test(form.id_number.trim())) errs.push('SA ID number must be exactly 13 digits.');
+    if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.push('Please enter a valid email address.');
+    if (form.phone && !/^0/.test(form.phone.trim().replace(/\D/g, ''))) errs.push('Phone number must start with 0.');
+    return errs;
+  };
+
+  const addressInputRef = useRef(null);
+  const autocompleteRef = useRef(null);
+
+  useEffect(() => {
+    if (step !== 2 || !addressInputRef.current || autocompleteRef.current) return;
+    if (!window.google?.maps?.places) return;
+    const ac = new google.maps.places.Autocomplete(addressInputRef.current, {
+      componentRestrictions: { country: 'za' },
+      types: ['address'],
+      fields: ['address_components'],
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (!place.address_components) return;
+      const g = (type) => (place.address_components.find(c => c.types.includes(type)) || {}).long_name || '';
+      const street = [g('street_number'), g('route')].filter(Boolean).join(' ');
+      const prov = g('administrative_area_level_1');
+      const matchedProv = PROVINCES.find(p => prov.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(prov.toLowerCase()));
+      set({
+        home_address: street,
+        suburb: g('sublocality') || g('sublocality_level_1') || g('neighborhood'),
+        city: g('locality') || g('administrative_area_level_2'),
+        postal_code: g('postal_code'),
+        province: matchedProv || prov,
+      });
+    });
+    autocompleteRef.current = ac;
+    return () => { google.maps.event.clearInstanceListeners(ac); autocompleteRef.current = null; };
+  }, [step]);
 
   const selectMember = p => {
     if (p.relationship_to_member && p.relationship_to_member !== 'main_member') {
@@ -5161,7 +5202,8 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
   };
 
   const submit = async () => {
-    if (!canSave) { setErr('First name and last name are required.'); return; }
+    const vErrs = validateStep0();
+    if (vErrs.length) { setErr(vErrs[0]); return; }
     setSaving(true); setErr('');
     try {
       const resp = await api('/api/patients', {
@@ -5249,20 +5291,21 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               <div className="field"><label>Email</label><input type="email" value={form.email} onChange={e=>set({email:e.target.value})} placeholder="jane@example.com" /></div>
             </div>
             <div className="form-cols" style={{marginTop:14}}>
+              <div className="field"><label>ID number *</label><input value={form.id_number} onChange={e=>set({id_number:e.target.value})} placeholder="13-digit SA ID number" maxLength={13} inputMode="numeric" /></div>
               <div className="field"><label>Date of birth</label><DobPicker value={form.date_of_birth} onChange={v => set({date_of_birth: v})} /></div>
-              <div className="field">
-                <label>Gender</label>
-                <select value={form.gender} onChange={e=>set({gender:e.target.value})}>
-                  <option value="">Select…</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="non_binary">Non-binary</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
-                </select>
-              </div>
+            </div>
+            <div className="field" style={{marginTop:14,maxWidth:'calc(50% - 8px)'}}>
+              <label>Gender</label>
+              <select value={form.gender} onChange={e=>set({gender:e.target.value})}>
+                <option value="">Select…</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="non_binary">Non-binary</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
             </div>
             {err && <div className="alert alert-error" style={{marginTop:12}}>{err}</div>}
-            <WizFoot onNext={() => { if (!canSave) { setErr('First name and last name are required.'); return; } setErr(''); setStep(1); }} saveLabel="Save now &amp; continue later" />
+            <WizFoot onNext={() => { const vE = validateStep0(); if (vE.length) { setErr(vE[0]); return; } setErr(''); setStep(1); }} saveLabel="Save now &amp; continue later" />
           </>
         )}
 
@@ -5333,7 +5376,10 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
         {step === 2 && (
           <>
             <div className="form-cols">
-              <div className="field" style={{gridColumn:'1/-1'}}><label>Street address</label><input value={form.home_address} onChange={e=>set({home_address:e.target.value})} placeholder="e.g. 12 Main Road" /></div>
+              <div className="field" style={{gridColumn:'1/-1'}}>
+                <label>Street address</label>
+                <input ref={addressInputRef} value={form.home_address} onChange={e=>set({home_address:e.target.value})} placeholder="Start typing an address…" autoComplete="off" />
+              </div>
               <div className="field"><label>Suburb</label><input value={form.suburb} onChange={e=>set({suburb:e.target.value})} placeholder="e.g. Krugersdorp North" /></div>
               <div className="field"><label>City / Town</label><input value={form.city} onChange={e=>set({city:e.target.value})} placeholder="e.g. Krugersdorp" /></div>
               <div className="field"><label>Postal code</label><input value={form.postal_code} onChange={e=>set({postal_code:e.target.value})} placeholder="e.g. 1739" /></div>
@@ -9884,7 +9930,13 @@ function App() {
     // Fetch public config from our API (keeps keys out of HTML source)
     fetch('/api/staff?resource=config')
       .then(r => r.json())
-      .then(({ supabaseUrl, supabaseAnon }) => {
+      .then(({ supabaseUrl, supabaseAnon, googleMapsKey }) => {
+        if (googleMapsKey && !document.getElementById('gmap-script')) {
+          const s = document.createElement('script');
+          s.id = 'gmap-script';
+          s.src = `https://maps.googleapis.com/maps/api/js?key=${googleMapsKey}&libraries=places`;
+          document.head.appendChild(s);
+        }
         const sb = window.supabase.createClient(supabaseUrl, supabaseAnon);
         window._supabaseClient = sb;
         setSupabase(sb);
