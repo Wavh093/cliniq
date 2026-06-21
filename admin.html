@@ -146,10 +146,10 @@
   .user-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .user-role { font-size: 10px; color: rgba(255,255,255,0.45); }
   .btn-logout {
-    background: none; color: rgba(255,255,255,0.35); font-size: 11px;
-    padding: 4px; border-radius: 4px; transition: color .15s; flex-shrink: 0;
+    background: rgba(186,26,26,0.2); color: #ffb3b3; font-size: 11px; font-weight: 600;
+    padding: 4px 10px; border-radius: 6px; transition: background .15s, color .15s; flex-shrink: 0;
   }
-  .btn-logout:hover { color: #ffb3b3; }
+  .btn-logout:hover { background: rgba(186,26,26,0.35); color: #ff8a8a; }
 
   .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; transition: margin-left 0.22s cubic-bezier(0.4,0,0.2,1); }
   .topbar {
@@ -622,6 +622,26 @@ function LoginPage({ supabase, onLogin }) {
   const [loading,    setLoading]    = useState(false);
   const [resetSent,  setResetSent]  = useState(false);
   const [resetting,  setResetting]  = useState(false);
+  const [emailErr,   setEmailErr]   = useState('');
+  const [pwErr,      setPwErr]      = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [pwTouched,    setPwTouched]    = useState(false);
+
+  const validateEmail = (v) => {
+    if (!v.trim()) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return 'Enter a valid email address';
+    return '';
+  };
+  const validatePw = (v) => {
+    if (!v) return 'Password is required';
+    if (v.length < 6) return 'Password must be at least 6 characters';
+    return '';
+  };
+
+  const handleEmailChange = (v) => { setEmail(v); if (emailTouched) setEmailErr(validateEmail(v)); };
+  const handlePwChange    = (v) => { setPw(v);    if (pwTouched) setPwErr(validatePw(v)); };
+  const handleEmailBlur   = () => { setEmailTouched(true); setEmailErr(validateEmail(email)); };
+  const handlePwBlur      = () => { setPwTouched(true);    setPwErr(validatePw(pw)); };
 
   const handleReset = async () => {
     if (!email.trim()) { setErr('Enter your email address above, then click Forgot password.'); return; }
@@ -636,6 +656,11 @@ function LoginPage({ supabase, onLogin }) {
 
   const submit = async (ev) => {
     ev.preventDefault();
+    setEmailTouched(true); setPwTouched(true);
+    const eErr = validateEmail(email);
+    const pErr = validatePw(pw);
+    setEmailErr(eErr); setPwErr(pErr);
+    if (eErr || pErr) return;
     setErr('');
     setLoading(true);
     try {
@@ -648,6 +673,9 @@ function LoginPage({ supabase, onLogin }) {
       setLoading(false);
     }
   };
+
+  const fieldErrStyle = {fontSize:11,color:'var(--danger)',marginTop:3,minHeight:16};
+  const inputErrStyle = {borderColor:'var(--danger)',boxShadow:'0 0 0 1px var(--danger)'};
 
   return (
     <div className="login-page">
@@ -666,18 +694,20 @@ function LoginPage({ supabase, onLogin }) {
           <div className="login-logo-mark">Kliniq</div>
           <div className="login-logo-sub">Practice Dashboard</div>
         </div>
-        <form className="login-form" onSubmit={submit}>
+        <form className="login-form" onSubmit={submit} noValidate>
           <div className="field">
             <label>Email</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="staff@kliniq.co.za" required autoFocus autoComplete="email" />
+            <input type="email" value={email} onChange={e=>handleEmailChange(e.target.value)} onBlur={handleEmailBlur} placeholder="staff@kliniq.co.za" autoFocus autoComplete="email" style={emailErr ? inputErrStyle : {}} />
+            <div style={fieldErrStyle}>{emailErr}</div>
           </div>
           <div className="field">
             <label>Password</label>
-            <input type="password" value={pw} onChange={e=>setPw(e.target.value)} required autoComplete="current-password" />
+            <input type="password" value={pw} onChange={e=>handlePwChange(e.target.value)} onBlur={handlePwBlur} autoComplete="current-password" style={pwErr ? inputErrStyle : {}} />
+            <div style={fieldErrStyle}>{pwErr}</div>
           </div>
           {err && <div className="login-err" role="alert">{err}</div>}
           {resetSent && <div style={{fontSize:12,color:'var(--green)',marginTop:4,textAlign:'center'}}>
-            ✓ Reset link sent — check your inbox.
+            Reset link sent — check your inbox.
           </div>}
           <button type="submit" className="btn btn-primary" style={{marginTop:8}} disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
@@ -6355,16 +6385,17 @@ function MedAidToggle({ appt, onDone }) {
 }
 
 function PaymentModal({ appt, onClose, onDone }) {
-  // Simplified: MA is treated the same as cash/EFT — just record what was received.
-  // Split-stream fields (ma_amount_charged, ma_amount_received, etc.) preserved in DB
-  // for future Healthbridge integration but not used in this UI.
   const isMA = !!appt.patient?.has_medical_aid;
   const schemeName = appt.patient?.medical_aid_name;
 
+  const [coPayment, setCoPayment] = useState(false);
   const [form, setForm] = useState({
     payment_method: appt.payment_method || (isMA ? 'medical_aid' : ''),
     amount_paid:    appt.amount_paid != null ? String(appt.amount_paid) : '',
     payment_notes:  appt.payment_notes || '',
+    ma_amount_charged: appt.ma_amount_charged != null ? String(appt.ma_amount_charged) : '',
+    patient_portion:   appt.patient_portion != null ? String(appt.patient_portion) : '',
+    patient_method:    appt.patient_method || 'card',
   });
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState('');
@@ -6374,13 +6405,20 @@ function PaymentModal({ appt, onClose, onDone }) {
     ev.preventDefault();
     setSaving(true); setErr('');
     try {
+      const body = coPayment ? {
+        medical_aid_paid: true,
+        ma_amount_charged: form.ma_amount_charged !== '' ? Number(form.ma_amount_charged) : null,
+        patient_portion:   form.patient_portion !== '' ? Number(form.patient_portion) : null,
+        patient_method:    form.patient_method || null,
+        payment_notes:     form.payment_notes,
+      } : {
+        payment_method: form.payment_method || null,
+        amount_paid:    form.amount_paid !== '' ? Number(form.amount_paid) : null,
+        payment_notes:  form.payment_notes,
+      };
       await api(`/api/revenue?id=${appt.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({
-          payment_method: form.payment_method || null,
-          amount_paid:    form.amount_paid !== '' ? Number(form.amount_paid) : null,
-          payment_notes:  form.payment_notes,
-        }),
+        body: JSON.stringify(body),
       });
       showToast('Payment recorded');
       onDone();
@@ -6389,7 +6427,7 @@ function PaymentModal({ appt, onClose, onDone }) {
 
   return (
     <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={{maxWidth:420}} onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{maxWidth:440}} onClick={e=>e.stopPropagation()}>
         <h3 className="modal-title">Record payment</h3>
         <p className="modal-sub">{appt.patient?.first_name} {appt.patient?.last_name} · {appt.service_name} · {fmtDateShort(appt.appointment_date)}</p>
         {isMA && schemeName && (
@@ -6398,23 +6436,50 @@ function PaymentModal({ appt, onClose, onDone }) {
             Medical aid patient · <strong>{schemeName}</strong>
           </div>
         )}
-        <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:0,marginTop:isMA && schemeName ? 0 : 20}}>
-          <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:12}}>
-            <div className="field">
-              <label>Payment method</label>
-              <select value={form.payment_method} onChange={e=>set({payment_method:e.target.value})}>
-                <option value="">Select method…</option>
-                <option value="cash">Cash</option>
-                <option value="card">Bank card</option>
-                <option value="eft">EFT</option>
-                <option value="medical_aid">Medical aid</option>
-              </select>
+        {isMA && (
+          <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:16,fontSize:13,color:'var(--ink)',fontWeight:500}}>
+            <input type="checkbox" checked={coPayment} onChange={e=>setCoPayment(e.target.checked)} style={{width:16,height:16,accentColor:'var(--sage)'}} />
+            Co-payment (Medical Aid + Bank/Card)
+          </label>
+        )}
+        <form onSubmit={submit} style={{display:'flex',flexDirection:'column',gap:0,marginTop:0}}>
+          {coPayment ? (
+            <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:12}}>
+              <div className="field">
+                <label>Medical aid portion (R)</label>
+                <input type="number" min="0" step="100" value={form.ma_amount_charged} onChange={e=>set({ma_amount_charged:e.target.value})} placeholder="0" />
+              </div>
+              <div className="field">
+                <label>Patient co-pay (R){appt.price_from ? ` · service price ${fmtMoney(appt.price_from)}` : ''}</label>
+                <input type="number" min="0" step="100" value={form.patient_portion} onChange={e=>set({patient_portion:e.target.value})} placeholder="0" />
+              </div>
+              <div className="field">
+                <label>Co-pay method</label>
+                <select value={form.patient_method} onChange={e=>set({patient_method:e.target.value})}>
+                  <option value="card">Bank card</option>
+                  <option value="cash">Cash</option>
+                  <option value="eft">EFT</option>
+                </select>
+              </div>
             </div>
-            <div className="field">
-              <label>Amount received (R){appt.price_from ? ` · estimated ${fmtMoney(appt.price_from)}` : ''}</label>
-              <input type="number" min="0" step="0.01" value={form.amount_paid} onChange={e=>set({amount_paid:e.target.value})} placeholder={appt.price_from ? String(appt.price_from) : '0.00'} />
+          ) : (
+            <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:12}}>
+              <div className="field">
+                <label>Payment method</label>
+                <select value={form.payment_method} onChange={e=>set({payment_method:e.target.value})}>
+                  <option value="">Select method…</option>
+                  <option value="cash">Cash</option>
+                  <option value="card">Bank card</option>
+                  <option value="eft">EFT</option>
+                  <option value="medical_aid">Medical aid</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>Amount received (R){appt.price_from ? ` · estimated ${fmtMoney(appt.price_from)}` : ''}</label>
+                <input type="number" min="0" step="100" value={form.amount_paid} onChange={e=>set({amount_paid:e.target.value})} placeholder={appt.price_from ? String(appt.price_from) : '0'} />
+              </div>
             </div>
-          </div>
+          )}
           <div className="field" style={{marginBottom:14}}>
             <label>Notes (optional)</label>
             <input value={form.payment_notes} onChange={e=>set({payment_notes:e.target.value})} placeholder="e.g. partial payment, claim ref…" />
@@ -9790,6 +9855,14 @@ function Shell({ session, supabase, onLogout }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem('sb_collapsed') === '1'; } catch { return false; }
   });
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const close = () => setProfileOpen(false);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [profileOpen]);
   const stayRef = useRef(null);
 
   const toggleCollapse = () => setSidebarCollapsed(v => {
@@ -9841,6 +9914,7 @@ function Shell({ session, supabase, onLogout }) {
   };
 
   const logout = async () => {
+    if (!window.confirm('Are you sure you want to log out?')) return;
     await supabase.auth.signOut();
     onLogout();
   };
@@ -9980,7 +10054,7 @@ function Shell({ session, supabase, onLogout }) {
                 <div className="user-role">Practice staff</div>
               </div>
             )}
-            {!sidebarCollapsed && <button className="btn-logout" onClick={logout} title="Sign out" aria-label="Sign out">✕</button>}
+            {!sidebarCollapsed && <button className="btn-logout" onClick={logout} title="Logout" aria-label="Logout" style={{fontSize:11,letterSpacing:'0.03em'}}>Logout</button>}
           </div>
         </div>
       </aside>
@@ -9991,8 +10065,36 @@ function Shell({ session, supabase, onLogout }) {
             <span className="material-symbols-outlined" style={{fontSize:22}}>{sidebarOpen ? 'close' : 'menu'}</span>
           </button>
           <span className="topbar-title">{PAGE_TITLES[page]}</span>
-          <div className="topbar-right">
+          <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:14}}>
             <span style={{color:'rgba(255,255,255,0.75)',fontSize:13,fontWeight:500,letterSpacing:'0.04em'}}>{practiceName}</span>
+            <div style={{position:'relative'}}>
+              <button onClick={(e)=>{e.stopPropagation();setProfileOpen(o=>!o);}} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:'50%',width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#fff',fontSize:14,fontWeight:700,transition:'background .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.25)'}
+                onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,0.15)'}
+                title={user?.email || 'Profile'}
+                aria-label="Profile menu">
+                {user?.email?.[0]?.toUpperCase() || 'S'}
+              </button>
+              {profileOpen && (
+                <div style={{position:'absolute',right:0,top:'calc(100% + 6px)',background:'#fff',borderRadius:10,boxShadow:'0 4px 16px rgba(0,0,0,0.12)',border:'1px solid var(--border)',minWidth:180,zIndex:999,overflow:'hidden'}}>
+                  <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',fontSize:12,color:'var(--muted)'}}>
+                    {user?.email || 'Staff'}
+                  </div>
+                  <button onClick={()=>{ setProfileOpen(false); navigate('settings'); }} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'var(--ink)',fontWeight:500,textAlign:'left'}}
+                    onMouseEnter={e=>e.currentTarget.style.background='var(--surface-container)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                    <span className="material-symbols-outlined" style={{fontSize:16}}>settings</span>
+                    Settings
+                  </button>
+                  <button onClick={()=>{ setProfileOpen(false); logout(); }} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'10px 14px',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'var(--danger)',fontWeight:500,textAlign:'left'}}
+                    onMouseEnter={e=>e.currentTarget.style.background='var(--surface-container)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                    <span className="material-symbols-outlined" style={{fontSize:16}}>logout</span>
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="page">
