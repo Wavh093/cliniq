@@ -52,7 +52,7 @@ const VALID_TRANSITIONS = {
   cancelled: [],   // terminal
 };
 const VALID_PLAN_STATUSES = ['active','paused','completed','cancelled'];
-const VALID_SESSION_STATUSES = ['scheduled','completed','missed','rescheduled'];
+const VALID_SESSION_STATUSES = ['scheduled','completed','missed','rescheduled','cancelled'];
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
@@ -356,6 +356,28 @@ module.exports = async function handler(req, res) {
         .select('*, patients(id, first_name, last_name, phone, email)').single();
 
       if (error) { console.error('[treatment_plans POST]', error); return res.status(500).json({ error: 'Could not create treatment plan' }); }
+
+      // Auto-create session 1 with linked appointment when a first-session date is provided
+      if (next_session_due) {
+        const { data: sess } = await db.from('treatment_plan_sessions')
+          .insert({ plan_id: plan.id, session_number: 1, session_date: next_session_due })
+          .select().single();
+        if (sess) {
+          const { data: appt } = await db.from('appointments')
+            .insert({
+              practice_id: PRACTICE_ID, patient_id,
+              appointment_date: next_session_due, appointment_time: '09:00:00',
+              duration_minutes: 30, status: 'pending',
+              internal_notes: 'Auto-created from treatment plan — confirm time with patient',
+              treatment_plan_session_id: sess.id,
+            })
+            .select('id').single();
+          if (appt) {
+            await db.from('treatment_plan_sessions').update({ appointment_id: appt.id }).eq('id', sess.id);
+          }
+        }
+      }
+
       return res.status(201).json({ plan });
     }
 
@@ -386,6 +408,12 @@ module.exports = async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'id is required' });
       const { error } = await db.from('treatment_plans').update({ status: 'cancelled' }).eq('id', id).eq('practice_id', PRACTICE_ID);
       if (error) { console.error('[treatment_plans DELETE]', error); return res.status(500).json({ error: 'Could not cancel treatment plan' }); }
+
+      // Cancel all non-completed sessions
+      await db.from('treatment_plan_sessions')
+        .update({ status: 'cancelled' })
+        .eq('plan_id', id)
+        .neq('status', 'completed');
 
       // Cancel all pending/confirmed appointments linked to this plan's sessions
       const { data: planSessions } = await db.from('treatment_plan_sessions')

@@ -1910,8 +1910,7 @@ function CreateAppointmentModal({ onClose, onDone, allowPastDates = false }) {
           <div className="field">
             <label>Service *</label>
             {svcsErr && <div className="alert alert-error" style={{marginBottom:6,marginTop:-2}}>{svcsErr}</div>}
-            <select value={serviceId} onChange={e => setServiceId(e.target.value)} disabled={svcsLoading || !!svcsErr}
-              size={Math.min(services.length + 1, 6)}>
+            <select value={serviceId} onChange={e => setServiceId(e.target.value)} disabled={svcsLoading || !!svcsErr}>
               <option value="">{svcsLoading ? 'Loading…' : svcsErr ? 'Unavailable' : 'Select a service…'}</option>
               {services.map(s => (
                 <option key={s.id} value={s.id}>
@@ -8649,8 +8648,8 @@ function ReviewsPage({ unreadCount = 0 }) {
 ════════════════════════════════════════════════════════════ */
 const PLAN_STATUS_COLOR    = { active:'var(--teal)', paused:'var(--amber)', completed:'var(--green)', cancelled:'var(--muted)' };
 const PLAN_STATUS_LABEL    = { active:'Active', paused:'Paused', completed:'Completed', cancelled:'Cancelled' };
-const SESSION_STATUS_COLOR = { scheduled:'var(--muted)', completed:'var(--green)', missed:'var(--danger)', rescheduled:'var(--amber)' };
-const SESSION_STATUS_LABEL = { scheduled:'Scheduled', completed:'Completed', missed:'Missed', rescheduled:'Rescheduled' };
+const SESSION_STATUS_COLOR = { scheduled:'var(--muted)', completed:'var(--green)', missed:'var(--danger)', rescheduled:'var(--amber)', cancelled:'var(--danger)' };
+const SESSION_STATUS_LABEL = { scheduled:'Scheduled', completed:'Completed', missed:'Missed', rescheduled:'Rescheduled', cancelled:'Cancelled' };
 
 /* ── Rand currency formatter ────────────────────────────────── */
 function fmtR(n) {
@@ -8920,15 +8919,30 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
   const openPlan = async (plan) => {
     setSelected(plan); setSessions([]); setSessLoading(true);
     try {
-      const d = await api(`/api/appointments?resource=plan_sessions&plan_id=${plan.id}`);
-      setSessions(d.sessions || []);
-    } catch {}
+      const [sessData, planData] = await Promise.all([
+        api(`/api/appointments?resource=plan_sessions&plan_id=${plan.id}`),
+        api(`/api/appointments?resource=treatment_plans&id=${plan.id}`),
+      ]);
+      setSessions(sessData.sessions || []);
+      if (planData.plan) {
+        setSelected(planData.plan);
+        setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, sessions_done: planData.plan.sessions_done, status: planData.plan.status } : p));
+      }
+    } catch(e) { showToast(e.message || 'Could not load plan details', 'error'); }
     finally { setSessLoading(false); }
   };
 
   const updatePlanStatus = async (planId, status) => {
-    await api(`/api/appointments?resource=treatment_plans&id=${planId}`, { method:'PATCH', body: JSON.stringify({ status }) });
-    setPlans(prev => prev.map(p => p.id === planId ? {...p, status} : p));
+    if (status === 'cancelled') {
+      await api(`/api/appointments?resource=treatment_plans&id=${planId}`, { method:'DELETE' });
+    } else {
+      await api(`/api/appointments?resource=treatment_plans&id=${planId}`, { method:'PATCH', body: JSON.stringify({ status }) });
+    }
+    setPlans(prev => prev.filter(p => {
+      if (p.id !== planId) return true;
+      if (statusFilter && statusFilter !== status) return false;
+      return true;
+    }).map(p => p.id === planId ? {...p, status} : p));
     if (selected?.id === planId) setSelected(p => ({...p, status}));
     showToast(`Plan ${PLAN_STATUS_LABEL[status].toLowerCase()}`);
   };
@@ -9338,13 +9352,12 @@ function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
 
         <div className="field" style={{marginBottom:14}}>
           <label>Session date</label>
-          <input type="date" value={form.session_date} onChange={e => set({session_date: e.target.value})} />
+          <ApptDatePicker value={form.session_date} onChange={v => set({session_date: v})} placeholder="Select date" disablePast={true} />
         </div>
 
         <div className="field" style={{marginBottom:14}}>
           <label>Appointment time</label>
-          <input type="time" value={form.appointment_time} onChange={e => set({appointment_time: e.target.value})}
-            placeholder="09:00" />
+          <ApptTimePicker value={form.appointment_time} onChange={v => set({appointment_time: v})} placeholder="Select time" />
           <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>Defaults to 09:00 if not set</div>
         </div>
 
@@ -9471,7 +9484,7 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
           </div>
           <div className="field">
             <label>First session due</label>
-            <input type="date" value={form.next_session_due} onChange={e => set({next_session_due:e.target.value})} />
+            <ApptDatePicker value={form.next_session_due} onChange={v => set({next_session_due:v})} placeholder="Select date" disablePast={true} />
           </div>
         </div>
 
