@@ -43,12 +43,52 @@ export default function LoginScreen() {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
+  const [emailError,    setEmailError]    = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [emailTouched,    setEmailTouched]    = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+
+  const validateEmail = (value: string): string | null => {
+    if (!value.trim()) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Enter a valid email address';
+    return null;
+  };
+
+  const validatePassword = (value: string): string | null => {
+    if (!value) return 'Password is required';
+    if (value.length < 6) return 'Password must be at least 6 characters';
+    return null;
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (emailTouched) setEmailError(validateEmail(value));
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    if (passwordTouched) setPasswordError(validatePassword(value));
+  };
+
+  const handleEmailBlur = () => {
+    setEmailTouched(true);
+    setEmailError(validateEmail(email));
+  };
+
+  const handlePasswordBlur = () => {
+    setPasswordTouched(true);
+    setPasswordError(validatePassword(password));
+  };
 
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
-      return;
-    }
+    setEmailTouched(true);
+    setPasswordTouched(true);
+    const eErr = validateEmail(email);
+    const pErr = validatePassword(password);
+    setEmailError(eErr);
+    setPasswordError(pErr);
+    if (eErr || pErr) return;
+
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email:    email.trim().toLowerCase(),
@@ -56,7 +96,6 @@ export default function LoginScreen() {
     });
     setLoading(false);
     if (error) Alert.alert('Sign-in failed', error.message);
-    // success → _layout.tsx onAuthStateChange redirects to tabs
   };
 
   return (
@@ -84,9 +123,10 @@ export default function LoginScreen() {
             <View style={s.field}>
               <Text style={s.label}>EMAIL</Text>
               <TextInput
-                style={s.input}
+                style={[s.input, emailError ? s.inputError : null]}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={handleEmailChange}
+                onBlur={handleEmailBlur}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
@@ -97,13 +137,15 @@ export default function LoginScreen() {
                 autoComplete="email"
                 accessibilityLabel="Email address"
               />
+              {emailError && <Text style={s.fieldError}>{emailError}</Text>}
             </View>
             <View style={s.field}>
               <Text style={s.label}>PASSWORD</Text>
               <TextInput
-                style={s.input}
+                style={[s.input, passwordError ? s.inputError : null]}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={handlePasswordChange}
+                onBlur={handlePasswordBlur}
                 secureTextEntry
                 placeholder="••••••••"
                 placeholderTextColor={C.muted}
@@ -113,6 +155,7 @@ export default function LoginScreen() {
                 autoComplete="current-password"
                 accessibilityLabel="Password"
               />
+              {passwordError && <Text style={s.fieldError}>{passwordError}</Text>}
             </View>
             <TouchableOpacity
               style={[s.btn, loading && s.btnDim]}
@@ -146,6 +189,16 @@ const s = StyleSheet.create({
   input: {
     borderWidth: 1, borderColor: C.rule, borderRadius: 12,
     padding: 14, fontSize: 15, color: C.ink, backgroundColor: C.paper,
+  },
+  inputError: {
+    borderColor: C.danger,
+    borderWidth: 1.5,
+  },
+  fieldError: {
+    fontSize: 12,
+    color: C.danger,
+    marginTop: 4,
+    paddingHorizontal: 4,
   },
   btn: {
     backgroundColor: C.sage, borderRadius: 999,

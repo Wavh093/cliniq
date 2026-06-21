@@ -74,10 +74,10 @@ export default function SettingsScreen() {
           />
         </View>
 
-        {/* LOGOUT — de-emphasised, confirmation-gated */}
-        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.7} accessibilityLabel="Log out" accessibilityRole="button">
-          <Ionicons name="log-out-outline" size={18} color={C.danger} />
-          <Text style={s.logoutText}>Log out</Text>
+        {/* LOGOUT */}
+        <TouchableOpacity style={s.logoutBtn} onPress={handleLogout} activeOpacity={0.7} accessibilityLabel="Logout" accessibilityRole="button">
+          <Ionicons name="log-out-outline" size={20} color="#fff" />
+          <Text style={s.logoutText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -150,9 +150,11 @@ const s = StyleSheet.create({
     flexDirection:   'row',
     alignItems:      'center',
     justifyContent:  'center',
-    gap:             7,
-    paddingVertical: 14,
+    gap:             10,
+    paddingVertical: 16,
     marginTop:       24,
+    backgroundColor: C.danger,
+    borderRadius:    14,
   },
-  logoutText: { fontSize: 15, fontWeight: '600', color: C.danger },
+  logoutText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 });

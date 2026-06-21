@@ -9,7 +9,7 @@ import { useFocusEffect, router } from 'expo-router';
 import { getAppointments, type Appointment } from '../../lib/api';
 import AppointmentCard from '../../components/AppointmentCard';
 import StatCard from '../../components/StatCard';
-import Avatar from '../../components/Avatar';
+import ProfileMenu from '../../components/ProfileMenu';
 import { C, T } from '../../constants/theme';
 import { supabase } from '../../lib/supabase';
 
@@ -98,18 +98,7 @@ export default function TodayScreen() {
           </Text>
           <Text style={s.date}>{formatLong(today)}</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => router.push('/settings')}
-          activeOpacity={0.8}
-          accessibilityLabel="Your profile and settings"
-          accessibilityRole="button"
-        >
-          <Avatar
-            name={doctorName ?? 'Doctor'}
-            initials={(doctorName ?? 'Dr')[0].toUpperCase()}
-            size={40}
-          />
-        </TouchableOpacity>
+        <ProfileMenu name={doctorName} />
       </View>
       <View style={s.stats}>
         <StatCard label="Total"     value={total}     tone="neutral"  icon="calendar-outline" />

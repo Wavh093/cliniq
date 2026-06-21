@@ -242,7 +242,8 @@ module.exports = async function handler(req, res) {
       .not('session_date', 'is', null)
       .gte('session_date', startDate)
       .lte('session_date', endDate)
-      .gt('amount_paid', 0);
+      .gt('amount_paid', 0)
+      .order('session_date', { ascending: false });
 
     const plan_sessions = (rawSessions || []).map(s => ({
       id:              s.id,

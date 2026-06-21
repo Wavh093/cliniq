@@ -22,6 +22,16 @@ export interface Appointment {
   clinical_notes: string | null;
   icd10_codes: string[] | null;
   tariff_codes: string[] | null;
+  payment_method: string | null;
+  amount_paid: number | null;
+  paid_at: string | null;
+  medical_aid_paid: boolean | null;
+  ma_amount_charged: number | null;
+  ma_amount_received: number | null;
+  ma_status: string | null;
+  patient_portion: number | null;
+  patient_method: string | null;
+  patient_paid_at: string | null;
   patients: {
     id: string;
     first_name: string;
@@ -33,6 +43,7 @@ export interface Appointment {
     allergies: string[];
     medical_conditions: string[];
     medications: string[];
+    has_medical_aid?: boolean;
   } | null;
   services: { id: string; name: string; category: string; price_from: number | null } | null;
   treatment_plan_session?: {
@@ -291,6 +302,25 @@ export async function askAI(question: string): Promise<{
     throw new Error((err as any).error ?? `AI request failed: ${res.status}`);
   }
   return res.json();
+}
+
+export async function savePayment(id: string, data: {
+  payment_method?: string;
+  amount_paid?: number;
+  medical_aid_paid?: boolean;
+  ma_amount_charged?: number;
+  patient_portion?: number;
+  patient_method?: string;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/api/revenue?id=${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: await authHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Payment save failed: ${res.status}`);
+  }
 }
 
 export async function updateAppointmentStatus(id: string, status: string): Promise<void> {

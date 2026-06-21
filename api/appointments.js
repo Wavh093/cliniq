@@ -762,7 +762,10 @@ module.exports = async function handler(req, res) {
         patient_notes, internal_notes, clinical_notes, icd10_codes, tariff_codes,
         branch_id, cancellation_reason, cancelled_at, created_at,
         treatment_plan_session_id,
-        patients ( id, first_name, last_name, email, phone, date_of_birth, id_number, allergies, medical_conditions, medications ),
+        payment_method, amount_paid, paid_at, medical_aid_paid,
+        ma_amount_charged, ma_amount_received, ma_status,
+        patient_portion, patient_method, patient_paid_at,
+        patients ( id, first_name, last_name, email, phone, date_of_birth, id_number, allergies, medical_conditions, medications, has_medical_aid ),
         services ( id, name, category, price_from ),
         branches ( id, name )
       `;
@@ -798,7 +801,10 @@ module.exports = async function handler(req, res) {
       patient_notes, internal_notes, confirmation_sent, needs_patient_link, created_at,
       icd10_codes, tariff_codes, clinical_notes, branch_id,
       cancellation_reason, cancelled_at, treatment_plan_session_id,
-      patients ( id, first_name, last_name, email, phone, date_of_birth, allergies, medical_conditions, medications ),
+      payment_method, amount_paid, paid_at, medical_aid_paid,
+      ma_amount_charged, ma_amount_received, ma_status,
+      patient_portion, patient_method, patient_paid_at,
+      patients ( id, first_name, last_name, email, phone, date_of_birth, allergies, medical_conditions, medications, has_medical_aid ),
       services (
         id, name, category, price_from,
         service_inventory_map (

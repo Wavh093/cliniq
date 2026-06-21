@@ -85,9 +85,9 @@ export default function CalendarScreen() {
           textMonthFontWeight:        '700',
           textDayFontWeight:          '500',
           textDayHeaderFontWeight:    '600',
-          textDayFontSize:            15,
-          textMonthFontSize:          17,
-          textDayHeaderFontSize:      12,
+          textDayFontSize:            14,
+          textMonthFontSize:          16,
+          textDayHeaderFontSize:      11,
         }}
         style={s.calendar}
       />
@@ -149,13 +149,13 @@ export default function CalendarScreen() {
 
 const s = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: C.bg },
-  calendar:  { borderBottomWidth: 1, borderBottomColor: C.rule },
+  calendar:  { borderBottomWidth: 1, borderBottomColor: C.rule, paddingBottom: 4 },
   dayBar: {
     flexDirection:    'row',
     justifyContent:   'space-between',
     alignItems:       'center',
     paddingHorizontal: 20,
-    paddingVertical:   12,
+    paddingVertical:   10,
     borderBottomWidth: 1,
     borderBottomColor: C.rule,
     backgroundColor:   C.bg,

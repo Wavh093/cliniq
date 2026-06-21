@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  getAppointment, getPatient, saveSessionNotes, updateAppointmentStatus,
+  getAppointment, getPatient, saveSessionNotes, updateAppointmentStatus, savePayment,
   type Appointment, type AppointmentSummary,
 } from '../../lib/api';
 import { C, STATUS } from '../../constants/theme';
@@ -70,6 +70,16 @@ export default function SessionScreen() {
 
   const [sickNoteVisible, setSickNoteVisible]     = useState(false);
   const [referralVisible, setReferralVisible]     = useState(false);
+
+  // Payment state
+  const [paymentMethod,     setPaymentMethod]     = useState<string>('cash');
+  const [paymentAmount,     setPaymentAmount]     = useState('');
+  const [useCoPayment,      setUseCoPayment]      = useState(false);
+  const [maAmountCharged,   setMaAmountCharged]   = useState('');
+  const [patientPortion,    setPatientPortion]    = useState('');
+  const [patientMethod,     setPatientMethod]     = useState<string>('card');
+  const [paymentSaving,     setPaymentSaving]     = useState(false);
+  const [paymentSaved,      setPaymentSaved]      = useState(false);
 
   // Editable note fields
   const [clinicalNotes, setClinicalNotes] = useState('');
@@ -228,6 +238,33 @@ export default function SessionScreen() {
       ],
     );
   }, [appt, isDirty, save]);
+
+  // ── Save Payment ──────────────────────────────────────────────
+
+  const handleSavePayment = useCallback(async () => {
+    if (!appt) return;
+    setPaymentSaving(true);
+    try {
+      if (useCoPayment) {
+        await savePayment(appt.id, {
+          medical_aid_paid: true,
+          ma_amount_charged: maAmountCharged ? Number(maAmountCharged) : undefined,
+          patient_portion: patientPortion ? Number(patientPortion) : undefined,
+          patient_method: patientMethod,
+        });
+      } else {
+        await savePayment(appt.id, {
+          payment_method: paymentMethod,
+          amount_paid: paymentAmount ? Number(paymentAmount) : undefined,
+        });
+      }
+      setPaymentSaved(true);
+    } catch (e: any) {
+      Alert.alert('Could not save payment', e.message ?? 'Please try again.');
+    } finally {
+      setPaymentSaving(false);
+    }
+  }, [appt, useCoPayment, paymentMethod, paymentAmount, maAmountCharged, patientPortion, patientMethod]);
 
   // ── Loading / Error ──────────────────────────────────────────
 
@@ -571,6 +608,121 @@ export default function SessionScreen() {
             </View>
           )}
 
+          {/* ── Payment recording (completed sessions) ──────────── */}
+          {appt.status === 'completed' && !paymentSaved && !appt.paid_at && (
+            <View style={s.paymentCard}>
+              <View style={s.docsHeaderRow}>
+                <Ionicons name="wallet-outline" size={15} color={C.sage} />
+                <Text style={s.docsTitle}>RECORD PAYMENT</Text>
+              </View>
+
+              {/* Co-payment toggle */}
+              {patient?.has_medical_aid && (
+                <TouchableOpacity
+                  style={s.coPayToggle}
+                  onPress={() => setUseCoPayment(!useCoPayment)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={useCoPayment ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={useCoPayment ? C.sage : C.muted}
+                  />
+                  <Text style={s.coPayLabel}>Co-payment (Medical Aid + Card/Bank)</Text>
+                </TouchableOpacity>
+              )}
+
+              {useCoPayment ? (
+                <View style={s.paymentFields}>
+                  <Text style={s.payFieldLabel}>MEDICAL AID PORTION</Text>
+                  <TextInput
+                    style={s.payInput}
+                    value={maAmountCharged}
+                    onChangeText={setMaAmountCharged}
+                    keyboardType="numeric"
+                    placeholder="R 0"
+                    placeholderTextColor={C.muted}
+                    accessibilityLabel="Medical aid amount"
+                  />
+                  <Text style={[s.payFieldLabel, { marginTop: 12 }]}>PATIENT CO-PAY</Text>
+                  <TextInput
+                    style={s.payInput}
+                    value={patientPortion}
+                    onChangeText={setPatientPortion}
+                    keyboardType="numeric"
+                    placeholder="R 0"
+                    placeholderTextColor={C.muted}
+                    accessibilityLabel="Patient co-payment amount"
+                  />
+                  <Text style={[s.payFieldLabel, { marginTop: 12 }]}>CO-PAY METHOD</Text>
+                  <View style={s.methodRow}>
+                    {(['card', 'cash', 'eft'] as const).map(m => (
+                      <TouchableOpacity
+                        key={m}
+                        style={[s.methodChip, patientMethod === m && s.methodChipActive]}
+                        onPress={() => setPatientMethod(m)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[s.methodChipText, patientMethod === m && s.methodChipTextActive]}>
+                          {m.toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={s.paymentFields}>
+                  <Text style={s.payFieldLabel}>PAYMENT METHOD</Text>
+                  <View style={s.methodRow}>
+                    {(['cash', 'card', 'eft', 'medical_aid'] as const).map(m => (
+                      <TouchableOpacity
+                        key={m}
+                        style={[s.methodChip, paymentMethod === m && s.methodChipActive]}
+                        onPress={() => setPaymentMethod(m)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[s.methodChipText, paymentMethod === m && s.methodChipTextActive]}>
+                          {m === 'medical_aid' ? 'MED AID' : m.toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={[s.payFieldLabel, { marginTop: 12 }]}>AMOUNT</Text>
+                  <TextInput
+                    style={s.payInput}
+                    value={paymentAmount}
+                    onChangeText={setPaymentAmount}
+                    keyboardType="numeric"
+                    placeholder="R 0"
+                    placeholderTextColor={C.muted}
+                    accessibilityLabel="Payment amount"
+                  />
+                  <Text style={s.payStepHint}>Enter amount in multiples of R100</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[s.paySubmitBtn, paymentSaving && s.btnDim]}
+                onPress={handleSavePayment}
+                disabled={paymentSaving}
+                activeOpacity={0.85}
+              >
+                {paymentSaving ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={s.paySubmitText}>Save Payment</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {paymentSaved && (
+            <View style={s.paymentSavedBanner}>
+              <Ionicons name="checkmark-circle" size={18} color="#065F46" />
+              <Text style={s.paymentSavedText}>Payment recorded</Text>
+            </View>
+          )}
+
           {/* ── Patient documents (completed sessions only) ─────── */}
           {appt.status === 'completed' && (
             <View style={s.docsCard}>
@@ -804,4 +956,59 @@ const s = StyleSheet.create({
   docBtnLabel: { fontSize: 14, fontWeight: '600', color: C.ink },
   docBtnSub:   { fontSize: 12, color: C.muted, marginTop: 1 },
   docDivider:  { height: 1, backgroundColor: C.rule, marginLeft: 52 },
+
+  // Payment section
+  paymentCard: {
+    backgroundColor: C.paper, borderRadius: 16,
+    paddingTop: 14, paddingBottom: 16, paddingHorizontal: 16,
+    marginTop: 16, marginBottom: 4,
+    borderWidth: 1, borderColor: C.rule,
+  },
+  coPayToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 12,
+  },
+  coPayLabel: { fontSize: 14, color: C.ink, fontWeight: '500', flex: 1 },
+  paymentFields: { marginTop: 4 },
+  payFieldLabel: {
+    fontSize: 10, fontWeight: '700', letterSpacing: 0.8,
+    color: C.muted, marginBottom: 6,
+  },
+  payInput: {
+    borderWidth: 1, borderColor: C.rule, borderRadius: 12,
+    padding: 14, fontSize: 16, color: C.ink, backgroundColor: C.bg,
+    fontWeight: '600',
+  },
+  payStepHint: {
+    fontSize: 11, color: C.muted, marginTop: 4, paddingHorizontal: 4,
+  },
+  methodRow: {
+    flexDirection: 'row', gap: 8, flexWrap: 'wrap',
+  },
+  methodChip: {
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1, borderColor: C.rule,
+    backgroundColor: C.bg,
+  },
+  methodChipActive: {
+    backgroundColor: C.sage, borderColor: C.sage,
+  },
+  methodChipText: {
+    fontSize: 12, fontWeight: '700', color: C.muted,
+  },
+  methodChipTextActive: {
+    color: '#fff',
+  },
+  paySubmitBtn: {
+    backgroundColor: C.sage, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center', marginTop: 16,
+  },
+  paySubmitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  paymentSavedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#D1FAE5', borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  paymentSavedText: { fontSize: 14, fontWeight: '600', color: '#065F46' },
 });
