@@ -123,7 +123,7 @@ module.exports = async function handler(req, res) {
       if (!plan_id) return res.status(400).json({ error: 'plan_id is required' });
       const { data, error } = await db
         .from('treatment_plan_sessions')
-        .select('*, appointments(id, appointment_date, appointment_time, status, duration_minutes, clinical_notes, internal_notes, services(id, name, price_from))')
+        .select('*, appointments!appointment_id(id, appointment_date, appointment_time, status, duration_minutes, clinical_notes, internal_notes, services(id, name, price_from))')
         .eq('plan_id', plan_id)
         .order('session_number');
       if (error) { console.error('[plan_sessions GET]', error); return res.status(500).json({ error: 'Could not load sessions' }); }
@@ -184,7 +184,7 @@ module.exports = async function handler(req, res) {
 
       // Re-fetch with nested joins so the response includes appointment data
       const { data: fullSession } = await db.from('treatment_plan_sessions')
-        .select('*, appointments(id, appointment_date, appointment_time, status, duration_minutes, clinical_notes, services(id, name, price_from))')
+        .select('*, appointments!appointment_id(id, appointment_date, appointment_time, status, duration_minutes, clinical_notes, services(id, name, price_from))')
         .eq('id', data.id)
         .single();
       return res.status(201).json({ session: fullSession || data });
@@ -312,7 +312,7 @@ module.exports = async function handler(req, res) {
       // Single plan with sessions
       if (id) {
         const { data: plan, error } = await db.from('treatment_plans')
-          .select(PLAN_SELECT + ', treatment_plan_sessions(*, appointments(id, appointment_date, appointment_time, status, duration_minutes, clinical_notes, internal_notes, services(id, name, price_from)))')
+          .select(PLAN_SELECT + ', treatment_plan_sessions(*, appointments!appointment_id(id, appointment_date, appointment_time, status, duration_minutes, clinical_notes, internal_notes, services(id, name, price_from)))')
           .eq('id', id).eq('practice_id', PRACTICE_ID).single();
         if (error || !plan) return res.status(404).json({ error: 'Treatment plan not found' });
         // Attach payment summary computed from embedded sessions
