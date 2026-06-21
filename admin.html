@@ -8919,17 +8919,17 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
   const openPlan = async (plan) => {
     setSelected(plan); setSessions([]); setSessLoading(true);
     try {
-      const [sessData, planData] = await Promise.all([
-        api(`/api/appointments?resource=plan_sessions&plan_id=${plan.id}`),
-        api(`/api/appointments?resource=treatment_plans&id=${plan.id}`),
-      ]);
+      const sessData = await api(`/api/appointments?resource=plan_sessions&plan_id=${plan.id}`);
       setSessions(sessData.sessions || []);
+    } catch(e) { showToast(e.message || 'Could not load sessions', 'error'); }
+    finally { setSessLoading(false); }
+    try {
+      const planData = await api(`/api/appointments?resource=treatment_plans&id=${plan.id}`);
       if (planData.plan) {
         setSelected(planData.plan);
         setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, sessions_done: planData.plan.sessions_done, status: planData.plan.status } : p));
       }
-    } catch(e) { showToast(e.message || 'Could not load plan details', 'error'); }
-    finally { setSessLoading(false); }
+    } catch {}
   };
 
   const updatePlanStatus = async (planId, status) => {
@@ -9391,14 +9391,19 @@ function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
 
 /* ── Create Treatment Plan Modal ─────────────────────────────── */
 function CreateTreatmentPlanModal({ onClose, onDone }) {
-  const [form, setForm] = useState({ patient_id:'', patient_label:'', title:'', total_sessions:2, description:'', notes:'', next_session_due:'' });
+  const [form, setForm] = useState({ patient_id:'', patient_label:'', title:'', total_sessions:2, description:'', notes:'', next_session_due:'', service_id:'' });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
   const [ptSearch, setPtSearch] = useState('');
   const [ptResults, setPtResults] = useState([]);
   const [ptBusy, setPtBusy] = useState(false);
+  const [services, setServices] = useState([]);
   const ptTimer = useRef(null);
   const set = p => setForm(f => ({...f,...p}));
+
+  useEffect(() => {
+    api('/api/services').then(d => setServices(d.services || [])).catch(() => {});
+  }, []);
 
   const searchPt = q => {
     setPtSearch(q); clearTimeout(ptTimer.current);
@@ -9431,6 +9436,7 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
           description:      form.description.trim() || null,
           notes:            form.notes.trim() || null,
           next_session_due: form.next_session_due || null,
+          service_id:       form.service_id || null,
         }),
       });
       showToast(`Treatment plan "${form.title}" created`);
@@ -9486,6 +9492,16 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
             <label>First session due</label>
             <ApptDatePicker value={form.next_session_due} onChange={v => set({next_session_due:v})} placeholder="Select date" disablePast={true} />
           </div>
+        </div>
+
+        <div className="field" style={{marginBottom:14}}>
+          <label>Service for first session</label>
+          <select value={form.service_id} onChange={e => set({service_id:e.target.value})}>
+            <option value="">— Select service (optional) —</option>
+            {services.map(svc => (
+              <option key={svc.id} value={svc.id}>{svc.name}{svc.price_from ? ` (from R${svc.price_from})` : ''}</option>
+            ))}
+          </select>
         </div>
 
         <div className="field" style={{marginBottom:14}}>

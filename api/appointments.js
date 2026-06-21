@@ -278,6 +278,7 @@ module.exports = async function handler(req, res) {
       if (updates.status && currentSess?.appointment_id) {
         const apptStatus = updates.status === 'completed' ? 'completed'
           : updates.status === 'missed' ? 'no_show'
+          : updates.status === 'cancelled' ? 'cancelled'
           : null;
         if (apptStatus) {
           await db.from('appointments').update({ status: apptStatus })
@@ -341,7 +342,7 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await parseBody(req);
-      const { patient_id, title, total_sessions = 1, description, notes, next_session_due, notify_patient = false } = body;
+      const { patient_id, title, total_sessions = 1, description, notes, next_session_due, notify_patient = false, service_id } = body;
       if (!patient_id) return res.status(400).json({ error: 'patient_id is required' });
       if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
       if (total_sessions < 1) return res.status(400).json({ error: 'total_sessions must be at least 1' });
@@ -360,12 +361,13 @@ module.exports = async function handler(req, res) {
       // Auto-create session 1 with linked appointment when a first-session date is provided
       if (next_session_due) {
         const { data: sess } = await db.from('treatment_plan_sessions')
-          .insert({ plan_id: plan.id, session_number: 1, session_date: next_session_due })
+          .insert({ plan_id: plan.id, session_number: 1, session_date: next_session_due, service_id: service_id || null })
           .select().single();
         if (sess) {
           const { data: appt } = await db.from('appointments')
             .insert({
               practice_id: PRACTICE_ID, patient_id,
+              service_id: service_id || null,
               appointment_date: next_session_due, appointment_time: '09:00:00',
               duration_minutes: 30, status: 'pending',
               internal_notes: 'Auto-created from treatment plan — confirm time with patient',
