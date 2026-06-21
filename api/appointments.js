@@ -143,6 +143,18 @@ module.exports = async function handler(req, res) {
         .select('id').eq('plan_id', plan_id).eq('session_number', Number(session_number)).maybeSingle();
       if (existing) return res.status(409).json({ error: `Session ${session_number} already exists for this plan` });
 
+      // Prevent out-of-order dates: new session cannot be before the previous session
+      if (session_date && Number(session_number) > 1) {
+        const { data: prevSess } = await db.from('treatment_plan_sessions')
+          .select('session_number, session_date')
+          .eq('plan_id', plan_id).lt('session_number', Number(session_number))
+          .not('session_date', 'is', null)
+          .order('session_number', { ascending: false }).limit(1).maybeSingle();
+        if (prevSess?.session_date && session_date < prevSess.session_date) {
+          return res.status(400).json({ error: `Session ${session_number} date cannot be before Session ${prevSess.session_number} (${prevSess.session_date})` });
+        }
+      }
+
       // Look up plan to get patient_id for auto-creating appointment
       const { data: plan } = await db.from('treatment_plans')
         .select('patient_id, practice_id').eq('id', plan_id).single();
@@ -161,14 +173,29 @@ module.exports = async function handler(req, res) {
 
       // Auto-create a linked appointment if session_date is provided and no appointment_id was given
       if (session_date && !appointment_id) {
+        let sessDuration = 30;
+        const sessSvcId = service_id || null;
+        if (sessSvcId) {
+          const { data: svc } = await db.from('services').select('duration_minutes').eq('id', sessSvcId).maybeSingle();
+          if (svc?.duration_minutes) sessDuration = svc.duration_minutes;
+        }
+        let sessTime = appointment_time || null;
+        if (!sessTime) {
+          try {
+            const { data: slots } = await db.rpc('compute_available_slots', {
+              p_practice_id: PRACTICE_ID, p_date: session_date, p_duration: sessDuration,
+            });
+            sessTime = slots?.length ? slots[0].slot_time : '09:00:00';
+          } catch { sessTime = '09:00:00'; }
+        }
         const { data: appt, error: apptErr } = await db.from('appointments')
           .insert({
             practice_id: PRACTICE_ID,
             patient_id: plan.patient_id,
-            service_id: service_id || null,
+            service_id: sessSvcId,
             appointment_date: session_date,
-            appointment_time: appointment_time || '09:00:00',
-            duration_minutes: 30,
+            appointment_time: sessTime,
+            duration_minutes: sessDuration,
             status: 'pending',
             internal_notes: 'Auto-created from treatment plan — confirm time with patient',
             treatment_plan_session_id: data.id,
@@ -360,6 +387,24 @@ module.exports = async function handler(req, res) {
 
       // Auto-create session 1 with linked appointment when a first-session date is provided
       if (next_session_due) {
+        // Look up service duration for smart slot finding
+        let svcDuration = 30;
+        if (service_id) {
+          const { data: svc } = await db.from('services').select('duration_minutes').eq('id', service_id).maybeSingle();
+          if (svc?.duration_minutes) svcDuration = svc.duration_minutes;
+        }
+
+        // Find earliest available slot using the practice schedule RPC
+        let bestTime = '09:00:00';
+        try {
+          const { data: slots } = await db.rpc('compute_available_slots', {
+            p_practice_id: PRACTICE_ID,
+            p_date: next_session_due,
+            p_duration: svcDuration,
+          });
+          if (slots?.length) bestTime = slots[0].slot_time;
+        } catch {}
+
         const { data: sess } = await db.from('treatment_plan_sessions')
           .insert({ plan_id: plan.id, session_number: 1, session_date: next_session_due, service_id: service_id || null })
           .select().single();
@@ -368,8 +413,8 @@ module.exports = async function handler(req, res) {
             .insert({
               practice_id: PRACTICE_ID, patient_id,
               service_id: service_id || null,
-              appointment_date: next_session_due, appointment_time: '09:00:00',
-              duration_minutes: 30, status: 'pending',
+              appointment_date: next_session_due, appointment_time: bestTime,
+              duration_minutes: svcDuration, status: 'pending',
               internal_notes: 'Auto-created from treatment plan — confirm time with patient',
               treatment_plan_session_id: sess.id,
             })

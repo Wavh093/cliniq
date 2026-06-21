@@ -2045,7 +2045,7 @@ function CreateAppointmentModal({ onClose, onDone, allowPastDates = false }) {
   );
 }
 
-function Appointments({ onNavigate }) {
+function Appointments({ onNavigate, initialPayload }) {
   const [appts,        setAppts]       = useState([]);
   const [loading,      setLoading]     = useState(true);
   const [err,          setErr]         = useState(null);
@@ -2087,6 +2087,14 @@ function Appointments({ onNavigate }) {
   }, []);
 
   useEffect(() => { loadUnlinked(); }, [loadUnlinked]);
+
+  // Auto-open a specific appointment when navigated from treatment plans
+  useEffect(() => {
+    if (!initialPayload?.appointmentId) return;
+    api(`/api/appointments?id=${initialPayload.appointmentId}`)
+      .then(d => { if (d.appointment) setSelected(d.appointment); })
+      .catch(() => {});
+  }, []);
 
   // Patient-linking state
   const [linkSearch,    setLinkSearch]    = useState('');
@@ -9223,7 +9231,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                       </button>
                       {appt?.id && (
                         <button className="btn btn-ghost btn-sm" style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}
-                          onClick={() => { setSelected(null); onNavigate?.({ page:'patients', payload:{ patient: selected.patients } }); }}>
+                          onClick={() => { setSelected(null); onNavigate?.({ page:'appointments', payload:{ appointmentId: appt.id } }); }}>
                           <span className="material-symbols-outlined" style={{fontSize:13}}>open_in_new</span> View appointment
                         </button>
                       )}
@@ -9241,12 +9249,34 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
               {selected.status === 'paused' && (
                 <button className="btn btn-ghost btn-sm" onClick={() => updatePlanStatus(selected.id, 'active').catch(e => showToast(e.message, 'error'))}>Resume plan</button>
               )}
-              {['active','paused'].includes(selected.status) && (
-                <button className="btn btn-ghost btn-sm" onClick={() => notifyPatient(selected)}
-                  style={{display:'flex',alignItems:'center',gap:6}}>
-                  <span style={{fontSize:14}}>💬</span> WhatsApp reminder
-                </button>
-              )}
+              {['active','paused'].includes(selected.status) && (() => {
+                const pt = selected.patients;
+                const dueDate = selected.next_session_due ? fmtDate(selected.next_session_due) : 'soon';
+                const reminderMsg = `Hi ${pt?.first_name || 'there'}, this is Kliniq. Your next session for your treatment plan "${selected.title}" is due on ${dueDate}. Please call us on 011 660 2400 to confirm your appointment. Thank you!`;
+                const phone = pt?.phone?.trim();
+                const email = pt?.email?.trim();
+                return (
+                  <>
+                    <button className="btn btn-ghost btn-sm" onClick={() => notifyPatient(selected)}
+                      style={{display:'flex',alignItems:'center',gap:6}}>
+                      <span style={{fontSize:14}}>💬</span> WhatsApp
+                    </button>
+                    {phone && (
+                      <a href={`sms:${phone}?body=${encodeURIComponent(reminderMsg)}`}
+                        className="btn btn-ghost btn-sm" style={{display:'flex',alignItems:'center',gap:5,textDecoration:'none',color:'#0369a1'}}>
+                        <span className="material-symbols-outlined" style={{fontSize:15}}>sms</span> SMS
+                      </a>
+                    )}
+                    {email && (
+                      <a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent('Treatment plan reminder — Kliniq')}&body=${encodeURIComponent(reminderMsg)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm" style={{display:'flex',alignItems:'center',gap:5,textDecoration:'none',color:'#c2410c'}}>
+                        <span className="material-symbols-outlined" style={{fontSize:15}}>mail</span> Email
+                      </a>
+                    )}
+                  </>
+                );
+              })()}
               {sessions.length > 0 && (
                 <button className="btn btn-ghost btn-sm" style={{display:'flex',alignItems:'center',gap:5}}
                   onClick={() => exportPlanPDF(selected, sessions)}>
@@ -9300,6 +9330,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
         <AddSessionModal
           plan={selected}
           nextNumber={sessions.length + 1}
+          existingSessions={sessions}
           onClose={() => setAddSessModal(false)}
           onSaved={onSessionAdded}
         />
@@ -9309,7 +9340,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
 }
 
 /* ── Add Session Modal ───────────────────────────────────────── */
-function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
+function AddSessionModal({ plan, nextNumber, existingSessions = [], onClose, onSaved }) {
   const [form, setForm] = useState({ session_date: '', appointment_time: '', notes: '', service_id: '' });
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState('');
@@ -9321,6 +9352,15 @@ function AddSessionModal({ plan, nextNumber, onClose, onSaved }) {
   }, []);
 
   const save = async () => {
+    if (form.session_date && existingSessions.length > 0) {
+      const prev = existingSessions
+        .filter(s => s.session_number < nextNumber && s.session_date)
+        .sort((a, b) => b.session_number - a.session_number)[0];
+      if (prev && form.session_date < prev.session_date) {
+        setErr(`Session ${nextNumber} cannot be before Session ${prev.session_number} (${fmtDateShort(prev.session_date)})`);
+        return;
+      }
+    }
     setSaving(true); setErr('');
     try {
       const body = {
@@ -9838,7 +9878,7 @@ function Shell({ session, supabase, onLogout }) {
   const renderPage = () => {
     switch (page) {
       case 'overview':     return <Overview onNavigate={navigate} unreadMsgs={unreadMsgs} practiceName={practiceName} />;
-      case 'appointments':    return <Appointments onNavigate={navigate} />;
+      case 'appointments':    return <Appointments onNavigate={navigate} initialPayload={navPayload} />;
       case 'patients':        return <Patients initialPatient={navPayload?.patient} />;
       case 'treatment_plans': return <TreatmentPlansPage onNavigate={navigate} initialPatient={navPayload?.patient} initialPlan={navPayload?.plan} initialSessionId={navPayload?.sessionId} />;
       case 'analytics':    return <AnalyticsPage />;
