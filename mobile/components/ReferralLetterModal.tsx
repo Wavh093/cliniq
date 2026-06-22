@@ -7,8 +7,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Calendar } from 'react-native-calendars';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { C } from '../constants/theme';
 import type { Appointment } from '../lib/api';
 import { getPractice, saveDocument, getMySignature, API_BASE, type PracticeConfig } from '../lib/api';
@@ -240,15 +238,15 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
         title:          `Referral Letter — ${patient ? patient.first_name + ' ' + patient.last_name : 'Patient'} — ${fromDate}`,
         html_content:   html,
       });
-      if (saved?.id) setWebDocId(saved.id);
-
-      // Generate and share PDF
-      const { uri } = await Print.printToFileAsync({ html, width: 612, height: 792 });
-      await Sharing.shareAsync(uri, {
-        mimeType:    'application/pdf',
-        dialogTitle: 'Share Referral Letter',
-        UTI:         'com.adobe.pdf',
-      });
+      if (saved?.id) {
+        setWebDocId(saved.id);
+        Alert.alert(
+          'Sent to front desk',
+          'The referral letter has been generated and is ready for the admin to print and stamp.',
+        );
+      } else {
+        Alert.alert('Error', 'Could not save the document. Please try again.');
+      }
     } catch (e: any) {
       Alert.alert('Error', e.message ?? 'Could not generate document.');
     } finally {
@@ -265,13 +263,13 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
   // ── Calendar picker view ─────────────────────────────────────────
   if (calendarFor) {
     return (
-      <Modal visible={visible} animationType="slide" onRequestClose={() => setCalendarFor(null)}>
+      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCalendarFor(null)}>
         <SafeAreaView style={s.safe} edges={['top']}>
           <View style={s.calHeader}>
             <Text style={s.calTitle}>
               Select {calendarFor === 'from' ? 'start' : 'end'} date
             </Text>
-            <TouchableOpacity onPress={() => setCalendarFor(null)}>
+            <TouchableOpacity onPress={() => setCalendarFor(null)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Text style={s.calCancel}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -301,12 +299,12 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
 
   // ── Form view ────────────────────────────────────────────────────
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={s.safe} edges={['top']}>
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity onPress={onClose} style={s.closeBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-            <Ionicons name="close" size={22} color={C.ink} />
+            <Ionicons name="close-circle" size={28} color={C.ink} />
           </TouchableOpacity>
           <Text style={s.title}>Referral Letter</Text>
           <View style={{ width: 38 }} />
@@ -436,33 +434,40 @@ export default function ReferralLetterModal({ visible, onClose, appointment }: P
             )}
           </View>
 
-          {/* Share button */}
-          <TouchableOpacity
-            style={[s.shareBtn, generating && s.shareBtnDim]}
-            onPress={generateAndShare}
-            disabled={generating}
-            activeOpacity={0.85}
-          >
-            {generating ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Ionicons name="share-outline" size={20} color="#fff" />
-                <Text style={s.shareBtnText}>Generate & Share</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {/* Generate button */}
+          {!webDocId ? (
+            <TouchableOpacity
+              style={[s.shareBtn, generating && s.shareBtnDim]}
+              onPress={generateAndShare}
+              disabled={generating}
+              activeOpacity={0.85}
+            >
+              {generating ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="print-outline" size={20} color="#fff" />
+                  <Text style={s.shareBtnText}>Generate & Send to Admin</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <View style={s.sentBanner}>
+              <Ionicons name="checkmark-circle" size={20} color="#065F46" />
+              <Text style={s.sentBannerText}>Sent to front desk for printing</Text>
+            </View>
+          )}
 
-          {/* Web link share — appears after saving */}
+          {/* Web link for admin — appears after saving */}
           {webDocId && (
             <TouchableOpacity
               style={s.webLinkBtn}
               onPress={() => {
-                Share.share({ message: `View & print this document: ${API_BASE}/document.html?id=${webDocId}` });
+                Share.share({ message: `Print this referral letter: ${API_BASE}/document.html?id=${webDocId}` });
               }}
             >
               <Ionicons name="link-outline" size={16} color={C.sage} />
-              <Text style={s.webLinkText}>Share web link for printing</Text>
+              <Text style={s.webLinkText}>Share print link with admin</Text>
             </TouchableOpacity>
           )}
         </ScrollView>
@@ -557,7 +562,13 @@ const s = StyleSheet.create({
   shareBtnDim:  { opacity: 0.55 },
   shareBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
 
-  // Web link button
+  sentBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#D1FAE5', borderRadius: 14,
+    paddingVertical: 16, marginTop: 8,
+  },
+  sentBannerText: { fontSize: 15, fontWeight: '600', color: '#065F46' },
+
   webLinkBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, marginTop: 10, paddingVertical: 10,
