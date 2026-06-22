@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { registerForPushNotifications } from '../lib/notifications';
 import { C } from '../constants/theme';
@@ -10,6 +12,9 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
+  // Icon glyphs render as blank boxes (notably on the web build) unless the
+  // Ionicons font is explicitly loaded before the UI mounts.
+  const [fontsLoaded] = useFonts(Ionicons.font);
 
   useEffect(() => {
     supabase.auth.getSession()
@@ -49,7 +54,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="patient/[id]" />
       </Stack>
-      {!ready && (
+      {(!ready || !fontsLoaded) && (
         <View style={{
           position: 'absolute', inset: 0,
           backgroundColor: C.bg,
