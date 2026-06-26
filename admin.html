@@ -8216,7 +8216,7 @@ function SettingsPage({ supabase, session }) {
   useEffect(() => {
     if (settingsTab !== 'practice') return;
     if (practiceLoaded) return;
-    api('/api/practice')
+    api('/api/staff?resource=practice')
       .then(d => {
         const p = d.practice || {};
         setPracticeForm({
@@ -8245,7 +8245,7 @@ function SettingsPage({ supabase, session }) {
     if (!practiceForm.name.trim()) { setPracticeErr('Practice name is required.'); return; }
     setPracticeSaving(true);
     try {
-      await api('/api/practice', {
+      await api('/api/staff?resource=practice', {
         method: 'PATCH',
         body: JSON.stringify(practiceForm),
       });

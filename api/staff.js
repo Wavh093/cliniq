@@ -3,6 +3,8 @@
  * /api/staff
  *
  * GET  ?resource=config        → { supabaseUrl, supabaseAnon, practice? }  PUBLIC
+ * GET  ?resource=practice      → { practice }  Auth required.
+ * PATCH ?resource=practice     → { practice }  Auth required.
  * GET  → { staff: [...] }      Auth required.
  * POST { name, email }         → 201 { success: true }  Auth required.
  * DELETE ?id=UUID              → 200 { success: true }  Auth required.
@@ -10,6 +12,9 @@
 const { createClient } = require('@supabase/supabase-js');
 const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rateLimit');
+
+const PRACTICE_FIELDS = 'id, name, email, phone, address_line1, address_line2, city, postal_code, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution, logo_data';
+const PRACTICE_UPDATABLE = ['name','email','phone','address_line1','address_line2','city','postal_code','hpcsa_number','practice_number','doctor_first_name','doctor_last_name','doctor_qualification','institution','logo_data'];
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
@@ -59,6 +64,26 @@ module.exports = async function handler(req, res) {
   if (!user) return;
 
   const db = adminClient();
+
+  // ── Practice profile GET / PATCH ──────────────────────────────
+  if (req.query.resource === 'practice') {
+    if (req.method === 'GET') {
+      const { data, error } = await db.from('practices').select(PRACTICE_FIELDS).eq('id', PRACTICE_ID).single();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ practice: data });
+    }
+    if (req.method === 'PATCH') {
+      const body = await parseBody(req);
+      const update = {};
+      for (const k of PRACTICE_UPDATABLE) { if (k in body) update[k] = body[k] ?? null; }
+      if (!Object.keys(update).length) return res.status(400).json({ error: 'Nothing to update' });
+      update.updated_at = new Date().toISOString();
+      const { data, error } = await db.from('practices').update(update).eq('id', PRACTICE_ID).select(PRACTICE_FIELDS).single();
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ practice: data });
+    }
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   // ── GET — list all staff ──────────────────────────────────────
   if (req.method === 'GET') {
