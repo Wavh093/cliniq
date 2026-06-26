@@ -1940,14 +1940,14 @@ function CreateAppointmentModal({ onClose, onDone, allowPastDates = false }) {
           <div className="field">
             <label>Service *</label>
             {svcsErr && <div className="alert alert-error" style={{marginBottom:6,marginTop:-2}}>{svcsErr}</div>}
-            <select value={serviceId} onChange={e => setServiceId(e.target.value)} disabled={svcsLoading || !!svcsErr}>
-              <option value="">{svcsLoading ? 'Loading…' : svcsErr ? 'Unavailable' : 'Select a service…'}</option>
-              {services.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.name}{s.price_from ? ` — from R ${s.price_from}` : ''}
-                </option>
-              ))}
-            </select>
+            <ServiceSelect
+              services={services}
+              value={serviceId}
+              onChange={setServiceId}
+              loading={svcsLoading}
+              disabled={!!svcsErr}
+              placeholder={svcsErr ? 'Unavailable' : 'Select a service…'}
+            />
             {selSvc && (
               <div style={{fontSize:11, color:'var(--muted)', marginTop:2}}>
                 {selSvc.duration_minutes} min · {selSvc.category}
@@ -2090,6 +2090,7 @@ function Appointments({ onNavigate, initialPayload }) {
   const [total, setTotal] = useState(0);
   const [pages, setPages] = useState(1);
   const LIMIT = 20;
+  const isFirstMount = useRef(true);
   // Reschedule
   const [editMode,    setEditMode]    = useState(false);
   const [editForm,    setEditForm]    = useState({});
@@ -2191,8 +2192,16 @@ function Appointments({ onNavigate, initialPayload }) {
       .then(d => {
         setAppts(d.appointments || []);
         setTotal(d.total || 0);
-        setPages(d.pages || 1);
+        const totalPages = d.pages || 1;
+        setPages(totalPages);
         setLoading(false);
+        // On first mount with no filters, jump straight to the latest page
+        if (isFirstMount.current && pg === 1 && !dateFilter && !statusFilter && totalPages > 1) {
+          isFirstMount.current = false;
+          setPage(totalPages);
+        } else {
+          isFirstMount.current = false;
+        }
       })
       .catch(e => { setErr(e.message); setLoading(false); });
   }, [dateFilter, statusFilter]);
@@ -2592,6 +2601,8 @@ function Appointments({ onNavigate, initialPayload }) {
                     {selected.cancelled_at && <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>Cancelled {new Date(selected.cancelled_at).toLocaleString('en-ZA',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>}
                   </div>
                 )}
+                {/* Dental scans linked to this appointment */}
+                <ApptScansSection appointment={selected} />
                 <div style={{marginBottom:6,fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)'}}>Update status</div>
                 {(STATUS_TRANSITIONS[selected.status]?.length === 0) ? (
                   <div>
@@ -2688,13 +2699,15 @@ function Appointments({ onNavigate, initialPayload }) {
                 <div className="form-cols" style={{gap:16,marginBottom:16}}>
                   <div className="field">
                     <label>Service</label>
-                    <select value={editForm.service_id} onChange={e => {
-                      const svc = svcList.find(s => s.id === e.target.value);
-                      setEditForm(f => ({...f, service_id: e.target.value, duration_minutes: svc?.duration_minutes || f.duration_minutes}));
-                    }}>
-                      <option value="">— no change —</option>
-                      {svcList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    <ServiceSelect
+                      services={svcList}
+                      value={editForm.service_id}
+                      onChange={id => {
+                        const svc = svcList.find(s => s.id === id);
+                        setEditForm(f => ({...f, service_id: id, duration_minutes: svc?.duration_minutes || f.duration_minutes}));
+                      }}
+                      placeholder="— no change —"
+                    />
                   </div>
                   <div className="field">
                     <label>Duration (min)</label>
@@ -2758,6 +2771,38 @@ const REL_LABEL    = { main_member:'Main member', spouse:'Spouse / partner', chi
 const PROVINCES    = ['Gauteng','Western Cape','KwaZulu-Natal','Eastern Cape','Limpopo','Mpumalanga','North West','Free State','Northern Cape'];
 const REFERRALS    = [['friend','Friend / Word of mouth'],['google','Google'],['social_media','Social media'],
                       ['signage','Signage'],['medical_aid','Medical aid'],['walk_in','Walk-in'],['repeat','Repeat / Self'],['other','Other']];
+
+const MEDICAL_AIDS = [
+  'Discovery Health','Bonitas Medical Fund','Momentum Health','BestMed Medical Aid',
+  'MediHelp','FedHealth','Profmed','GEMS','POLMED',
+];
+
+function MedicalAidSelect({ value, onChange }) {
+  const isKnown = MEDICAL_AIDS.includes(value);
+  const showOtherInput = value !== '' && !isKnown;
+  const selectVal = showOtherInput ? '__other__' : (value || '');
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:6}}>
+      <select value={selectVal} onChange={e => {
+        const v = e.target.value;
+        if (v === '__other__') onChange('');
+        else onChange(v);
+      }}>
+        <option value="">Select medical aid…</option>
+        {MEDICAL_AIDS.map(ma => <option key={ma} value={ma}>{ma}</option>)}
+        <option value="__other__">Other…</option>
+      </select>
+      {(selectVal === '__other__' || showOtherInput) && (
+        <input
+          value={showOtherInput ? value : ''}
+          onChange={e => onChange(e.target.value)}
+          placeholder="Enter medical aid name"
+          autoFocus
+        />
+      )}
+    </div>
+  );
+}
 
 function Patients({ initialPatient }) {
   const [patients, setPatients] = useState([]);
@@ -3671,7 +3716,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   {maForm.has_medical_aid && (
                     <>
                       <div className="pt-grid">
-                        <div className="field"><label>Scheme name</label><input value={maForm.medical_aid_name} onChange={e=>setMaForm(f=>({...f,medical_aid_name:e.target.value}))} placeholder="e.g. Discovery Health" /></div>
+                        <div className="field"><label>Scheme name</label><MedicalAidSelect value={maForm.medical_aid_name} onChange={v => setMaForm(f=>({...f,medical_aid_name:v}))} /></div>
                         <div className="field"><label>Membership number</label><input value={maForm.medical_aid_number} onChange={e=>setMaForm(f=>({...f,medical_aid_number:e.target.value}))} placeholder="e.g. 12345678" /></div>
                         <div className="field"><label>Plan / option</label><input value={maForm.medical_aid_plan} onChange={e=>setMaForm(f=>({...f,medical_aid_plan:e.target.value}))} placeholder="e.g. Classic Comprehensive" /></div>
                         <div className="field">
@@ -4425,7 +4470,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   <div className="field"><label>First name *</label><input value={editForm.first_name} readOnly disabled /></div>
                   <div className="field"><label>Last name *</label><input value={editForm.last_name} readOnly disabled /></div>
                   <div className="field"><label>Email</label><input type="email" value={editForm.email} onChange={ef('email')} /></div>
-                  <div className="field"><label>Phone</label><input value={editForm.phone} onChange={ef('phone')} /></div>
+                  <div className="field"><label>Phone</label><input value={editForm.phone} onChange={e => setEditForm(v => ({...v, phone: e.target.value.replace(/[a-zA-Z]/g,'')}))} inputMode="tel" /></div>
                   <div className="field"><label>SA ID number</label><input value={editForm.id_number} readOnly disabled placeholder="13-digit SA ID" /></div>
                   <div className="field"><label>Date of birth</label><div style={{fontSize:13,color:'var(--ink-soft)',padding:'9px 0'}}>{editForm.date_of_birth ? fmtDate(editForm.date_of_birth) : '—'}</div></div>
                   <div className="field">
@@ -4469,7 +4514,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                 {editForm.has_medical_aid && (
                   <>
                     <div className="pt-grid">
-                      <div className="field"><label>Scheme name</label><input value={editForm.medical_aid_name} onChange={ef('medical_aid_name')} placeholder="e.g. Discovery Health" /></div>
+                      <div className="field"><label>Scheme name</label><MedicalAidSelect value={editForm.medical_aid_name} onChange={v => setEditForm(f => ({...f, medical_aid_name:v}))} /></div>
                       <div className="field"><label>Membership number</label><input value={editForm.medical_aid_number} onChange={ef('medical_aid_number')} placeholder="e.g. 12345678" /></div>
                       <div className="field"><label>Plan / option</label><input value={editForm.medical_aid_plan} onChange={ef('medical_aid_plan')} placeholder="e.g. Classic Comprehensive" /></div>
                       <div className="field">
@@ -4610,6 +4655,175 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   );
 }
 
+
+/* ── Dental scans section inside appointment detail modal ─────── */
+function ApptScansSection({ appointment }) {
+  const patientId = appointment?.patients?.id;
+  const apptId    = appointment?.id;
+  const [scans,        setScans]        = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [uploading,    setUploading]    = useState(false);
+  const fileRef = useRef(null);
+
+  useEffect(() => {
+    if (!patientId) { setLoading(false); return; }
+    setLoading(true);
+    api(`/api/documents?resource=dental&action=scans&patient_id=${patientId}`)
+      .then(d => {
+        const all = d.scans || [];
+        // Show scans linked to this appointment first, then all others
+        const linked = all.filter(s => s.appointment_id === apptId);
+        setScans(linked);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [patientId, apptId]);
+
+  const uploadScan = async (file) => {
+    if (!file || !patientId) return;
+    if (file.size > 20 * 1024 * 1024) { showToast('File must be under 20 MB', 'error'); return; }
+    const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!validTypes.includes(file.type)) { showToast('Only JPEG, PNG, or PDF allowed', 'error'); return; }
+    setUploading(true);
+    try {
+      const sb = window._supabaseClient;
+      if (!sb) throw new Error('Storage client not available');
+      const filePath = `${patientId}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await sb.storage.from('dental-scans').upload(filePath, file);
+      if (upErr) throw upErr;
+      const resp = await api('/api/documents?resource=dental&action=scan', {
+        method: 'POST',
+        body: JSON.stringify({
+          patient_id:     patientId,
+          appointment_id: apptId,
+          file_path:      filePath,
+          mime_type:      file.type,
+          filename:       file.name,
+          tooth_fdis:     [],
+        }),
+      });
+      setScans(prev => [resp.scan, ...prev]);
+      showToast('Scan uploaded and linked to this appointment');
+    } catch(e) { showToast(e.message || 'Upload failed', 'error'); }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  if (!patientId) return null;
+
+  return (
+    <div style={{marginBottom:16,padding:'12px 14px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:10}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:scans.length?10:0}}>
+        <div style={{fontSize:10,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',fontWeight:600}}>
+          Dental scans — this appointment
+        </div>
+        <div>
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,application/pdf"
+            style={{display:'none'}}
+            onChange={e => { const f = e.target.files?.[0]; if (f) uploadScan(f); }}
+          />
+          <button className="btn btn-ghost btn-sm" style={{fontSize:11,display:'flex',alignItems:'center',gap:4}}
+            onClick={() => fileRef.current?.click()} disabled={uploading}>
+            <span className="material-symbols-outlined" style={{fontSize:13}}>upload</span>
+            {uploading ? 'Uploading…' : 'Upload scan'}
+          </button>
+        </div>
+      </div>
+      {loading ? (
+        <div style={{fontSize:12,color:'var(--muted)',padding:'4px 0'}}>Loading…</div>
+      ) : scans.length === 0 ? (
+        <div style={{fontSize:12,color:'var(--muted)',marginTop:4}}>No scans for this appointment yet. Upload one above.</div>
+      ) : (
+        <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:4}}>
+          {scans.map(s => (
+            <div key={s.id} style={{display:'flex',alignItems:'center',gap:8,fontSize:12}}>
+              <span className="material-symbols-outlined" style={{fontSize:14,color:'var(--sage)'}}>
+                {s.mime_type === 'application/pdf' ? 'picture_as_pdf' : 'image'}
+              </span>
+              <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--ink)'}}>{s.filename}</span>
+              {s.signed_url && (
+                <a href={s.signed_url} target="_blank" rel="noopener noreferrer"
+                  className="btn btn-ghost btn-sm" style={{fontSize:10,padding:'2px 8px'}}>View</a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Service selector — always drops down, max-height ~192px ─── */
+function ServiceSelect({ services, value, onChange, loading, disabled, placeholder = 'Select a service…' }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  const selected = services.find(s => s.id === value);
+  const isDisabled = disabled || loading;
+
+  return (
+    <div ref={wrapRef} style={{position:'relative'}}>
+      <button type="button"
+        onClick={() => !isDisabled && setOpen(o => !o)}
+        style={{
+          width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+          background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8,
+          padding:'10px 14px', cursor: isDisabled ? 'default' : 'pointer', gap:8,
+          fontSize:14, color: selected ? 'var(--ink)' : 'var(--muted)',
+          textAlign:'left', fontFamily:'inherit', fontWeight:400,
+          opacity: isDisabled ? 0.65 : 1, transition:'border-color 0.15s',
+        }}>
+        <span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+          {loading ? 'Loading…' : selected ? selected.name + (selected.price_from ? ` — from R ${selected.price_from}` : '') : placeholder}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{flexShrink:0, opacity:0.5, transform: open ? 'rotate(180deg)' : 'none', transition:'transform 0.15s'}}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && !isDisabled && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 4px)', left:0, right:0, zIndex:500,
+          background:'var(--card)', border:'1px solid var(--border-2)',
+          borderRadius:10, overflow:'hidden',
+          boxShadow:'0 8px 32px rgba(13,45,62,0.14)',
+          maxHeight:192, overflowY:'auto',
+        }}>
+          <div
+            onClick={() => { onChange(''); setOpen(false); }}
+            style={{padding:'9px 14px', cursor:'pointer', fontSize:13, color:'var(--muted)',
+              fontStyle:'italic', borderBottom:'1px solid var(--border)',
+              background: !value ? 'var(--bg-3)' : 'transparent'}}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-3)'}
+            onMouseLeave={e => e.currentTarget.style.background = !value ? 'var(--bg-3)' : 'transparent'}>
+            {placeholder}
+          </div>
+          {services.map(s => (
+            <div key={s.id}
+              onClick={() => { onChange(s.id); setOpen(false); }}
+              style={{
+                padding:'9px 14px', cursor:'pointer', fontSize:13,
+                borderTop:'1px solid var(--border)',
+                background: s.id === value ? 'color-mix(in oklab, var(--sage) 10%, var(--card))' : 'transparent',
+                color:'var(--ink)', fontWeight: s.id === value ? 600 : 400,
+              }}
+              onMouseEnter={e => { if (s.id !== value) e.currentTarget.style.background = 'var(--bg-3)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = s.id === value ? 'color-mix(in oklab, var(--sage) 10%, var(--card))' : 'transparent'; }}>
+              {s.name}{s.price_from ? ` — from R ${s.price_from}` : ''}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Appointment date picker (future-friendly, Mon-first) ────── */
 function ApptDatePicker({ value, onChange, placeholder = 'Select date', disablePast = true }) {
@@ -5019,10 +5233,10 @@ function DobPicker({ value, onChange, placeholder = 'Date of birth' }) {
     transition:'border-color 0.15s',
   };
   const popStyle = {
-    position:'absolute', bottom:'calc(100% + 6px)', left:0, zIndex:400,
+    position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:400,
     background:'var(--card)', borderRadius:14,
     border:'1px solid var(--border-2)',
-    boxShadow:'0 -8px 48px rgba(13,45,62,0.18)',
+    boxShadow:'0 16px 48px rgba(13,45,62,0.18)',
     width:272, overflow:'hidden',
   };
   const hBtnStyle = {
@@ -5179,6 +5393,10 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState('');
   const [mmPick, setMmPick] = useState(initialMmPick);
+  const [idType, setIdType] = useState(() => {
+    const n = (initialForm.id_number || '').trim();
+    return (n && /^[A-Za-z]\d{8}$/.test(n)) ? 'passport' : 'sa_id';
+  });
   const set = p => setForm(f => ({...f,...p}));
 
   // Auto-suggest dependant code when launched from a main member's record
@@ -5197,10 +5415,11 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
   const validateStep0 = () => {
     const errs = [];
     if (!form.first_name.trim() || !form.last_name.trim()) errs.push('First name and last name are required.');
-    if (!form.id_number.trim()) errs.push('ID number is required.');
-    else if (!/^\d{13}$/.test(form.id_number.trim())) errs.push('SA ID number must be exactly 13 digits.');
+    if (!form.id_number.trim()) errs.push(idType === 'passport' ? 'Passport number is required.' : 'ID number is required.');
+    else if (idType === 'sa_id' && !/^\d{13}$/.test(form.id_number.trim())) errs.push('SA ID number must be exactly 13 digits.');
+    else if (idType === 'passport' && !/^[A-Za-z]\d{8}$/.test(form.id_number.trim())) errs.push('Passport number must be one letter followed by 8 digits (e.g. A12345678).');
     if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.push('Please enter a valid email address.');
-    if (form.phone && !/^0/.test(form.phone.trim().replace(/\D/g, ''))) errs.push('Phone number must start with 0.');
+    if (form.phone && form.phone.trim().replace(/\D/g,'') && !/^(0|\+27)/.test(form.phone.trim())) errs.push('Phone number must start with 0 or +27.');
     return errs;
   };
 
@@ -5341,11 +5560,31 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               <div className="field"><label>Last name *</label><input value={form.last_name} onChange={e=>set({last_name:e.target.value})} placeholder="Smith" /></div>
             </div>
             <div className="form-cols" style={{marginTop:14}}>
-              <div className="field"><label>Phone</label><input value={form.phone} onChange={e=>set({phone:e.target.value})} placeholder="071 000 0000" /></div>
+              <div className="field"><label>Phone</label><input value={form.phone} onChange={e=>set({phone:e.target.value.replace(/[a-zA-Z]/g,'')})} placeholder="071 000 0000" inputMode="tel" /></div>
               <div className="field"><label>Email</label><input type="email" value={form.email} onChange={e=>set({email:e.target.value})} placeholder="jane@example.com" /></div>
             </div>
             <div className="form-cols" style={{marginTop:14}}>
-              <div className="field"><label>ID number *</label><input value={form.id_number} onChange={e=>set({id_number:e.target.value})} placeholder="13-digit SA ID number" maxLength={13} inputMode="numeric" /></div>
+              <div className="field">
+                <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
+                  <span>{idType === 'passport' ? 'Passport number *' : 'SA ID number *'}</span>
+                  <div style={{display:'flex',gap:4}}>
+                    <button type="button" className={`btn btn-sm ${idType==='sa_id'?'btn-primary':'btn-ghost'}`}
+                      style={{fontSize:10,padding:'2px 8px'}}
+                      onClick={() => { setIdType('sa_id'); set({id_number:''}); }}>SA ID</button>
+                    <button type="button" className={`btn btn-sm ${idType==='passport'?'btn-primary':'btn-ghost'}`}
+                      style={{fontSize:10,padding:'2px 8px'}}
+                      onClick={() => { setIdType('passport'); set({id_number:''}); }}>Passport</button>
+                  </div>
+                </label>
+                <input
+                  value={form.id_number}
+                  onChange={e => set({id_number: idType === 'sa_id' ? e.target.value.replace(/\D/g,'') : e.target.value.toUpperCase()})}
+                  placeholder={idType === 'sa_id' ? '13-digit SA ID number' : 'e.g. A12345678'}
+                  maxLength={idType === 'sa_id' ? 13 : 9}
+                  inputMode={idType === 'sa_id' ? 'numeric' : 'text'}
+                />
+                {idType === 'passport' && <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>1 letter + 8 digits (e.g. A12345678)</div>}
+              </div>
               <div className="field"><label>Date of birth</label><DobPicker value={form.date_of_birth} onChange={v => set({date_of_birth: v})} /></div>
             </div>
             <div className="field" style={{marginTop:14,maxWidth:'calc(50% - 8px)'}}>
@@ -5380,7 +5619,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
             {form.has_medical_aid && (
               <>
                 <div className="form-cols">
-                  <div className="field"><label>Scheme name</label><input value={form.medical_aid_name} onChange={e=>set({medical_aid_name:e.target.value})} placeholder="e.g. Discovery Health" /></div>
+                  <div className="field"><label>Scheme name</label><MedicalAidSelect value={form.medical_aid_name} onChange={v => set({medical_aid_name:v})} /></div>
                   <div className="field"><label>Membership number</label><input value={form.medical_aid_number} onChange={e=>set({medical_aid_number:e.target.value})} placeholder="e.g. 12345678" /></div>
                 </div>
                 <div className="form-cols" style={{marginTop:14}}>
@@ -6319,7 +6558,7 @@ function RevenuePage() {
                     </td></tr>
                   ) : plan_sessions.map(s => (
                     <tr key={s.id}>
-                      <td>{s.session_date ? fmtDateShort(s.session_date) : '—'}</td>
+                      <td>{s.session_date ? fmtDateShort(s.session_date) : (s.paid_at ? fmtDateShort(s.paid_at.slice(0,10)) : '—')}</td>
                       <td className="td-main">{s.treatment_plans?.patients?.first_name} {s.treatment_plans?.patients?.last_name}</td>
                       <td>{s.treatment_plans?.title || '—'}</td>
                       <td style={{color:'var(--muted)'}}>Session {s.session_number}</td>
@@ -7961,6 +8200,62 @@ function SettingsPage({ supabase, session }) {
   const user = session?.user;
   const [settingsTab, setSettingsTab] = useState('account');
 
+  // ── Practice Profile ────────────────────────────────────────
+  const BLANK_PRACTICE = {
+    name:'', email:'', phone:'', address_line1:'', address_line2:'',
+    city:'', postal_code:'', hpcsa_number:'', practice_number:'',
+    doctor_first_name:'', doctor_last_name:'', doctor_qualification:'',
+    institution:'', logo_data:'',
+  };
+  const [practiceForm,    setPracticeForm]    = useState(BLANK_PRACTICE);
+  const [practiceLoaded,  setPracticeLoaded]  = useState(false);
+  const [practiceSaving,  setPracticeSaving]  = useState(false);
+  const [practiceErr,     setPracticeErr]     = useState('');
+  const [practiceOk,      setPracticeOk]      = useState(false);
+
+  useEffect(() => {
+    if (settingsTab !== 'practice') return;
+    if (practiceLoaded) return;
+    api('/api/practice')
+      .then(d => {
+        const p = d.practice || {};
+        setPracticeForm({
+          name:                 p.name                 || '',
+          email:                p.email                || '',
+          phone:                p.phone                || '',
+          address_line1:        p.address_line1        || '',
+          address_line2:        p.address_line2        || '',
+          city:                 p.city                 || '',
+          postal_code:          p.postal_code          || '',
+          hpcsa_number:         p.hpcsa_number         || '',
+          practice_number:      p.practice_number      || '',
+          doctor_first_name:    p.doctor_first_name    || '',
+          doctor_last_name:     p.doctor_last_name     || '',
+          doctor_qualification: p.doctor_qualification || '',
+          institution:          p.institution          || '',
+          logo_data:            p.logo_data            || '',
+        });
+        setPracticeLoaded(true);
+      })
+      .catch(() => setPracticeLoaded(true));
+  }, [settingsTab, practiceLoaded]);
+
+  const savePracticeProfile = async () => {
+    setPracticeErr(''); setPracticeOk(false);
+    if (!practiceForm.name.trim()) { setPracticeErr('Practice name is required.'); return; }
+    setPracticeSaving(true);
+    try {
+      await api('/api/practice', {
+        method: 'PATCH',
+        body: JSON.stringify(practiceForm),
+      });
+      setPracticeOk(true);
+      showToast('Practice profile saved');
+    } catch(e) {
+      setPracticeErr(e.message || 'Could not save. Please try again.');
+    } finally { setPracticeSaving(false); }
+  };
+
   // ── Change my password ──────────────────────────────────────
   const [pwForm,     setPwForm]     = useState({ current:'', next:'', confirm:'' });
   const [pwSaving,   setPwSaving]   = useState(false);
@@ -8123,6 +8418,7 @@ function SettingsPage({ supabase, session }) {
       {/* ── Settings sub-tabs ── */}
       <div style={{display:'flex',gap:4,marginBottom:24,borderBottom:'1px solid var(--border)',paddingBottom:0}}>
         {[
+          {id:'practice',   label:'Practice Profile'},
           {id:'account',    label:'Account'},
           {id:'staff',      label:'Staff & Access'},
           {id:'signatures', label:'Signatures'},
@@ -8143,6 +8439,124 @@ function SettingsPage({ supabase, session }) {
           </button>
         ))}
       </div>
+
+      {/* ── Practice Profile ── */}
+      {settingsTab === 'practice' && (
+        !practiceLoaded ? (
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            {[1,2,3,4].map(i => <div key={i} className="skel" style={{height:56,borderRadius:10}} />)}
+          </div>
+        ) : (
+          <div style={{display:'flex',flexDirection:'column',gap:20}}>
+
+            {/* Practice details */}
+            <div className="card">
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:16}}>Practice details</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div className="field" style={{gridColumn:'1/-1'}}>
+                  <label>Practice name</label>
+                  <input value={practiceForm.name} onChange={e=>setPracticeForm(p=>({...p,name:e.target.value}))} placeholder="e.g. OH Dental Studio" />
+                </div>
+                <div className="field">
+                  <label>Practice number <span style={{fontSize:11,color:'var(--muted)',fontWeight:400}}>(BHF / billing)</span></label>
+                  <input value={practiceForm.practice_number} onChange={e=>setPracticeForm(p=>({...p,practice_number:e.target.value}))} placeholder="e.g. 0124567" />
+                </div>
+                <div className="field">
+                  <label>HPCSA number</label>
+                  <input value={practiceForm.hpcsa_number} onChange={e=>setPracticeForm(p=>({...p,hpcsa_number:e.target.value}))} placeholder="e.g. DEN00123456" />
+                </div>
+                <div className="field">
+                  <label>Email</label>
+                  <input type="email" value={practiceForm.email} onChange={e=>setPracticeForm(p=>({...p,email:e.target.value}))} placeholder="practice@email.co.za" />
+                </div>
+                <div className="field">
+                  <label>Phone</label>
+                  <input value={practiceForm.phone} onChange={e=>setPracticeForm(p=>({...p,phone:e.target.value.replace(/[a-zA-Z]/g,'')}))} inputMode="tel" placeholder="e.g. 011 123 4567" />
+                </div>
+                <div className="field" style={{gridColumn:'1/-1'}}>
+                  <label>Address</label>
+                  <input value={practiceForm.address_line1} onChange={e=>setPracticeForm(p=>({...p,address_line1:e.target.value}))} placeholder="Street address" />
+                </div>
+                <div className="field">
+                  <label>City</label>
+                  <input value={practiceForm.city} onChange={e=>setPracticeForm(p=>({...p,city:e.target.value}))} placeholder="e.g. Johannesburg" />
+                </div>
+                <div className="field">
+                  <label>Postal code</label>
+                  <input value={practiceForm.postal_code} onChange={e=>setPracticeForm(p=>({...p,postal_code:e.target.value}))} placeholder="e.g. 2000" />
+                </div>
+              </div>
+            </div>
+
+            {/* Doctor / Clinician */}
+            <div className="card">
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:16}}>Doctor / clinician</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+                <div className="field">
+                  <label>First name</label>
+                  <input value={practiceForm.doctor_first_name} onChange={e=>setPracticeForm(p=>({...p,doctor_first_name:e.target.value}))} placeholder="e.g. Amara" />
+                </div>
+                <div className="field">
+                  <label>Last name</label>
+                  <input value={practiceForm.doctor_last_name} onChange={e=>setPracticeForm(p=>({...p,doctor_last_name:e.target.value}))} placeholder="e.g. Osei" />
+                </div>
+                <div className="field">
+                  <label>Qualification</label>
+                  <input value={practiceForm.doctor_qualification} onChange={e=>setPracticeForm(p=>({...p,doctor_qualification:e.target.value}))} placeholder="e.g. BDS (Wits), MBChB" />
+                </div>
+                <div className="field">
+                  <label>Institution</label>
+                  <input value={practiceForm.institution} onChange={e=>setPracticeForm(p=>({...p,institution:e.target.value}))} placeholder="e.g. University of Pretoria" />
+                </div>
+              </div>
+            </div>
+
+            {/* Practice logo */}
+            <div className="card">
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:4}}>Practice logo</div>
+              <div style={{fontSize:12,color:'var(--ink-soft)',marginBottom:16,lineHeight:1.5}}>
+                Used on sick notes, prescriptions, and printed documents. PNG or JPG, under 1 MB.
+              </div>
+              {practiceForm.logo_data ? (
+                <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:12}}>
+                  <div style={{border:'1.5px solid var(--border)',borderRadius:10,padding:'10px 16px',background:'#f8fafc'}}>
+                    <img src={practiceForm.logo_data} alt="practice logo" style={{height:60,maxWidth:220,objectFit:'contain'}} />
+                  </div>
+                  <button className="btn btn-ghost btn-sm"
+                    style={{fontSize:12,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
+                    onClick={() => setPracticeForm(p=>({...p,logo_data:''}))}>
+                    Remove logo
+                  </button>
+                </div>
+              ) : (
+                <div style={{border:'1.5px dashed var(--border)',borderRadius:10,padding:'14px 20px',background:'#f8fafc',marginBottom:12,fontSize:13,color:'var(--muted)',textAlign:'center'}}>
+                  No logo uploaded
+                </div>
+              )}
+              <label className="btn btn-ghost btn-sm" style={{cursor:'pointer',fontSize:12,alignSelf:'flex-start',margin:0}}>
+                {practiceForm.logo_data ? 'Replace logo' : 'Upload logo'}
+                <input type="file" accept="image/png,image/jpeg" style={{display:'none'}} onChange={e => {
+                  const f = e.target.files[0];
+                  if (!f) return;
+                  if (f.size > 1024 * 1024) { setPracticeErr('Logo must be under 1 MB.'); return; }
+                  const reader = new FileReader();
+                  reader.onload = ev => { setPracticeForm(p=>({...p,logo_data:ev.target.result})); setPracticeErr(''); };
+                  reader.readAsDataURL(f);
+                  e.target.value = '';
+                }} />
+              </label>
+            </div>
+
+            {practiceErr && <div className="alert alert-error">{practiceErr}</div>}
+            {practiceOk  && <div style={{fontSize:13,color:'var(--green)',fontWeight:500}}>✓ Practice profile saved.</div>}
+            <div>
+              <button className="btn btn-primary" disabled={practiceSaving} onClick={savePracticeProfile}>
+                {practiceSaving ? 'Saving…' : 'Save practice profile'}
+              </button>
+            </div>
+          </div>
+        )
+      )}
 
       {/* ── My account ── */}
       {settingsTab === 'account' && <div className="card" style={{marginBottom:24}}>
@@ -8908,12 +9322,12 @@ function SessionPaymentModal({ session, onClose, onSaved }) {
         <div className="form-cols" style={{gap:14,marginBottom:14}}>
           <div className="field">
             <label>Amount charged (R)</label>
-            <input type="number" min="0" step="0.01" placeholder="0.00"
+            <input type="number" min="0" step="100" placeholder="0"
               value={form.amount_charged} onChange={e => set({amount_charged: e.target.value})} />
           </div>
           <div className="field">
             <label>Amount paid (R)</label>
-            <input type="number" min="0" step="0.01" placeholder="0.00"
+            <input type="number" min="0" step="100" placeholder="0"
               value={form.amount_paid} onChange={e => set({amount_paid: e.target.value})} />
           </div>
         </div>
@@ -9081,10 +9495,10 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
 
       {/* Filter */}
       <div style={{display:'flex',gap:6,marginBottom:20}}>
-        {['active','paused','completed',''].map(sf => (
+        {['active','paused','completed','cancelled',''].map(sf => (
           <button key={sf||'all'} className={`btn btn-sm ${statusFilter===sf?'btn-primary':'btn-ghost'}`}
             onClick={() => setStatusFilter(sf)}>
-            {sf==='active'?'Active':sf==='paused'?'Paused':sf==='completed'?'Completed':'All'}
+            {sf==='active'?'Active':sf==='paused'?'Paused':sf==='completed'?'Completed':sf==='cancelled'?'Cancelled':'All'}
           </button>
         ))}
       </div>
@@ -9281,13 +9695,17 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                     {/* Action buttons */}
                     <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0,alignItems:'flex-end'}}>
                       <div style={{display:'flex',gap:4}}>
-                        {s.status !== 'completed' && (
+                        {s.status !== 'completed' && s.status !== 'cancelled' && (
                           <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--green)',borderColor:'rgba(22,163,74,0.3)'}}
                             onClick={() => updateSessionStatus(s.id, 'completed')}>✓ Done</button>
                         )}
                         {s.status === 'scheduled' && (
                           <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
                             onClick={() => updateSessionStatus(s.id, 'missed')}>Missed</button>
+                        )}
+                        {s.status === 'scheduled' && (
+                          <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--muted)',borderColor:'rgba(100,100,100,0.3)'}}
+                            onClick={() => updateSessionStatus(s.id, 'cancelled')}>Cancel</button>
                         )}
                       </div>
                       <button className="btn btn-ghost btn-sm" style={{fontSize:11}}

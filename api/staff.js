@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
           const db = adminClient();
           const { data: practice } = await db
             .from('practices')
-            .select('id, name, email, phone, address_line1, hpcsa_number')
+            .select('id, name, email, phone, address_line1, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution')
             .eq('id', PRACTICE_ID)
             .single()
             .catch(() => ({ data: null }));

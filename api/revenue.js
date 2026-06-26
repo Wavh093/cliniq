@@ -229,6 +229,7 @@ module.exports = async function handler(req, res) {
     summary.inventory_cost     = Math.round(summary.inventory_cost * 100) / 100;
 
     // ── Treatment plan session payments for the same month ────────
+    // Filter by paid_at so sessions without an explicit session_date still appear
     const { data: rawSessions } = await db
       .from('treatment_plan_sessions')
       .select(`
@@ -239,11 +240,11 @@ module.exports = async function handler(req, res) {
         )
       `)
       .eq('treatment_plans.practice_id', PRACTICE_ID)
-      .not('session_date', 'is', null)
-      .gte('session_date', startDate)
-      .lte('session_date', endDate)
       .gt('amount_paid', 0)
-      .order('session_date', { ascending: false });
+      .not('paid_at', 'is', null)
+      .gte('paid_at', startDate + 'T00:00:00.000Z')
+      .lte('paid_at', endDate + 'T23:59:59.999Z')
+      .order('paid_at', { ascending: false });
 
     const plan_sessions = (rawSessions || []).map(s => ({
       id:              s.id,

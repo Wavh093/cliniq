@@ -151,7 +151,8 @@
 
     /* ─── Data ─────────────────────────────────────────────────────────────── */
 
-    const SERVICES = [
+    // Fallback services shown if API is unavailable
+    const SERVICES_FALLBACK = [
       { id: 'checkup',   name: 'Checkup & Clean',     meta: '45 min · From R650',          apiName: 'Checkup & Clean',    duration: 45 },
       { id: 'whitening', name: 'Teeth Whitening',      meta: '60 min · From R3 200',        apiName: 'Teeth Whitening',    duration: 60 },
       { id: 'veneers',   name: 'Porcelain Veneers',    meta: 'Consult · From R5 800/tooth', apiName: 'Porcelain Veneers',  duration: 90 },
@@ -161,6 +162,32 @@
       { id: 'dentures',  name: 'Removable Dentures',   meta: 'Consult · Custom fit',        apiName: 'Removable Dentures', duration: 60 },
       { id: 'emergency', name: 'Emergency Visit',       meta: 'Same-day · See terms',        apiName: 'Emergency Visit',    duration: 30 },
     ];
+
+    function useServices() {
+      const [services, setServices] = React.useState(SERVICES_FALLBACK);
+      React.useEffect(() => {
+        fetch('/api/services')
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (!d?.services?.length) return;
+            const mapped = d.services
+              .filter(s => s.is_active !== false)
+              .map(s => ({
+                id:       s.id,
+                name:     s.name,
+                apiName:  s.name,
+                duration: s.duration_minutes || 30,
+                meta:     [
+                  s.duration_minutes ? s.duration_minutes + ' min' : null,
+                  s.price_from ? 'From R ' + Number(s.price_from).toLocaleString('en-ZA') : null,
+                ].filter(Boolean).join(' · ') || s.category || '',
+              }));
+            if (mapped.length) setServices(mapped);
+          })
+          .catch(() => {}); // silently fall back to static list
+      }, []);
+      return services;
+    }
 
     const PATIENT_TYPES = [
       { id: 'new',       name: 'New patient',       meta: 'First visit with us — welcome.' },
@@ -294,6 +321,7 @@
     /* ─── BookingFlow ──────────────────────────────────────────────────────── */
 
     function BookingFlow() {
+      const SERVICES = useServices();
       const [step, setStep] = React.useState(0);
       const [data, setData] = React.useState({ service:null, patientType:null, date:null, time:null, firstName:'', lastName:'', email:'', phone:'', notes:'' });
       const [errors, setErrors] = React.useState({});
