@@ -232,6 +232,29 @@
     box-shadow: 0 0 0 2px rgba(10,74,92,0.10);
   }
   .field input::placeholder { color: var(--muted); }
+  .kliniqdrop {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: #e8f4f7;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 10px 14px;
+    padding-right: 36px;
+    font: inherit;
+    width: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230a4a5c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    cursor: pointer;
+    color: #0f2830;
+    transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+  }
+  .kliniqdrop:focus {
+    outline: none;
+    background-color: #fff;
+    border-color: #0a4a5c;
+    box-shadow: 0 0 0 2px rgba(10,74,92,.10);
+  }
 
   /* ── Buttons ──────────────────────────────────────────────── */
   .btn {
@@ -2083,8 +2106,9 @@ function Appointments({ onNavigate, initialPayload }) {
   const [statusFilter, setStatusFilter]= useState('');
   const [selected,     setSelected]    = useState(null);
   const [patching,     setPatching]    = useState(false);
-  const [showCreate,   setShowCreate]  = useState(false);
-  const [showHistory,  setShowHistory] = useState(false);
+  const [showCreate,    setShowCreate]   = useState(false);
+  const [showHistory,   setShowHistory]  = useState(false);
+  const [showTimeBlock, setShowTimeBlock] = useState(false);
   // Pagination
   const [page,  setPage]  = useState(1);
   const [total, setTotal] = useState(0);
@@ -2316,6 +2340,11 @@ function Appointments({ onNavigate, initialPayload }) {
             title="Record a past appointment for an existing patient">
             <span className="material-symbols-outlined" style={{fontSize:14}}>history</span> Historical
           </button>
+          <button
+            onClick={() => setShowTimeBlock(true)}
+            style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:10,border:'1px solid #e0ecf0',background:'#f4f9fa',cursor:'pointer',fontSize:13,fontWeight:600,color:'#0f2830'}}>
+            🚫 Block Time
+          </button>
           <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
             + New appointment
           </button>
@@ -2464,7 +2493,7 @@ function Appointments({ onNavigate, initialPayload }) {
       {showCreate && (
         <CreateAppointmentModal
           onClose={() => setShowCreate(false)}
-          onDone={() => { setShowCreate(false); load(1); setPage(1); loadUnlinked(); }}
+          onDone={() => { setShowCreate(false); setPage(pages); load(pages); loadUnlinked(); }}
         />
       )}
 
@@ -2473,6 +2502,13 @@ function Appointments({ onNavigate, initialPayload }) {
           allowPastDates={true}
           onClose={() => setShowHistory(false)}
           onDone={() => { setShowHistory(false); load(1); setPage(1); }}
+        />
+      )}
+
+      {showTimeBlock && (
+        <TimeBlockModal
+          onClose={() => setShowTimeBlock(false)}
+          onDone={() => { setShowTimeBlock(false); }}
         />
       )}
 
@@ -2760,6 +2796,67 @@ function Appointments({ onNavigate, initialPayload }) {
   );
 }
 
+
+function TimeBlockModal({ onClose, onDone }) {
+  const [date, setDate] = React.useState('');
+  const [startTime, setStartTime] = React.useState('');
+  const [endTime, setEndTime] = React.useState('');
+  const [reason, setReason] = React.useState('');
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState('');
+
+  const submit = async () => {
+    if (!date || !startTime || !endTime) { setErr('Date, start time and end time are required'); return; }
+    if (startTime >= endTime) { setErr('End time must be after start time'); return; }
+    setSaving(true); setErr('');
+    try {
+      await api('/api/appointments?resource=time_blocks', {
+        method: 'POST',
+        body: JSON.stringify({
+          start_datetime: `${date}T${startTime}:00`,
+          end_datetime: `${date}T${endTime}:00`,
+          reason: reason.trim() || null,
+        })
+      });
+      onDone();
+    } catch(e) { setErr(e.message); setSaving(false); }
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
+         onMouseDown={e => { if(e.target===e.currentTarget) onClose(); }}>
+      <div style={{background:'#fff',borderRadius:16,padding:28,width:'100%',maxWidth:420,boxShadow:'0 8px 32px rgba(0,0,0,0.15)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+          <h3 style={{margin:0,fontSize:17,fontWeight:700,color:'#0f2830'}}>Block Time</h3>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#6b8f99'}}>×</button>
+        </div>
+        {err && <div style={{background:'#fee2e2',color:'#b91c1c',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:13}}>{err}</div>}
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <div className="field"><label>Date</label>
+            <ApptDatePicker value={date} onChange={setDate} placeholder="Select date" />
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            <div className="field"><label>Start time</label>
+              <ApptTimePicker value={startTime} onChange={setStartTime} placeholder="09:00" />
+            </div>
+            <div className="field"><label>End time</label>
+              <ApptTimePicker value={endTime} onChange={setEndTime} placeholder="10:00" />
+            </div>
+          </div>
+          <div className="field"><label>Reason (optional)</label>
+            <input className="field-input" value={reason} onChange={e=>setReason(e.target.value)} placeholder="e.g. Hospital run, Lunch break" />
+          </div>
+        </div>
+        <div style={{display:'flex',gap:10,marginTop:20}}>
+          <button onClick={onClose} style={{flex:1,padding:'10px',borderRadius:10,border:'2px solid #e0ecf0',background:'#f4f9fa',cursor:'pointer',fontSize:14,fontWeight:600,color:'#0f2830'}}>Cancel</button>
+          <button onClick={submit} disabled={saving} style={{flex:1,padding:'10px',borderRadius:10,border:'none',background:'#0a4a5c',color:'#fff',cursor:saving?'default':'pointer',fontSize:14,fontWeight:600,opacity:saving?0.7:1}}>
+            {saving ? 'Saving…' : 'Block Time'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ════════════════════════════════════════════════════════════
    PATIENTS PAGE
@@ -3112,6 +3209,156 @@ function MainMemberSearch({ picked, onSelect, onClear }) {
 }
 
 /* ── Patient drawer ─────────────────────────────────────────── */
+function QuadrantDiagram({ toothFdi, surfaces, onSaveSurface }) {
+  const SURFACE_STATUS_COLORS = {
+    healthy: '#EFF9F8', cavity: '#FEF3C7', needs_treatment: '#FEE2E2',
+    filled: '#DBEAFE', crown: '#FEF9C3', extraction: '#F1F5F9',
+    missing: '#F8FAFC', implant: '#D1FAE5', bridge: '#E0F2FE',
+  };
+  const SURFACE_STATUS_BORDERS = {
+    healthy: '#B5D5D8', cavity: '#F59E0B', needs_treatment: '#EF4444',
+    filled: '#60A5FA', crown: '#CA8A04', extraction: '#94A3B8',
+    missing: '#94A3B8', implant: '#34D399', bridge: '#38BDF8',
+  };
+  const toothSurfaces = surfaces.filter(s => s.tooth_fdi === toothFdi);
+  const getStatus = (surf) => (toothSurfaces.find(s => s.surface === surf) || {}).status || 'healthy';
+  const [activeSurface, setActiveSurface] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+  const STATUSES_9 = ['healthy','cavity','needs_treatment','filled','crown','extraction','missing','implant','bridge'];
+  const STATUS_LABELS_9 = {
+    healthy:'Healthy', cavity:'Cavity', needs_treatment:'Needs Treatment',
+    filled:'Filled', crown:'Crown', extraction:'Extraction',
+    missing:'Missing', implant:'Implant', bridge:'Bridge',
+  };
+  const handleSaveSurface = async (status) => {
+    if (!activeSurface || saving) return;
+    setSaving(true);
+    await onSaveSurface(activeSurface, status);
+    setSaving(false);
+  };
+  const segments = [
+    { key: 'occlusal', label: 'O', title: 'Occlusal', pos: 'top' },
+    { key: 'mesial',   label: 'M', title: 'Mesial',   pos: 'left' },
+    { key: 'distal',   label: 'D', title: 'Distal',   pos: 'right' },
+    { key: 'lingual',  label: 'L', title: 'Lingual',  pos: 'bottom' },
+  ];
+  const renderSeg = (s) => {
+    const st = getStatus(s.key);
+    const isActive = activeSurface === s.key;
+    return (
+      <div
+        key={s.key}
+        title={s.title}
+        onClick={() => setActiveSurface(isActive ? null : s.key)}
+        style={{
+          position:'absolute', display:'flex', alignItems:'center', justifyContent:'center',
+          cursor:'pointer', userSelect:'none', fontSize:11, fontWeight:700,
+          color: isActive ? '#0a4a5c' : '#4a7a8a',
+          background: SURFACE_STATUS_COLORS[st],
+          border: `2px solid ${isActive ? '#0a4a5c' : SURFACE_STATUS_BORDERS[st]}`,
+          borderRadius:4, transition:'all 0.15s',
+          ...(s.pos === 'top'    && { top:0,    left:'25%', width:'50%', height:'33%' }),
+          ...(s.pos === 'bottom' && { bottom:0,  left:'25%', width:'50%', height:'33%' }),
+          ...(s.pos === 'left'   && { top:'25%', left:0,    width:'33%', height:'50%' }),
+          ...(s.pos === 'right'  && { top:'25%', right:0,   width:'33%', height:'50%' }),
+        }}
+      >{s.label}</div>
+    );
+  };
+  return (
+    <div>
+      <div style={{fontSize:11,color:'#6b8f99',marginBottom:6,fontWeight:600,letterSpacing:'0.05em'}}>SURFACE CONDITIONS</div>
+      <div style={{position:'relative', width:90, height:90, margin:'0 auto 10px'}}>
+        <div style={{position:'absolute',top:'37%',left:'37%',width:'26%',height:'26%',borderRadius:'50%',background:'#e0ecf0',border:'1px solid #b5d5d8'}} />
+        {segments.map(renderSeg)}
+      </div>
+      {activeSurface && (
+        <div style={{marginTop:8}}>
+          <div style={{fontSize:11,color:'#6b8f99',marginBottom:6,fontWeight:600}}>{activeSurface.toUpperCase()} — SELECT STATUS</div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:4}}>
+            {STATUSES_9.map(st => (
+              <button
+                key={st}
+                onClick={() => handleSaveSurface(st)}
+                disabled={saving}
+                style={{
+                  padding:'5px 2px', fontSize:10, border:'1px solid', borderRadius:6, cursor:'pointer',
+                  background: getStatus(activeSurface) === st ? SURFACE_STATUS_COLORS[st] : '#f4f9fa',
+                  borderColor: getStatus(activeSurface) === st ? SURFACE_STATUS_BORDERS[st] : '#e0ecf0',
+                  fontWeight: getStatus(activeSurface) === st ? 700 : 400,
+                  color: '#0f2830',
+                }}
+              >{STATUS_LABELS_9[st]}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function printPatientRecord(pt) {
+  if (!window.jspdf) { showToast('PDF library not loaded — check internet connection.', 'error'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const margin = 20;
+  let y = margin;
+  const line = (txt, size=11, bold=false, color=[15,40,48]) => {
+    doc.setFontSize(size);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setTextColor(...color);
+    doc.text(txt, margin, y);
+    y += size * 0.5 + 2;
+  };
+  const rule = () => { doc.setDrawColor(224,236,240); doc.line(margin, y, 210-margin, y); y += 5; };
+
+  // Header band
+  doc.setFillColor(10, 74, 92);
+  doc.rect(0, 0, 210, 18, 'F');
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255);
+  doc.text('PATIENT RECORD', margin, 12);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-ZA')}`, 210 - margin, 12, { align: 'right' });
+  y = 28;
+
+  line('PERSONAL DETAILS', 10, true, [107,143,153]);
+  rule();
+  const row = (lbl, val) => {
+    if (!val) return;
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(107,143,153);
+    doc.text(lbl + ':', margin, y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(15,40,48);
+    doc.text(String(val), margin + 38, y);
+    y += 7;
+  };
+  const fullName = [pt.first_name, pt.last_name].filter(Boolean).join(' ');
+  row('Full Name', fullName);
+  row('Date of Birth', pt.date_of_birth ? new Date(pt.date_of_birth).toLocaleDateString('en-ZA') : null);
+  row('ID Number', pt.id_number);
+  row('Gender', pt.gender ? pt.gender.replace('_',' ') : null);
+  row('Phone', pt.phone);
+  row('Email', pt.email);
+  const addr = [pt.address_line1, pt.suburb, pt.city, pt.postal_code, pt.province].filter(Boolean).join(', ');
+  if (addr) row('Address', addr);
+
+  if (pt.has_medical_aid) {
+    y += 4;
+    line('MEDICAL AID', 10, true, [107,143,153]);
+    rule();
+    row('Scheme', pt.medical_aid_name);
+    row('Plan', pt.medical_aid_plan);
+    row('Member No.', pt.medical_aid_number);
+    row('Policy Role', pt.policy_holder_relationship);
+  }
+
+  y += 6;
+  rule();
+  doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(107,143,153);
+  doc.text('Generated by Cliniq — Confidential Patient Record', 105, y, { align: 'center' });
+
+  doc.save(`patient-record-${(pt.last_name || 'patient').toLowerCase()}.pdf`);
+}
+
 function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const TABS = ['Profile', 'Medical Aid', 'Health', 'Appointments', 'Documents'];
   const [tab,        setTab]        = useState('Profile');
@@ -3153,10 +3400,11 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const [ptDocsLoad,   setPtDocsLoad]   = useState(false);
 
   // Dental chart state
-  const [dentalRecords, setDentalRecords] = useState({});
-  const [dentalNotes,   setDentalNotes]   = useState([]);
-  const [dentalScans,   setDentalScans]   = useState([]);
-  const [dentalLoading, setDentalLoading] = useState(false);
+  const [dentalRecords,  setDentalRecords]  = useState({});
+  const [dentalNotes,    setDentalNotes]    = useState([]);
+  const [dentalScans,    setDentalScans]    = useState([]);
+  const [dentalSurfaces, setDentalSurfaces] = useState([]);
+  const [dentalLoading,  setDentalLoading]  = useState(false);
   const [selectedTooth, setSelectedTooth] = useState(null);
   const [toothNoteText, setToothNoteText] = useState('');
   const [toothNoteSaving, setToothNoteSaving] = useState(false);
@@ -3223,6 +3471,10 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
       setDentalNotes(chartData.notes || []);
       setDentalScans(scanData.scans || []);
     }).catch(() => {}).finally(() => setDentalLoading(false));
+    // Fetch per-surface records
+    api(`/api/documents?resource=dental_surfaces&patient_id=${detail.id}`)
+      .then(d => setDentalSurfaces(d.surfaces || []))
+      .catch(() => {});
   }, [tab, detail?.id]);
 
   // ── Dental chart helpers ──
@@ -3615,7 +3867,15 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
             {editing
               ? <span style={{fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Editing patient record</span>
               : <span />}
-            <button className="btn btn-ghost btn-sm" style={{fontSize:11,minHeight:44,paddingTop:8,paddingBottom:8}} onClick={onClose} aria-label="Close patient record">✕ Close</button>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <button
+                title="Print patient record"
+                onClick={() => printPatientRecord(d || patient)}
+                style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e0ecf0',background:'#f4f9fa',cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',gap:4}}>
+                🖨 Print
+              </button>
+              <button className="btn btn-ghost btn-sm" style={{fontSize:11,minHeight:44,paddingTop:8,paddingBottom:8}} onClick={onClose} aria-label="Close patient record">✕ Close</button>
+            </div>
           </div>
 
           {(d || patient) && (
@@ -4086,6 +4346,28 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                           <button onClick={() => setSelectedTooth(null)} style={{background:'none',border:'none',cursor:'pointer',padding:4,color:'var(--muted)',display:'flex',alignItems:'center'}}>
                             <span className="material-symbols-outlined" style={{fontSize:18}}>close</span>
                           </button>
+                        </div>
+
+                        {/* Surface conditions quadrant diagram */}
+                        <div style={{borderBottom:'1px solid #e0ecf0', paddingBottom:12, marginBottom:12}}>
+                          <QuadrantDiagram
+                            toothFdi={selectedTooth.fdi}
+                            surfaces={dentalSurfaces}
+                            onSaveSurface={async (surface, status) => {
+                              await api('/api/documents', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                  action: 'surface',
+                                  patient_id: detail.id,
+                                  tooth_fdi: selectedTooth.fdi,
+                                  surface,
+                                  status,
+                                })
+                              });
+                              const d2 = await api(`/api/documents?resource=dental_surfaces&patient_id=${detail.id}`);
+                              setDentalSurfaces(d2.surfaces || []);
+                            }}
+                          />
                         </div>
 
                         {/* Status selector grid */}
@@ -5418,6 +5700,8 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
     if (!form.id_number.trim()) errs.push(idType === 'passport' ? 'Passport number is required.' : 'ID number is required.');
     else if (idType === 'sa_id' && !/^\d{13}$/.test(form.id_number.trim())) errs.push('SA ID number must be exactly 13 digits.');
     else if (idType === 'passport' && !/^[A-Za-z]\d{8}$/.test(form.id_number.trim())) errs.push('Passport number must be one letter followed by 8 digits (e.g. A12345678).');
+    if (!form.date_of_birth) errs.push('Date of birth is required.');
+    if (!form.gender) errs.push('Gender is required.');
     if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.push('Please enter a valid email address.');
     if (form.phone && form.phone.trim().replace(/\D/g,'') && !/^(0|\+27)/.test(form.phone.trim())) errs.push('Phone number must start with 0 or +27.');
     return errs;
@@ -5578,7 +5862,24 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
                 </label>
                 <input
                   value={form.id_number}
-                  onChange={e => set({id_number: idType === 'sa_id' ? e.target.value.replace(/\D/g,'') : e.target.value.toUpperCase()})}
+                  onChange={e => {
+                    const cleaned = idType === 'sa_id' ? e.target.value.replace(/\D/g,'') : e.target.value.toUpperCase();
+                    set({id_number: cleaned});
+                    // Auto-fill DOB from SA ID first 6 digits (YYMMDD with century logic)
+                    if (idType === 'sa_id' && cleaned.length >= 6) {
+                      const yy = parseInt(cleaned.slice(0,2), 10);
+                      const mm = cleaned.slice(2,4);
+                      const dd = cleaned.slice(4,6);
+                      const year = yy <= 26 ? 2000 + yy : 1900 + yy;
+                      const iso = `${year}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+                      const dObj = new Date(iso);
+                      if (!isNaN(dObj.getTime()) && dObj.getFullYear() === year &&
+                          (dObj.getMonth()+1) === parseInt(mm,10) &&
+                          dObj.getDate() === parseInt(dd,10)) {
+                        setForm(f => ({ ...f, date_of_birth: iso }));
+                      }
+                    }
+                  }}
                   placeholder={idType === 'sa_id' ? '13-digit SA ID number' : 'e.g. A12345678'}
                   maxLength={idType === 'sa_id' ? 13 : 9}
                   inputMode={idType === 'sa_id' ? 'numeric' : 'text'}
@@ -5589,7 +5890,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
             </div>
             <div className="field" style={{marginTop:14,maxWidth:'calc(50% - 8px)'}}>
               <label>Gender</label>
-              <select value={form.gender} onChange={e=>set({gender:e.target.value})}>
+              <select className="kliniqdrop" value={form.gender} onChange={e=>set({gender:e.target.value})}>
                 <option value="">Select…</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
@@ -5626,7 +5927,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
                   <div className="field"><label>Plan / option</label><input value={form.medical_aid_plan} onChange={e=>set({medical_aid_plan:e.target.value})} placeholder="e.g. Classic Comprehensive" /></div>
                   <div className="field">
                     <label>Role on policy</label>
-                    <select value={form.relationship_to_member} onChange={e => {
+                    <select className="kliniqdrop" value={form.relationship_to_member} onChange={e => {
                       const val = e.target.value;
                       if (!val || val === 'main_member') { set({ relationship_to_member:val, main_member_patient_id:'', main_member_name:'', dependant_code:'' }); setMmPick(null); }
                       else set({ relationship_to_member:val });
@@ -5661,7 +5962,13 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               </>
             )}
             {err && <div className="alert alert-error" style={{marginTop:12}}>{err}</div>}
-            <WizFoot onBack={() => setStep(0)} onNext={() => setStep(2)} />
+            <WizFoot onBack={() => setStep(0)} onNext={() => {
+              if (form.has_medical_aid) {
+                if (!form.medical_aid_number.trim()) { setErr('Member number is required.'); return; }
+                if (!form.medical_aid_plan.trim()) { setErr('Plan / option is required.'); return; }
+              }
+              setErr(''); setStep(2);
+            }} />
           </>
         )}
 
@@ -5678,7 +5985,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               <div className="field"><label>Postal code</label><input value={form.postal_code} onChange={e=>set({postal_code:e.target.value})} placeholder="e.g. 1739" /></div>
               <div className="field">
                 <label>Province</label>
-                <select value={form.province} onChange={e=>set({province:e.target.value})}>
+                <select className="kliniqdrop" value={form.province} onChange={e=>set({province:e.target.value})}>
                   <option value="">Select…</option>
                   {PROVINCES.map(p => <option key={p}>{p}</option>)}
                 </select>
@@ -5687,7 +5994,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
             <div className="form-cols" style={{marginTop:14}}>
               <div className="field">
                 <label>Referral source</label>
-                <select value={form.referral_source} onChange={e=>set({referral_source:e.target.value})}>
+                <select className="kliniqdrop" value={form.referral_source} onChange={e=>set({referral_source:e.target.value})}>
                   <option value="">Select…</option>
                   {REFERRALS.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
@@ -5696,7 +6003,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
             </div>
             <div className="field" style={{marginTop:14,maxWidth:220}}>
               <label>Patient type</label>
-              <select value={form.patient_type} onChange={e=>set({patient_type:e.target.value})}>
+              <select className="kliniqdrop" value={form.patient_type} onChange={e=>set({patient_type:e.target.value})}>
                 <option value="new">New patient</option>
                 <option value="returning">Returning patient</option>
               </select>
