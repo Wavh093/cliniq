@@ -4351,13 +4351,13 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                         {/* Surface conditions quadrant diagram */}
                         <div style={{borderBottom:'1px solid #e0ecf0', paddingBottom:12, marginBottom:12}}>
                           <QuadrantDiagram
+                            key={selectedTooth.fdi}
                             toothFdi={selectedTooth.fdi}
                             surfaces={dentalSurfaces}
                             onSaveSurface={async (surface, status) => {
-                              await api('/api/documents', {
+                              await api('/api/documents?resource=dental_surfaces', {
                                 method: 'POST',
                                 body: JSON.stringify({
-                                  action: 'surface',
                                   patient_id: detail.id,
                                   tooth_fdi: selectedTooth.fdi,
                                   surface,
