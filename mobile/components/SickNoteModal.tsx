@@ -55,6 +55,8 @@ function buildHtml(p: {
   clinicianName: string;
   signatureSvg: string | null;
   practiceName: string;
+  doctorQualification: string | null;
+  practiceNumber: string | null;
 }): string {
   const today = displayDate(todayIso());
   const days  = dayCount(p.fromDate, p.toDate);
@@ -102,7 +104,11 @@ function buildHtml(p: {
 <body>
 <div class="page">
   <div class="lh">
-    <div><div class="pn">${p.practiceName}</div><div class="ps">Professional Dental Care</div></div>
+    <div>
+      <div class="pn">${p.practiceName}</div>
+      <div class="ps">Professional Dental Care</div>
+      ${p.practiceNumber ? `<p style="margin:2px 0;font-size:12px;color:#6b7280">Practice No: ${p.practiceNumber}</p>` : ''}
+    </div>
     <div class="dd">${today}</div>
   </div>
   <h2>Medical Certificate</h2>
@@ -127,8 +133,9 @@ function buildHtml(p: {
   <div class="ss">
     <div class="sl">Treating Clinician</div>
     ${sig}
-    <div class="cn">${p.clinicianName || '___________________________'}</div>
-    <div class="cp">${p.practiceName}</div>
+    <p style="margin:4px 0;font-size:13px"><strong>${p.clinicianName || '___________________________'}</strong></p>
+    ${p.doctorQualification ? `<p style="margin:2px 0;font-size:12px;color:#666">${p.doctorQualification}</p>` : ''}
+    ${p.practiceNumber ? `<p style="margin:2px 0;font-size:12px;color:#666">Practice No: ${p.practiceNumber}</p>` : ''}
   </div>
   <div class="ft">
     This certificate was issued by ${p.practiceName}.<br>
@@ -188,7 +195,13 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
       setReason(appointment.clinical_notes?.trim() ?? '');
       setCalendarFor(null);
       setWebDocId(null);
-      getPractice().then(p => { if (p) setPractice(p); });
+      getPractice().then(p => {
+        if (p) {
+          setPractice(p);
+          const doctorFullName = [p.doctor_first_name, p.doctor_last_name].filter(Boolean).join(' ');
+          if (doctorFullName) setClinicianName(doctorFullName);
+        }
+      });
       setSigLoading(true);
       getMySignature().then(({ signatureData, displayName }) => {
         setSignatureSvg(signatureData);
@@ -207,16 +220,18 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
     try {
       const practiceName = practice?.name || 'Dental Practice';
       const html = buildHtml({
-        patientName:  patient ? `${patient.first_name} ${patient.last_name}` : 'Patient',
-        idNumber:     patient?.id_number ?? null,
-        dateOfBirth:  patient?.date_of_birth ?? null,
+        patientName:         patient ? `${patient.first_name} ${patient.last_name}` : 'Patient',
+        idNumber:            patient?.id_number ?? null,
+        dateOfBirth:         patient?.date_of_birth ?? null,
         consultDate,
         fromDate,
         toDate,
-        reason:       reason.trim(),
-        clinicianName: clinicianName.trim(),
+        reason:              reason.trim(),
+        clinicianName:       clinicianName.trim(),
         signatureSvg,
         practiceName,
+        doctorQualification: practice?.doctor_qualification ?? null,
+        practiceNumber:      practice?.practice_number ?? null,
       });
 
       const patId = patient?.id;

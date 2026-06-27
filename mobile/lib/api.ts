@@ -347,6 +347,10 @@ export interface PracticeConfig {
   phone: string | null;
   address_line1: string | null;
   hpcsa_number: string | null;
+  doctor_first_name: string | null;
+  doctor_last_name: string | null;
+  doctor_qualification: string | null;
+  practice_number: string | null;
 }
 
 export async function getPractice(): Promise<PracticeConfig | null> {
