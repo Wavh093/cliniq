@@ -751,6 +751,75 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ══════════════════════════════════════════════════════════════
+  //  TIME BLOCKS  (?resource=time_blocks)
+  // ══════════════════════════════════════════════════════════════
+  if (req.query.resource === 'time_blocks') {
+    if (req.method === 'GET') {
+      const { data, error } = await db
+        .from('time_blocks')
+        .select('*')
+        .eq('practice_id', PRACTICE_ID)
+        .or(`staff_id.eq.${user.id},staff_id.is.null`)
+        .order('start_datetime', { ascending: true });
+
+      if (error) { console.error('[time_blocks GET]', error); return res.status(500).json({ error: 'Could not load time blocks' }); }
+      return res.status(200).json({ time_blocks: data || [] });
+    }
+
+    if (req.method === 'POST') {
+      const body = await parseBody(req);
+      const {
+        start_datetime, end_datetime, reason,
+        is_recurring, recurrence_day_of_week,
+        recurrence_start_time, recurrence_end_time,
+      } = body;
+
+      if (!start_datetime) return res.status(400).json({ error: 'start_datetime is required' });
+      if (!end_datetime)   return res.status(400).json({ error: 'end_datetime is required' });
+      if (new Date(end_datetime) <= new Date(start_datetime)) {
+        return res.status(400).json({ error: 'end_datetime must be after start_datetime' });
+      }
+
+      const { data, error } = await db
+        .from('time_blocks')
+        .insert({
+          practice_id:            PRACTICE_ID,
+          staff_id:               user.id,
+          created_by:             user.id,
+          start_datetime,
+          end_datetime,
+          reason:                 reason?.trim() || null,
+          is_recurring:           Boolean(is_recurring),
+          recurrence_day_of_week: recurrence_day_of_week != null ? Number(recurrence_day_of_week) : null,
+          recurrence_start_time:  recurrence_start_time  || null,
+          recurrence_end_time:    recurrence_end_time    || null,
+        })
+        .select()
+        .single();
+
+      if (error) { console.error('[time_blocks POST]', error); return res.status(500).json({ error: 'Could not create time block' }); }
+      return res.status(201).json({ time_block: data });
+    }
+
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
+      if (!id) return res.status(400).json({ error: 'id is required' });
+
+      const { error } = await db
+        .from('time_blocks')
+        .delete()
+        .eq('id', id)
+        .eq('staff_id', user.id)
+        .eq('practice_id', PRACTICE_ID);
+
+      if (error) { console.error('[time_blocks DELETE]', error); return res.status(500).json({ error: 'Could not delete time block' }); }
+      return res.status(200).json({ ok: true });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   // ── GET ────────────────────────────────────────────────────────
   if (req.method === 'GET') {
     const { date, status, patient_id, needs_link, month } = req.query;

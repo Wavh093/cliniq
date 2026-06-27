@@ -229,6 +229,69 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // ── Dental surface records (resource=dental_surfaces) ─────────────────────
+  if (resource === 'dental_surfaces') {
+    if (req.method === 'GET') {
+      if (!patient_id) return res.status(400).json({ error: 'patient_id required' });
+
+      const { data, error } = await db
+        .from('dental_surface_records')
+        .select('tooth_fdi, surface, status, updated_at')
+        .eq('practice_id', PRACTICE_ID)
+        .eq('patient_id', patient_id);
+
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ surfaces: data ?? [] });
+    }
+
+    if (req.method === 'POST') {
+      const body = await parseBody(req);
+      const { patient_id: pid, tooth_fdi, surface, status } = body;
+
+      if (!pid) return res.status(400).json({ error: 'patient_id required' });
+
+      const fdi = Number(tooth_fdi);
+      if (!Number.isInteger(fdi) || fdi < 11 || fdi > 48) {
+        return res.status(400).json({ error: 'tooth_fdi must be an integer between 11 and 48' });
+      }
+
+      const VALID_SURFACES = ['mesial', 'distal', 'occlusal', 'lingual', 'buccal'];
+      if (!VALID_SURFACES.includes(surface)) {
+        return res.status(400).json({ error: `surface must be one of: ${VALID_SURFACES.join(', ')}` });
+      }
+
+      const VALID_SURF_STATUSES = [
+        'healthy', 'cavity', 'needs_treatment', 'filled', 'crown',
+        'extraction', 'missing', 'implant', 'bridge',
+      ];
+      if (!VALID_SURF_STATUSES.includes(status)) {
+        return res.status(400).json({ error: `status must be one of: ${VALID_SURF_STATUSES.join(', ')}` });
+      }
+
+      const { data, error } = await db
+        .from('dental_surface_records')
+        .upsert(
+          {
+            practice_id: PRACTICE_ID,
+            patient_id:  pid,
+            tooth_fdi:   fdi,
+            surface,
+            status,
+            updated_at:  new Date().toISOString(),
+            updated_by:  user.id,
+          },
+          { onConflict: 'practice_id,patient_id,tooth_fdi,surface' },
+        )
+        .select('tooth_fdi, surface, status, updated_at')
+        .single();
+
+      if (error) return res.status(500).json({ error: error.message });
+      return res.status(200).json({ surface: data });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   // ── Patient documents ──────────────────────────────────────────────────────
 
   if (req.method === 'GET') {
