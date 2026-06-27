@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, Modal, ScrollView, TextInput, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import {
   upsertToothStatus, addToothNote, deleteToothNote,
+  getDentalSurfaces, saveDentalSurface,
   type ToothStatus, type ToothNote,
 } from '../lib/api';
 import { C } from '../constants/theme';
@@ -51,6 +52,95 @@ function fmtDate(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+// ── Surface quadrant diagram (module-level, not exported) ────────────────────
+type SurfaceRecord = { tooth_fdi: number; surface: string; status: string };
+
+const QuadrantDiagram = ({
+  toothFdi,
+  surfaces,
+  activeSurface,
+  onPress,
+}: {
+  toothFdi: number;
+  surfaces: SurfaceRecord[];
+  activeSurface: string | null;
+  onPress: (surface: string) => void;
+}) => {
+  const getCol = (surface: string) => {
+    const found = surfaces.find(s => s.tooth_fdi === toothFdi && s.surface === surface);
+    const status = (found?.status ?? 'healthy') as ToothStatus;
+    return TOOTH_COLORS[status];
+  };
+
+  const segBase = (surface: string) => ({
+    position: 'absolute' as const,
+    borderRadius: 4,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    backgroundColor: getCol(surface).fill,
+    borderWidth: activeSurface === surface ? 2.5 : 2,
+    borderColor: activeSurface === surface ? C.sage : getCol(surface).stroke,
+  });
+
+  const lbl = (text: string, surface: string) => (
+    <Text style={{ fontSize: 11, fontWeight: '700', color: C.inkSoft }}>
+      {text}
+    </Text>
+  );
+
+  return (
+    <View style={{ width: 100, height: 100, alignSelf: 'center' }}>
+      {/* Occlusal — top */}
+      <TouchableOpacity
+        style={[segBase('occlusal'), { top: 0, left: '25%', width: '50%', height: '33%' }]}
+        onPress={() => onPress('occlusal')}
+        activeOpacity={0.7}
+      >
+        {lbl('O', 'occlusal')}
+      </TouchableOpacity>
+
+      {/* Lingual — bottom */}
+      <TouchableOpacity
+        style={[segBase('lingual'), { bottom: 0, left: '25%', width: '50%', height: '33%' }]}
+        onPress={() => onPress('lingual')}
+        activeOpacity={0.7}
+      >
+        {lbl('L', 'lingual')}
+      </TouchableOpacity>
+
+      {/* Mesial — left */}
+      <TouchableOpacity
+        style={[segBase('mesial'), { top: '25%', left: 0, width: '33%', height: '50%' }]}
+        onPress={() => onPress('mesial')}
+        activeOpacity={0.7}
+      >
+        {lbl('M', 'mesial')}
+      </TouchableOpacity>
+
+      {/* Distal — right */}
+      <TouchableOpacity
+        style={[segBase('distal'), { top: '25%', right: 0, width: '33%', height: '50%' }]}
+        onPress={() => onPress('distal')}
+        activeOpacity={0.7}
+      >
+        {lbl('D', 'distal')}
+      </TouchableOpacity>
+
+      {/* Center dot */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: '37%', left: '37%',
+          width: '26%', height: '26%',
+          borderRadius: 13,
+          backgroundColor: C.rule,
+        }}
+      />
+    </View>
+  );
+};
+
 // ── Component ────────────────────────────────────────────────────────────────
 interface Props {
   visible: boolean;
@@ -78,10 +168,25 @@ export default function ToothDetailModal({
   const [noteText,       setNoteText]       = useState('');
   const [savingNote,     setSavingNote]     = useState(false);
 
+  // Surface state
+  const [surfaces,      setSurfaces]      = useState<SurfaceRecord[]>([]);
+  const [activeSurface, setActiveSurface] = useState<string | null>(null);
+  const [surfaceSaving, setSurfaceSaving] = useState(false);
+
   const handleOpen = useCallback(() => {
     setSelectedStatus(currentStatus);
     setNoteText('');
-  }, [currentStatus]);
+    setSurfaces([]);
+    setActiveSurface(null);
+    getDentalSurfaces(patientId)
+      .then(d => setSurfaces(d.surfaces || []))
+      .catch(() => {});
+  }, [currentStatus, patientId]);
+
+  // Reset activeSurface when the tooth changes while the modal is open
+  useEffect(() => {
+    if (visible) setActiveSurface(null);
+  }, [toothFdi, visible]);
 
   const saveStatus = useCallback(async (status: ToothStatus) => {
     if (status === currentStatus && status === selectedStatus) return;
@@ -98,6 +203,25 @@ export default function ToothDetailModal({
       setSavingStatus(false);
     }
   }, [patientId, toothFdi, currentStatus, selectedStatus, onStatusChange]);
+
+  const handleSurfaceSave = useCallback(async (status: ToothStatus) => {
+    if (!activeSurface) return;
+    setSurfaceSaving(true);
+    try {
+      await saveDentalSurface(patientId, toothFdi, activeSurface, status);
+      setSurfaces(prev => {
+        const without = prev.filter(
+          s => !(s.tooth_fdi === toothFdi && s.surface === activeSurface),
+        );
+        return [...without, { tooth_fdi: toothFdi, surface: activeSurface, status }];
+      });
+      setActiveSurface(null);
+    } catch (e: any) {
+      Alert.alert('Could not save surface', e.message ?? 'Please try again.');
+    } finally {
+      setSurfaceSaving(false);
+    }
+  }, [patientId, toothFdi, activeSurface]);
 
   const saveNote = useCallback(async () => {
     if (!noteText.trim()) return;
@@ -176,6 +300,54 @@ export default function ToothDetailModal({
               <Ionicons name="close" size={22} color={C.inkSoft} />
             </TouchableOpacity>
           </View>
+
+          {/* ── Surface Conditions ───────────────────────────────── */}
+          <View style={s.divider} />
+
+          <Text style={s.surfaceSectionLabel}>SURFACE CONDITIONS</Text>
+
+          <QuadrantDiagram
+            toothFdi={toothFdi}
+            surfaces={surfaces}
+            activeSurface={activeSurface}
+            onPress={setActiveSurface}
+          />
+
+          {activeSurface !== null && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginTop: 10 }}
+              contentContainerStyle={{ gap: 6, paddingBottom: 2 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {(ALL_STATUSES as ToothStatus[]).map(st => {
+                const col = TOOTH_COLORS[st];
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[
+                      s.surfaceStatusBtn,
+                      { backgroundColor: col.fill, borderColor: col.stroke },
+                    ]}
+                    onPress={() => handleSurfaceSave(st)}
+                    disabled={surfaceSaving}
+                    activeOpacity={0.7}
+                  >
+                    {surfaceSaving ? (
+                      <ActivityIndicator size="small" color={col.stroke} />
+                    ) : (
+                      <Text style={[s.surfaceStatusText, { color: col.stroke }]}>
+                        {STATUS_SHORT[st]}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          <View style={[s.divider, { marginTop: 12, marginBottom: 14 }]} />
 
           {/* ── Status grid ─────────────────────────────────────── */}
           <Text style={s.sectionLabel}>STATUS</Text>
@@ -340,12 +512,40 @@ const s = StyleSheet.create({
   toothNumber: { fontSize: 20, fontWeight: '800', color: C.ink },
   toothName:   { fontSize: 12, color: C.muted, marginTop: 1 },
 
+  // Divider
+  divider: {
+    height:          1,
+    backgroundColor: C.rule,
+    marginBottom:    12,
+  },
+
+  // Section labels
   sectionLabel: {
     fontSize:      10,
     fontWeight:    '700',
     letterSpacing: 0.8,
     color:         C.muted,
     marginBottom:  8,
+  },
+  surfaceSectionLabel: {
+    fontSize:      11,
+    fontWeight:    '600',
+    color:         C.muted,
+    marginBottom:  6,
+  },
+
+  // Surface status picker buttons (horizontal scroll)
+  surfaceStatusBtn: {
+    borderRadius:      8,
+    borderWidth:       1.5,
+    paddingVertical:   6,
+    paddingHorizontal: 10,
+    minWidth:          60,
+    alignItems:        'center',
+  },
+  surfaceStatusText: {
+    fontSize:   11,
+    fontWeight: '600',
   },
 
   // Status grid — 3 equal-width columns per row

@@ -546,3 +546,73 @@ export async function deleteDentalScan(id: string): Promise<void> {
     throw new Error((err as any).error ?? `Delete failed: ${res.status}`);
   }
 }
+
+// ── Dental Surfaces ──────────────────────────────────────────────────────────
+
+export async function getDentalSurfaces(
+  patientId: string,
+): Promise<{ surfaces: any[] }> {
+  const res = await fetch(
+    `${BASE}/api/documents?resource=dental_surfaces&patient_id=${encodeURIComponent(patientId)}`,
+    { headers: await authHeaders() },
+  );
+  if (!res.ok) throw new Error(`Surfaces error: ${res.status}`);
+  return res.json();
+}
+
+export async function saveDentalSurface(
+  patientId: string,
+  toothFdi: number,
+  surface: string,
+  status: string,
+): Promise<{ surface: any }> {
+  const res = await fetch(`${BASE}/api/documents`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ action: 'surface', patient_id: patientId, tooth_fdi: toothFdi, surface, status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Save failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── Time Blocks ──────────────────────────────────────────────────────────────
+
+export async function getTimeBlocks(): Promise<{ time_blocks: any[] }> {
+  const res = await fetch(`${BASE}/api/appointments?resource=time_blocks`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) throw new Error(`Time blocks error: ${res.status}`);
+  return res.json();
+}
+
+export async function createTimeBlock(data: {
+  start_datetime: string;
+  end_datetime: string;
+  reason?: string;
+}): Promise<{ time_block: any }> {
+  const res = await fetch(`${BASE}/api/appointments?resource=time_blocks`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function deleteTimeBlock(id: string): Promise<{ ok: boolean }> {
+  const res = await fetch(
+    `${BASE}/api/appointments?resource=time_blocks&id=${encodeURIComponent(id)}`,
+    { method: 'DELETE', headers: await authHeaders() },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Delete failed: ${res.status}`);
+  }
+  return res.json();
+}
