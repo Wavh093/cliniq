@@ -3410,6 +3410,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const [toothNoteSaving, setToothNoteSaving] = useState(false);
   const [scanUploading, setScanUploading] = useState(false);
   const scanFileRef = useRef(null);
+  const toothDetailRef = useRef(null);
 
   const loadPatient = useCallback(() => {
     setDetailLoad(true);
@@ -3476,6 +3477,13 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
       .then(d => setDentalSurfaces(d.surfaces || []))
       .catch(() => {});
   }, [tab, detail?.id]);
+
+  // Scroll detail panel into view when a tooth is selected
+  useEffect(() => {
+    if (selectedTooth && toothDetailRef.current) {
+      toothDetailRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [selectedTooth?.fdi]);
 
   // ── Dental chart helpers ──
   const TOOTH_STATUSES = [
@@ -4335,7 +4343,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
 
                     {/* ── Selected tooth detail panel ── */}
                     {selectedTooth && (
-                      <div style={{border:'1px solid var(--border)',borderRadius:10,padding:16,background:'var(--bg-2)',marginBottom:16}}>
+                      <div ref={toothDetailRef} style={{border:'1px solid var(--border)',borderRadius:10,padding:16,background:'var(--bg-2)',marginBottom:16}}>
                         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
                           <div style={{fontWeight:700,fontSize:15}}>
                             Tooth {selectedTooth.fdi}
@@ -4355,17 +4363,19 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                             toothFdi={selectedTooth.fdi}
                             surfaces={dentalSurfaces}
                             onSaveSurface={async (surface, status) => {
-                              await api('/api/documents?resource=dental_surfaces', {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  patient_id: detail.id,
-                                  tooth_fdi: selectedTooth.fdi,
-                                  surface,
-                                  status,
-                                })
-                              });
-                              const d2 = await api(`/api/documents?resource=dental_surfaces&patient_id=${detail.id}`);
-                              setDentalSurfaces(d2.surfaces || []);
+                              try {
+                                await api('/api/documents?resource=dental_surfaces', {
+                                  method: 'POST',
+                                  body: JSON.stringify({
+                                    patient_id: detail.id,
+                                    tooth_fdi: selectedTooth.fdi,
+                                    surface,
+                                    status,
+                                  })
+                                });
+                                const d2 = await api(`/api/documents?resource=dental_surfaces&patient_id=${detail.id}`);
+                                setDentalSurfaces(d2.surfaces || []);
+                              } catch(e) { showToast(e.message || 'Could not save surface condition', 'error'); }
                             }}
                           />
                         </div>
