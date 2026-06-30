@@ -565,11 +565,12 @@ export async function saveDentalSurface(
   toothFdi: number,
   surface: string,
   status: string,
+  notes?: string | null,
 ): Promise<{ surface: any }> {
   const res = await fetch(`${BASE}/api/documents?resource=dental_surfaces`, {
     method:  'POST',
     headers: await authHeaders(),
-    body:    JSON.stringify({ patient_id: patientId, tooth_fdi: toothFdi, surface, status }),
+    body:    JSON.stringify({ patient_id: patientId, tooth_fdi: toothFdi, surface, status, notes: notes ?? null }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

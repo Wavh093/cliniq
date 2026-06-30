@@ -755,12 +755,24 @@ module.exports = async function handler(req, res) {
   //  TIME BLOCKS  (?resource=time_blocks)
   // ══════════════════════════════════════════════════════════════
   if (req.query.resource === 'time_blocks') {
+    // time_blocks.staff_id and .created_by are FKs to staff(id), not auth.users(id).
+    // requireAuth only gives us the auth UUID, so we must look up the internal staff row.
+    const { data: staffRow } = await db
+      .from('staff')
+      .select('id')
+      .eq('practice_id', PRACTICE_ID)
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+
+    if (!staffRow) return res.status(403).json({ error: 'Staff record not found' });
+    const staffId = staffRow.id;
+
     if (req.method === 'GET') {
       const { data, error } = await db
         .from('time_blocks')
         .select('*')
         .eq('practice_id', PRACTICE_ID)
-        .or(`staff_id.eq.${user.id},staff_id.is.null`)
+        .or(`staff_id.eq.${staffId},staff_id.is.null`)
         .order('start_datetime', { ascending: true });
 
       if (error) { console.error('[time_blocks GET]', error); return res.status(500).json({ error: 'Could not load time blocks' }); }
@@ -785,8 +797,8 @@ module.exports = async function handler(req, res) {
         .from('time_blocks')
         .insert({
           practice_id:            PRACTICE_ID,
-          staff_id:               user.id,
-          created_by:             user.id,
+          staff_id:               staffId,
+          created_by:             staffId,
           start_datetime,
           end_datetime,
           reason:                 reason?.trim() || null,
@@ -810,7 +822,7 @@ module.exports = async function handler(req, res) {
         .from('time_blocks')
         .delete()
         .eq('id', id)
-        .eq('staff_id', user.id)
+        .eq('staff_id', staffId)
         .eq('practice_id', PRACTICE_ID);
 
       if (error) { console.error('[time_blocks DELETE]', error); return res.status(500).json({ error: 'Could not delete time block' }); }

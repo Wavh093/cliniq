@@ -1,12 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, Modal, TextInput,
-  ActivityIndicator, StyleSheet, Alert, KeyboardAvoidingView, Platform, Linking,
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  ActivityIndicator, StyleSheet, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getPatient, getDependants, updatePatientNotes, saveSessionNotes } from '../../lib/api';
+import { getPatient, getDependants, updatePatientNotes } from '../../lib/api';
 import DentalChartCard from '../../components/DentalChartCard';
 import Avatar from '../../components/Avatar';
 import SegmentedControl from '../../components/SegmentedControl';
@@ -85,11 +85,6 @@ export default function PatientDetailScreen() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
   const [tab,        setTab]        = useState(0); // 0 Overview · 1 Chart · 2 History
-  const [apptModal,    setApptModal]    = useState<AppointmentSummary | null>(null);
-  const [apptClinical, setApptClinical] = useState('');
-  const [apptInternal, setApptInternal] = useState('');
-  const [apptSaving,   setApptSaving]   = useState(false);
-
   // Doctor's notes (intake_notes) — inline editing
   const [notesEdit,  setNotesEdit]  = useState(false);
   const [notesText,  setNotesText]  = useState('');
@@ -108,31 +103,6 @@ export default function PatientDetailScreen() {
       setNotesSaving(false);
     }
   }, [patient, notesText]);
-
-  const saveApptNotes = useCallback(async () => {
-    if (!apptModal) return;
-    setApptSaving(true);
-    try {
-      await saveSessionNotes(apptModal.id, {
-        clinical_notes: apptClinical.trim() || null,
-        internal_notes: apptInternal.trim() || null,
-      });
-      // Reflect saved values back into the patient's appointment list
-      setPatient(p => p ? {
-        ...p,
-        appointments: (p.appointments ?? []).map(a =>
-          a.id === apptModal.id
-            ? { ...a, clinical_notes: apptClinical.trim() || null, internal_notes: apptInternal.trim() || null } as AppointmentSummary
-            : a,
-        ),
-      } : p);
-      setApptModal(null);
-    } catch (e: any) {
-      Alert.alert('Could not save', e.message ?? 'Please try again.');
-    } finally {
-      setApptSaving(false);
-    }
-  }, [apptModal, apptClinical, apptInternal]);
 
   useFocusEffect(useCallback(() => {
     if (!id) return;
@@ -473,122 +443,6 @@ export default function PatientDetailScreen() {
         ))}
 
       </ScrollView>
-
-      {/* ── Session notes modal ────────────────────────────────────── */}
-      <Modal
-        visible={apptModal !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setApptModal(null)}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <View style={s.overlay}>
-            <TouchableOpacity style={s.overlayBg} activeOpacity={1} onPress={() => setApptModal(null)} />
-            <View style={s.sheet}>
-              <View style={s.sheetHandle} />
-
-              {/* Header */}
-              <View style={s.sheetHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.sheetDate}>
-                    {apptModal
-                      ? new Date(apptModal.appointment_date + 'T00:00:00').toLocaleDateString('en-GB', {
-                          day: 'numeric', month: 'long', year: 'numeric',
-                        })
-                      : ''}
-                    {apptModal?.appointment_time
-                      ? `  ·  ${apptModal.appointment_time.slice(0, 5)}`
-                      : ''}
-                  </Text>
-                  <Text style={s.sheetService}>{apptModal?.services?.name ?? '—'}</Text>
-                </View>
-                {apptModal && (() => {
-                  const st = STATUS[apptModal.status] ?? STATUS.pending;
-                  return (
-                    <View style={[s.apptBadge, { backgroundColor: st.bg }]}>
-                      <Text style={[s.apptBadgeText, { color: st.text }]}>
-                        {apptModal.status.replace('_', ' ')}
-                      </Text>
-                    </View>
-                  );
-                })()}
-              </View>
-
-              {/* Editable notes body */}
-              <ScrollView
-                style={s.sheetBody}
-                contentContainerStyle={s.sheetBodyContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {/* Patient notes — read-only (written by patient at booking) */}
-                {apptModal?.patient_notes ? (
-                  <View style={s.notesGroup}>
-                    <Text style={s.notesGroupLabel}>PATIENT NOTES</Text>
-                    <Text style={s.notesGroupText}>{apptModal.patient_notes}</Text>
-                  </View>
-                ) : null}
-
-                {/* Clinical notes — editable */}
-                <View style={s.notesGroup}>
-                  <Text style={s.notesGroupLabel}>CLINICAL NOTES</Text>
-                  <TextInput
-                    style={s.notesInput}
-                    value={apptClinical}
-                    onChangeText={setApptClinical}
-                    multiline
-                    placeholder="Observations, treatment performed, recommendations…"
-                    placeholderTextColor={C.muted}
-                    textAlignVertical="top"
-                    scrollEnabled={false}
-                    editable={!apptSaving}
-                  />
-                </View>
-
-                {/* Internal notes — editable */}
-                <View style={[s.notesGroup, { marginBottom: 4 }]}>
-                  <Text style={s.notesGroupLabel}>INTERNAL NOTES</Text>
-                  <TextInput
-                    style={[s.notesInput, { minHeight: 60 }]}
-                    value={apptInternal}
-                    onChangeText={setApptInternal}
-                    multiline
-                    placeholder="Staff-only notes (not visible to patient)…"
-                    placeholderTextColor={C.muted}
-                    textAlignVertical="top"
-                    scrollEnabled={false}
-                    editable={!apptSaving}
-                  />
-                </View>
-              </ScrollView>
-
-              {/* Footer buttons */}
-              <View style={s.sheetFooter}>
-                <TouchableOpacity
-                  style={s.closeBtnSecondary}
-                  onPress={() => setApptModal(null)}
-                  disabled={apptSaving}
-                >
-                  <Text style={s.closeBtnSecondaryText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.saveApptBtn, apptSaving && { opacity: 0.5 }]}
-                  onPress={saveApptNotes}
-                  disabled={apptSaving}
-                  activeOpacity={0.85}
-                >
-                  {apptSaving
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={s.saveApptBtnText}>Save Notes</Text>}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
     </SafeAreaView>
   );

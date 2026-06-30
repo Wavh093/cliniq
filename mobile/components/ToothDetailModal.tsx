@@ -53,7 +53,7 @@ function fmtDate(iso: string): string {
 }
 
 // ── Surface quadrant diagram (module-level, not exported) ────────────────────
-type SurfaceRecord = { tooth_fdi: number; surface: string; status: string };
+type SurfaceRecord = { tooth_fdi: number; surface: string; status: string; notes?: string | null };
 
 const QuadrantDiagram = ({
   toothFdi,
@@ -171,6 +171,7 @@ export default function ToothDetailModal({
   // Surface state
   const [surfaces,      setSurfaces]      = useState<SurfaceRecord[]>([]);
   const [activeSurface, setActiveSurface] = useState<string | null>(null);
+  const [surfaceNote,   setSurfaceNote]   = useState('');
   const [surfaceSaving, setSurfaceSaving] = useState(false);
 
   const handleOpen = useCallback(() => {
@@ -178,6 +179,7 @@ export default function ToothDetailModal({
     setNoteText('');
     setSurfaces([]);
     setActiveSurface(null);
+    setSurfaceNote('');
     getDentalSurfaces(patientId)
       .then(d => setSurfaces(d.surfaces || []))
       .catch(() => {});
@@ -185,8 +187,15 @@ export default function ToothDetailModal({
 
   // Reset activeSurface when the tooth changes while the modal is open
   useEffect(() => {
-    if (visible) setActiveSurface(null);
+    if (visible) { setActiveSurface(null); setSurfaceNote(''); }
   }, [toothFdi, visible]);
+
+  // Pre-fill the note field when a surface is selected
+  useEffect(() => {
+    if (activeSurface === null) { setSurfaceNote(''); return; }
+    const rec = surfaces.find(s => s.tooth_fdi === toothFdi && s.surface === activeSurface);
+    setSurfaceNote(rec?.notes ?? '');
+  }, [activeSurface, surfaces, toothFdi]);
 
   const saveStatus = useCallback(async (status: ToothStatus) => {
     if (status === currentStatus && status === selectedStatus) return;
@@ -207,13 +216,14 @@ export default function ToothDetailModal({
   const handleSurfaceSave = useCallback(async (status: ToothStatus) => {
     if (!activeSurface) return;
     setSurfaceSaving(true);
+    const note = surfaceNote.trim() || null;
     try {
-      await saveDentalSurface(patientId, toothFdi, activeSurface, status);
+      await saveDentalSurface(patientId, toothFdi, activeSurface, status, note);
       setSurfaces(prev => {
         const without = prev.filter(
           s => !(s.tooth_fdi === toothFdi && s.surface === activeSurface),
         );
-        return [...without, { tooth_fdi: toothFdi, surface: activeSurface, status }];
+        return [...without, { tooth_fdi: toothFdi, surface: activeSurface, status, notes: note }];
       });
       setActiveSurface(null);
     } catch (e: any) {
@@ -221,7 +231,7 @@ export default function ToothDetailModal({
     } finally {
       setSurfaceSaving(false);
     }
-  }, [patientId, toothFdi, activeSurface]);
+  }, [patientId, toothFdi, activeSurface, surfaceNote]);
 
   const saveNote = useCallback(async () => {
     if (!noteText.trim()) return;
@@ -314,37 +324,51 @@ export default function ToothDetailModal({
           />
 
           {activeSurface !== null && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginTop: 10 }}
-              contentContainerStyle={{ gap: 6, paddingBottom: 2 }}
-              keyboardShouldPersistTaps="handled"
-            >
-              {(ALL_STATUSES as ToothStatus[]).map(st => {
-                const col = TOOTH_COLORS[st];
-                return (
-                  <TouchableOpacity
-                    key={st}
-                    style={[
-                      s.surfaceStatusBtn,
-                      { backgroundColor: col.fill, borderColor: col.stroke },
-                    ]}
-                    onPress={() => handleSurfaceSave(st)}
-                    disabled={surfaceSaving}
-                    activeOpacity={0.7}
-                  >
-                    {surfaceSaving ? (
-                      <ActivityIndicator size="small" color={col.stroke} />
-                    ) : (
-                      <Text style={[s.surfaceStatusText, { color: col.stroke }]}>
-                        {STATUS_SHORT[st]}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            <>
+              <TextInput
+                style={s.surfaceNoteInput}
+                value={surfaceNote}
+                onChangeText={setSurfaceNote}
+                placeholder={`Note for ${activeSurface} surface…`}
+                placeholderTextColor={C.muted}
+                multiline
+                maxLength={300}
+                autoCapitalize="sentences"
+                autoCorrect
+                editable={!surfaceSaving}
+              />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: 8 }}
+                contentContainerStyle={{ gap: 6, paddingBottom: 2 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                {(ALL_STATUSES as ToothStatus[]).map(st => {
+                  const col = TOOTH_COLORS[st];
+                  return (
+                    <TouchableOpacity
+                      key={st}
+                      style={[
+                        s.surfaceStatusBtn,
+                        { backgroundColor: col.fill, borderColor: col.stroke },
+                      ]}
+                      onPress={() => handleSurfaceSave(st)}
+                      disabled={surfaceSaving}
+                      activeOpacity={0.7}
+                    >
+                      {surfaceSaving ? (
+                        <ActivityIndicator size="small" color={col.stroke} />
+                      ) : (
+                        <Text style={[s.surfaceStatusText, { color: col.stroke }]}>
+                          {STATUS_SHORT[st]}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </>
           )}
 
           <View style={[s.divider, { marginTop: 12, marginBottom: 14 }]} />
@@ -532,6 +556,18 @@ const s = StyleSheet.create({
     fontWeight:    '600',
     color:         C.muted,
     marginBottom:  6,
+  },
+
+  surfaceNoteInput: {
+    backgroundColor:   C.bg,
+    borderRadius:      10,
+    paddingHorizontal: 10,
+    paddingVertical:   8,
+    fontSize:          13,
+    color:             C.ink,
+    maxHeight:         70,
+    lineHeight:        19,
+    marginTop:         8,
   },
 
   // Surface status picker buttons (horizontal scroll)

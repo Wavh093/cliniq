@@ -236,7 +236,7 @@ module.exports = async function handler(req, res) {
 
       const { data, error } = await db
         .from('dental_surface_records')
-        .select('tooth_fdi, surface, status, updated_at')
+        .select('tooth_fdi, surface, status, notes, updated_at')
         .eq('practice_id', PRACTICE_ID)
         .eq('patient_id', patient_id);
 
@@ -246,7 +246,7 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'POST') {
       const body = await parseBody(req);
-      const { patient_id: pid, tooth_fdi, surface, status } = body;
+      const { patient_id: pid, tooth_fdi, surface, status, notes } = body;
 
       if (!pid) return res.status(400).json({ error: 'patient_id required' });
 
@@ -277,12 +277,13 @@ module.exports = async function handler(req, res) {
             tooth_fdi:   fdi,
             surface,
             status,
+            notes:       notes?.trim() || null,
             updated_at:  new Date().toISOString(),
             updated_by:  user.id,
           },
           { onConflict: 'practice_id,patient_id,tooth_fdi,surface' },
         )
-        .select('tooth_fdi, surface, status, updated_at')
+        .select('tooth_fdi, surface, status, notes, updated_at')
         .single();
 
       if (error) return res.status(500).json({ error: error.message });

@@ -104,7 +104,7 @@ function BlockTimeModal({
             onChangeText={setStartTime}
             placeholder="09:00"
             placeholderTextColor={C.muted}
-            keyboardType="numeric"
+            keyboardType="default"
           />
 
           {/* End time */}
@@ -115,7 +115,7 @@ function BlockTimeModal({
             onChangeText={setEndTime}
             placeholder="10:00"
             placeholderTextColor={C.muted}
-            keyboardType="numeric"
+            keyboardType="default"
           />
 
           {/* Reason */}

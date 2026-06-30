@@ -65,7 +65,7 @@ module.exports = async function handler(req, res) {
         practice_id: PRACTICE_ID,
         first_name: first_name.trim(), last_name: last_name.trim(), phone: phone.trim(),
         email: email?.toLowerCase().trim() || null,
-        dob: dob || null, gender: gender || null, id_number: id_number?.trim() || null,
+        date_of_birth: dob || null, gender: gender || null, id_number: id_number?.trim() || null,
         home_address: home_address?.trim() || null,
         suburb: suburb?.trim() || null, city: city?.trim() || null,
         postal_code: postal_code?.trim() || null, province: province || null,

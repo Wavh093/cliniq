@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import {
-  getDentalChart, getDentalScans, saveDentalScan, deleteDentalScan,
+  getDentalChart, getDentalScans, getDentalSurfaces, saveDentalScan, deleteDentalScan,
   type ToothStatus, type ToothNote, type ToothRecord, type DentalScan,
 } from '../lib/api';
 import { C } from '../constants/theme';
@@ -20,6 +20,18 @@ interface ToothCell {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+const STATUS_SEVERITY: Record<ToothStatus, number> = {
+  needs_treatment: 8,
+  cavity:          7,
+  crown:           5,
+  implant:         4,
+  bridge:          4,
+  extraction:      3,
+  missing:         3,
+  filled:          2,
+  healthy:         1,
+};
+
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -54,7 +66,10 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
   const loadChart = useCallback(async () => {
     setLoading(true);
     try {
-      const { records, notes } = await getDentalChart(patientId);
+      const [{ records, notes }, surfacesData] = await Promise.all([
+        getDentalChart(patientId),
+        getDentalSurfaces(patientId).catch(() => ({ surfaces: [] })),
+      ]);
 
       const map: Partial<Record<number, ToothCell>> = {};
       for (const r of records) {
@@ -67,6 +82,18 @@ export default function DentalChartCard({ patientId, appointmentId, onUploadingC
         byTooth[n.tooth_fdi].push(n);
         if (map[n.tooth_fdi]) map[n.tooth_fdi]!.hasNotes = true;
         else map[n.tooth_fdi] = { status: 'healthy', hasNotes: true };
+      }
+
+      // Compute dominant surface status per tooth and apply if more severe
+      // than the tooth-level status so the main chart reflects surface conditions.
+      for (const sr of surfacesData.surfaces) {
+        const fdi = sr.tooth_fdi as number;
+        const srStatus = sr.status as ToothStatus;
+        const existing = map[fdi];
+        const existingSev = STATUS_SEVERITY[existing?.status ?? 'healthy'];
+        if (STATUS_SEVERITY[srStatus] > existingSev) {
+          map[fdi] = { status: srStatus, hasNotes: existing?.hasNotes ?? false };
+        }
       }
 
       setToothMap(map);

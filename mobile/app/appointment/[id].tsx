@@ -609,7 +609,7 @@ export default function SessionScreen() {
           )}
 
           {/* ── Payment recording (completed sessions) ──────────── */}
-          {appt.status === 'completed' && !paymentSaved && !appt.paid_at && (
+          {appt.status === 'completed' && !paymentSaved && !appt.paid_at && !appt.patient_paid_at && (
             <View style={s.paymentCard}>
               <View style={s.docsHeaderRow}>
                 <Ionicons name="wallet-outline" size={15} color={C.sage} />
