@@ -39,7 +39,7 @@
  *
  * All routes require Authorization: Bearer <staff-jwt>.
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 const VALID_STATUSES = ['pending','confirmed','completed','cancelled','no_show'];
 
@@ -57,7 +57,9 @@ const VALID_SESSION_STATUSES = ['scheduled','completed','missed','rescheduled','
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const user = await requireAuth(req, res);
+  // All appointment routes read or modify patient PII — verified, active
+  // staff membership is required (not just a valid Supabase session).
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();
@@ -93,7 +95,12 @@ module.exports = async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'id is required' });
       const body = await parseBody(req);
       const updates = {};
-      if (body.name    !== undefined) updates.name    = body.name.trim();
+      if (body.name !== undefined) {
+        if (typeof body.name !== 'string' || !body.name.trim()) {
+          return res.status(400).json({ error: 'Branch name cannot be empty' });
+        }
+        updates.name = body.name.trim();
+      }
       if (body.address !== undefined) updates.address = body.address?.trim() || null;
       if (body.phone   !== undefined) updates.phone   = body.phone?.trim() || null;
       if (body.active  !== undefined) updates.active  = Boolean(body.active);
@@ -228,7 +235,12 @@ module.exports = async function handler(req, res) {
       }
       if (body.notes           !== undefined) updates.notes           = body.notes || null;
       if (body.appointment_id  !== undefined) updates.appointment_id  = body.appointment_id || null;
-      if (body.session_date    !== undefined) updates.session_date    = body.session_date || null;
+      if (body.session_date    !== undefined) {
+        if (body.session_date && !/^\d{4}-\d{2}-\d{2}$/.test(body.session_date)) {
+          return res.status(400).json({ error: 'session_date must be YYYY-MM-DD' });
+        }
+        updates.session_date = body.session_date || null;
+      }
       if (body.service_id      !== undefined) updates.service_id      = body.service_id || null;
       // Payment fields (migration 019)
       if (body.amount_charged !== undefined) {
@@ -755,17 +767,9 @@ module.exports = async function handler(req, res) {
   //  TIME BLOCKS  (?resource=time_blocks)
   // ══════════════════════════════════════════════════════════════
   if (req.query.resource === 'time_blocks') {
-    // time_blocks.staff_id and .created_by are FKs to staff(id), not auth.users(id).
-    // requireAuth only gives us the auth UUID, so we must look up the internal staff row.
-    const { data: staffRow } = await db
-      .from('staff')
-      .select('id')
-      .eq('practice_id', PRACTICE_ID)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!staffRow) return res.status(403).json({ error: 'Staff record not found' });
-    const staffId = staffRow.id;
+    // time_blocks.staff_id and .created_by are FKs to staff(id) — requireStaff
+    // already resolved the internal staff row for this auth user.
+    const staffId = user.staffId;
 
     if (req.method === 'GET') {
       const { data, error } = await db
@@ -1048,7 +1052,13 @@ module.exports = async function handler(req, res) {
       updates.cancellation_reason = cancellation_reason?.trim() || null;
     }
     if (internal_notes      != null) updates.internal_notes      = internal_notes;
-    if (duration_minutes    != null) updates.duration_minutes    = Number(duration_minutes);
+    if (duration_minutes    != null) {
+      const dur = Number(duration_minutes);
+      if (isNaN(dur) || dur < 5 || dur > 480) {
+        return res.status(400).json({ error: 'duration_minutes must be between 5 and 480' });
+      }
+      updates.duration_minutes = dur;
+    }
     if (patient_id          != null && patient_id !== '') updates.patient_id = patient_id;
     if (needs_patient_link  != null) updates.needs_patient_link  = needs_patient_link;
     if (appointment_date    != null) updates.appointment_date    = appointment_date;
@@ -1149,7 +1159,17 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
     }
 
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(appointment_date)) {
+      return res.status(400).json({ error: 'appointment_date must be YYYY-MM-DD' });
+    }
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(String(appointment_time))) {
+      return res.status(400).json({ error: 'appointment_time must be HH:MM or HH:MM:SS' });
+    }
+
     let dur = duration_minutes ? Number(duration_minutes) : null;
+    if (dur != null && (isNaN(dur) || dur < 5 || dur > 480)) {
+      return res.status(400).json({ error: 'duration_minutes must be between 5 and 480' });
+    }
     if (!dur) {
       const { data: svc } = await db
         .from('services')

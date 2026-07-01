@@ -14,7 +14,7 @@
  *   → { success: true }
  *   Auth required.
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rateLimit');
 
 const VALID_TOPICS  = ['general', 'appointment', 'cosmetic', 'emergency', 'medical'];
@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
 
   // ── GET — admin inbox ──────────────────────────────────────────
   if (req.method === 'GET') {
-    const user = await requireAuth(req, res);
+    const user = await requireStaff(req, res);
     if (!user) return;
 
     const page   = Math.max(1, parseInt(req.query.page  || '1', 10));
@@ -66,7 +66,7 @@ module.exports = async function handler(req, res) {
 
   // ── PATCH — mark status ────────────────────────────────────────
   if (req.method === 'PATCH') {
-    const user = await requireAuth(req, res);
+    const user = await requireStaff(req, res);
     if (!user) return;
 
     const { id } = req.query;

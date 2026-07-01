@@ -2,18 +2,19 @@
 /**
  * /api/services
  *
- * GET  (?all=true to include inactive) → { services: [...] }
+ * GET  → { services: [...] }   PUBLIC (rate-limited) — active services only.
+ *        The patient booking page uses this to show the live catalogue.
+ * GET  ?all=true               → includes inactive. Staff only.
  * POST  { name, category, duration_minutes, price_from, price_to?, description? }
- *   → 201 { service }
+ *   → 201 { service }   Staff only.
  * PATCH ?id=UUID  { name?, category?, duration_minutes?, price_from?,
  *                   price_to?, description?, active? }
- *   → 200 { success: true }
+ *   → 200 { success: true }   Staff only.
  * DELETE ?id=UUID  → soft-delete (sets active = false)
- *   → 200 { success: true }
- *
- * All routes require Authorization: Bearer <staff-jwt>.
+ *   → 200 { success: true }   Staff only.
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
+const { rateLimit } = require('./_lib/rateLimit');
 
 const VALID_CATEGORIES = [
   'General','Cosmetic','Orthodontics','Paediatric','Oral Surgery',
@@ -25,14 +26,21 @@ const SERVICE_SELECT = 'id, name, category, duration_minutes, price_from, price_
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const user = await requireAuth(req, res);
-  if (!user) return;
-
   const db = adminClient();
 
   // ── GET ────────────────────────────────────────────────────────
+  // The active-services list is public information (it is displayed on the
+  // patient booking page), so plain GET needs no auth — only a rate limit.
+  // Including inactive services (?all=true) stays staff-only.
   if (req.method === 'GET') {
     const all = req.query.all === 'true';
+    if (all) {
+      const staffUser = await requireStaff(req, res);
+      if (!staffUser) return;
+    } else if (rateLimit(req, res, 30, 60_000)) {
+      return;
+    }
+
     let q = db
       .from('services')
       .select(SERVICE_SELECT)
@@ -49,6 +57,10 @@ module.exports = async function handler(req, res) {
     }
     return res.status(200).json({ services: data || [] });
   }
+
+  // All mutations require verified staff membership
+  const user = await requireStaff(req, res);
+  if (!user) return;
 
   // ── POST — create service ──────────────────────────────────────
   if (req.method === 'POST') {

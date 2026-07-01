@@ -19,7 +19,7 @@
  * POST (new item) { _action: 'create_item', name, category, unit, ... }
  *   → 201 { success: true, itemId }
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 // Types where qty goes down
 const OUT_TYPES = new Set(['out', 'write_off']);
@@ -27,7 +27,7 @@ const OUT_TYPES = new Set(['out', 'write_off']);
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const user = await requireAuth(req, res);
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();

@@ -13,12 +13,13 @@
  *   - If appointment_actuals exist → sum(qty_used × cost_per_unit)
  *   - Otherwise → sum(expected_qty × cost_per_unit) from service_inventory_map  (labelled "est.")
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const user = await requireAuth(req, res);
+  // Financial + patient data — verified staff membership required.
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();
