@@ -288,12 +288,13 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'first_name and last_name are required' });
     }
 
-    // ID number is required and must be exactly 13 digits
+    // ID number is required: either a 13-digit SA ID or a passport
+    // (1 letter + 8 digits) — the admin wizard offers both.
     if (!id_number?.trim()) {
       return res.status(400).json({ error: 'ID number is required' });
     }
-    if (!/^\d{13}$/.test(id_number.trim())) {
-      return res.status(400).json({ error: 'SA ID number must be exactly 13 digits' });
+    if (!/^\d{13}$/.test(id_number.trim()) && !/^[A-Za-z]\d{8}$/.test(id_number.trim())) {
+      return res.status(400).json({ error: 'ID must be a 13-digit SA ID number or a passport number (1 letter + 8 digits)' });
     }
 
     // Email validation
@@ -403,9 +404,12 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    // SA ID number format: exactly 13 digits (allow clearing with null/'')
-    if (updates.id_number != null && updates.id_number !== '' && !/^\d{13}$/.test(String(updates.id_number).trim())) {
-      return res.status(400).json({ error: 'SA ID number must be exactly 13 digits' });
+    // ID format: 13-digit SA ID or passport (allow clearing with null/'')
+    if (updates.id_number != null && updates.id_number !== '') {
+      const idv = String(updates.id_number).trim();
+      if (!/^\d{13}$/.test(idv) && !/^[A-Za-z]\d{8}$/.test(idv)) {
+        return res.status(400).json({ error: 'ID must be a 13-digit SA ID number or a passport number (1 letter + 8 digits)' });
+      }
     }
 
     // Convert empty strings → null — required for CHECK-constrained enums and

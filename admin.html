@@ -2985,26 +2985,76 @@ const MEDICAL_AIDS = [
   'MediHelp','FedHealth','Profmed','GEMS','POLMED',
 ];
 
+/* ── Shared field validators (reactive form validation) ───────── */
+
+// Keep only digits, capped at SA lengths: 10 local digits, or +27 + 9 digits.
+function sanitizePhoneInput(raw) {
+  const hasPlus = raw.trimStart().startsWith('+');
+  const digits  = raw.replace(/\D/g, '');
+  if (hasPlus && digits.startsWith('27')) return '+27' + digits.slice(2, 11);
+  if (hasPlus && digits === '2')          return '+2';   // still typing +27
+  if (hasPlus && digits === '')           return '+';
+  return digits.slice(0, 10);
+}
+
+// null when valid/empty (phone is optional), otherwise a short error message.
+function phoneFieldError(p) {
+  if (!p || !p.trim()) return null;
+  const v = p.trim();
+  if (v.startsWith('+')) {
+    if (!v.startsWith('+27')) return 'International numbers must start with +27.';
+    return v.length === 12 ? null : `+27 must be followed by 9 digits (${Math.max(0, v.length - 3)}/9).`;
+  }
+  if (!v.startsWith('0')) return 'Phone number must start with 0 or +27.';
+  return v.length === 10 ? null : `Phone number must be 10 digits (${v.length}/10).`;
+}
+
+// Full SA ID validation: 13 digits, valid embedded birth date, Luhn checksum.
+function saIdError(id) {
+  if (!/^\d{13}$/.test(id)) return `SA ID number must be 13 digits (${id.length}/13).`;
+  const mm = +id.slice(2, 4), dd = +id.slice(4, 6);
+  if (mm < 1 || mm > 12) return 'ID number has an invalid birth month.';
+  const yy   = +id.slice(0, 2);
+  const year = yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy;
+  const dt   = new Date(year, mm - 1, dd);
+  if (dt.getMonth() + 1 !== mm || dt.getDate() !== dd) return 'ID number has an invalid birth date.';
+  let sum = 0;
+  for (let i = 0; i < 13; i++) {
+    let d = +id[12 - i];
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  if (sum % 10 !== 0) return 'ID number failed the checksum — please double-check it.';
+  return null;
+}
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 function MedicalAidSelect({ value, onChange }) {
   const isKnown = MEDICAL_AIDS.includes(value);
-  const showOtherInput = value !== '' && !isKnown;
+  // "Other…" must be remembered locally: choosing it clears the value, and
+  // without this flag the empty value re-rendered the select back to
+  // "Select medical aid…" so the free-text input never appeared.
+  const [otherMode, setOtherMode] = useState(() => value !== '' && !isKnown);
+  const showOtherInput = otherMode || (value !== '' && !isKnown);
   const selectVal = showOtherInput ? '__other__' : (value || '');
   return (
     <div style={{display:'flex',flexDirection:'column',gap:6}}>
       <select value={selectVal} onChange={e => {
         const v = e.target.value;
-        if (v === '__other__') onChange('');
-        else onChange(v);
+        if (v === '__other__') { setOtherMode(true); onChange(''); }
+        else { setOtherMode(false); onChange(v); }
       }}>
         <option value="">Select medical aid…</option>
         {MEDICAL_AIDS.map(ma => <option key={ma} value={ma}>{ma}</option>)}
         <option value="__other__">Other…</option>
       </select>
-      {(selectVal === '__other__' || showOtherInput) && (
+      {showOtherInput && (
         <input
-          value={showOtherInput ? value : ''}
+          value={value}
           onChange={e => onChange(e.target.value)}
           placeholder="Enter medical aid name"
+          maxLength={60}
           autoFocus
         />
       )}
@@ -3347,11 +3397,18 @@ function QuadrantDiagram({ toothFdi, surfaces, onSaveSurface }) {
     await onSaveSurface(activeSurface, status);
     setSaving(false);
   };
+  // Mesial always faces the midline. Quadrants 1 & 4 are drawn on the left
+  // half of the chart (midline on their right), so their M/D positions are
+  // mirrored relative to quadrants 2 & 3. All five API surfaces are shown:
+  // Buccal (top), Mesial/Distal (sides), Lingual (bottom), Occlusal (centre).
+  const quadrant = Math.floor(toothFdi / 10);
+  const mesialOnRight = quadrant === 1 || quadrant === 4;
   const segments = [
-    { key: 'occlusal', label: 'O', title: 'Occlusal', pos: 'top' },
-    { key: 'mesial',   label: 'M', title: 'Mesial',   pos: 'left' },
-    { key: 'distal',   label: 'D', title: 'Distal',   pos: 'right' },
-    { key: 'lingual',  label: 'L', title: 'Lingual',  pos: 'bottom' },
+    { key: 'buccal',  label: 'B', title: 'Buccal',  pos: 'top' },
+    { key: mesialOnRight ? 'distal' : 'mesial', label: mesialOnRight ? 'D' : 'M', title: mesialOnRight ? 'Distal' : 'Mesial', pos: 'left' },
+    { key: mesialOnRight ? 'mesial' : 'distal', label: mesialOnRight ? 'M' : 'D', title: mesialOnRight ? 'Mesial' : 'Distal', pos: 'right' },
+    { key: 'lingual', label: 'L', title: 'Lingual', pos: 'bottom' },
+    { key: 'occlusal', label: 'O', title: 'Occlusal', pos: 'center' },
   ];
   const renderSeg = (s) => {
     const st = getStatus(s.key);
@@ -3367,11 +3424,13 @@ function QuadrantDiagram({ toothFdi, surfaces, onSaveSurface }) {
           color: isActive ? '#0a4a5c' : '#4a7a8a',
           background: SURFACE_STATUS_COLORS[st],
           border: `2px solid ${isActive ? '#0a4a5c' : SURFACE_STATUS_BORDERS[st]}`,
-          borderRadius:4, transition:'all 0.15s',
-          ...(s.pos === 'top'    && { top:0,    left:'25%', width:'50%', height:'33%' }),
-          ...(s.pos === 'bottom' && { bottom:0,  left:'25%', width:'50%', height:'33%' }),
-          ...(s.pos === 'left'   && { top:'25%', left:0,    width:'33%', height:'50%' }),
-          ...(s.pos === 'right'  && { top:'25%', right:0,   width:'33%', height:'50%' }),
+          borderRadius: s.pos === 'center' ? '50%' : 4, transition:'all 0.15s',
+          zIndex: s.pos === 'center' ? 1 : 0,
+          ...(s.pos === 'top'    && { top:0,    left:'25%', width:'50%', height:'30%' }),
+          ...(s.pos === 'bottom' && { bottom:0,  left:'25%', width:'50%', height:'30%' }),
+          ...(s.pos === 'left'   && { top:'25%', left:0,    width:'30%', height:'50%' }),
+          ...(s.pos === 'right'  && { top:'25%', right:0,   width:'30%', height:'50%' }),
+          ...(s.pos === 'center' && { top:'33%', left:'33%', width:'34%', height:'34%' }),
         }}
       >{s.label}</div>
     );
@@ -3380,7 +3439,6 @@ function QuadrantDiagram({ toothFdi, surfaces, onSaveSurface }) {
     <div>
       <div style={{fontSize:11,color:'#6b8f99',marginBottom:6,fontWeight:600,letterSpacing:'0.05em'}}>SURFACE CONDITIONS</div>
       <div style={{position:'relative', width:90, height:90, margin:'0 auto 10px'}}>
-        <div style={{position:'absolute',top:'37%',left:'37%',width:'26%',height:'26%',borderRadius:'50%',background:'#e0ecf0',border:'1px solid #b5d5d8'}} />
         {segments.map(renderSeg)}
       </div>
       {activeSurface && (
@@ -3661,7 +3719,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   };
 
   const addToothNote = async (fdi) => {
-    if (!toothNoteText.trim()) return;
+    if (!toothNoteText.trim() || toothNoteSaving) return; // guard double Enter
     setToothNoteSaving(true);
     try {
       const resp = await api('/api/documents?resource=dental&action=note', {
@@ -3691,7 +3749,9 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
     try {
       const sb = window._supabaseClient;
       if (!sb) throw new Error('Storage client not available');
-      const filePath = `${detail.id}/${Date.now()}-${file.name}`;
+      // Storage keys reject many special characters — keep a safe filename
+      const safeName = file.name.replace(/[^\w.\-]+/g, '_').slice(-80) || 'scan';
+      const filePath = `${detail.id}/${Date.now()}-${safeName}`;
       const { error: upErr } = await sb.storage.from('dental-scans').upload(filePath, file);
       if (upErr) throw upErr;
       const resp = await api('/api/documents?resource=dental&action=scan', {
@@ -4418,6 +4478,35 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   </div>
                 </div>
 
+                {/* Clinical summary — counts of non-healthy teeth at a glance */}
+                {!dentalLoading && (() => {
+                  const counts = {};
+                  Object.values(dentalRecords).forEach(r => {
+                    if (r?.status && r.status !== 'healthy') counts[r.status] = (counts[r.status] || 0) + 1;
+                  });
+                  const entries = TOOTH_STATUSES.filter(s => counts[s.key]);
+                  if (!entries.length) return (
+                    <div style={{fontSize:12,color:'var(--muted)',marginBottom:12}}>All charted teeth are healthy — click a tooth to record a condition.</div>
+                  );
+                  return (
+                    <div data-testid="chart-summary" style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
+                      {entries.map(s => (
+                        <span key={s.key} style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,
+                          background:s.bg,border:`1px solid ${s.border}`,color:'var(--ink)',borderRadius:999,padding:'3px 10px'}}>
+                          <span style={{width:7,height:7,borderRadius:'50%',background:s.border}} />
+                          {counts[s.key]} {s.label.toLowerCase()}
+                        </span>
+                      ))}
+                      {dentalNotes.length > 0 && (
+                        <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,
+                          background:'var(--bg-3)',border:'1px solid var(--border)',color:'var(--ink-soft)',borderRadius:999,padding:'3px 10px'}}>
+                          {dentalNotes.length} note{dentalNotes.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {dentalLoading ? (
                   <div style={{color:'var(--muted)',fontSize:13,padding:'16px 0',textAlign:'center'}}>Loading dental chart...</div>
                 ) : (
@@ -4873,7 +4962,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   <div className="field"><label>First name *</label><input value={editForm.first_name} readOnly disabled /></div>
                   <div className="field"><label>Last name *</label><input value={editForm.last_name} readOnly disabled /></div>
                   <div className="field"><label>Email</label><input type="email" value={editForm.email} onChange={ef('email')} /></div>
-                  <div className="field"><label>Phone</label><input value={editForm.phone} onChange={e => setEditForm(v => ({...v, phone: e.target.value.replace(/[a-zA-Z]/g,'')}))} inputMode="tel" /></div>
+                  <div className="field"><label>Phone</label><input value={editForm.phone} onChange={e => setEditForm(v => ({...v, phone: sanitizePhoneInput(e.target.value)}))} inputMode="tel" /></div>
                   <div className="field"><label>SA ID number</label><input value={editForm.id_number} readOnly disabled placeholder="13-digit SA ID" /></div>
                   <div className="field"><label>Date of birth</label><div style={{fontSize:13,color:'var(--ink-soft)',padding:'9px 0'}}>{editForm.date_of_birth ? fmtDate(editForm.date_of_birth) : '—'}</div></div>
                   <div className="field">
@@ -4889,7 +4978,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
                   <div className="field" style={{gridColumn:'1/-1'}}><label>Street address</label><input value={editForm.home_address} onChange={ef('home_address')} placeholder="e.g. 12 Main Road" /></div>
                   <div className="field"><label>Suburb</label><input value={editForm.suburb} onChange={ef('suburb')} placeholder="e.g. Krugersdorp North" /></div>
                   <div className="field"><label>City / Town</label><input value={editForm.city} onChange={ef('city')} placeholder="e.g. Krugersdorp" /></div>
-                  <div className="field"><label>Postal code</label><input value={editForm.postal_code} onChange={ef('postal_code')} placeholder="e.g. 1739" /></div>
+                  <div className="field"><label>Postal code</label><input value={editForm.postal_code} onChange={e => setEditForm(v => ({...v, postal_code: e.target.value.replace(/\D/g,'').slice(0,4)}))} placeholder="e.g. 1739" inputMode="numeric" /></div>
                   <div className="field">
                     <label>Province</label>
                     <select value={editForm.province} onChange={ef('province')}>
@@ -5815,18 +5904,47 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
   const dependentUnlinked = isDependent && !form.main_member_patient_id;
   const canSave = form.first_name.trim() && form.last_name.trim() && form.id_number.trim();
 
-  const validateStep0 = () => {
-    const errs = [];
-    if (!form.first_name.trim() || !form.last_name.trim()) errs.push('First name and last name are required.');
-    if (!form.id_number.trim()) errs.push(idType === 'passport' ? 'Passport number is required.' : 'ID number is required.');
-    else if (idType === 'sa_id' && !/^\d{13}$/.test(form.id_number.trim())) errs.push('SA ID number must be exactly 13 digits.');
-    else if (idType === 'passport' && !/^[A-Za-z]\d{8}$/.test(form.id_number.trim())) errs.push('Passport number must be one letter followed by 8 digits (e.g. A12345678).');
-    if (!form.date_of_birth) errs.push('Date of birth is required.');
-    if (!form.gender) errs.push('Gender is required.');
-    if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.push('Please enter a valid email address.');
-    if (form.phone && form.phone.trim().replace(/\D/g,'') && !/^(0|\+27)/.test(form.phone.trim())) errs.push('Phone number must start with 0 or +27.');
-    return errs;
+  // ── Reactive per-field validation ──
+  // Format errors show live as the user types; "required" errors only appear
+  // after the field was visited (touched) or a Continue attempt, so an empty
+  // form doesn't open covered in red.
+  const [touched, setTouched] = useState({});
+  const [tried,   setTried]   = useState(false);
+  const touch = f => () => setTouched(t => t[f] ? t : ({ ...t, [f]: true }));
+
+  const fieldErrors = useMemo(() => {
+    const fe = {};
+    if (!form.first_name.trim()) fe.first_name = 'First name is required.';
+    if (!form.last_name.trim())  fe.last_name  = 'Last name is required.';
+    const idVal = form.id_number.trim();
+    if (!idVal) fe.id_number = idType === 'passport' ? 'Passport number is required.' : 'ID number is required.';
+    else if (idType === 'sa_id') { const e = saIdError(idVal); if (e) fe.id_number = e; }
+    else if (!/^[A-Za-z]\d{8}$/.test(idVal)) fe.id_number = 'Passport number must be one letter followed by 8 digits (e.g. A12345678).';
+    if (!form.date_of_birth) fe.date_of_birth = 'Date of birth is required.';
+    if (!form.gender)        fe.gender        = 'Gender is required.';
+    if (form.email && !EMAIL_RE.test(form.email)) fe.email = 'Please enter a valid email address.';
+    const pErr = phoneFieldError(form.phone);
+    if (pErr) fe.phone = pErr;
+    return fe;
+  }, [form.first_name, form.last_name, form.id_number, form.date_of_birth, form.gender, form.email, form.phone, idType]);
+
+  const REQUIRED_FIELDS = ['first_name', 'last_name', 'id_number', 'date_of_birth', 'gender'];
+  // Live errors: format problems always show once there is input; required-empty
+  // errors show after touch or a Continue attempt.
+  const showErr = f => {
+    const err = fieldErrors[f];
+    if (!err) return null;
+    const isEmpty = REQUIRED_FIELDS.includes(f) && !String(form[f] || '').trim();
+    if (isEmpty && !touched[f] && !tried) return null;
+    return err;
   };
+  const FieldErr = ({ f }) => {
+    const err = showErr(f);
+    return err ? <div style={{fontSize:11,color:'var(--danger)',marginTop:3}} role="alert">{err}</div> : null;
+  };
+  const step0Valid = Object.keys(fieldErrors).length === 0;
+
+  const validateStep0 = () => Object.values(fieldErrors);
 
   const addressInputRef = useRef(null);
   const autocompleteRef = useRef(null);
@@ -5881,7 +5999,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
 
   const submit = async () => {
     const vErrs = validateStep0();
-    if (vErrs.length) { setErr(vErrs[0]); return; }
+    if (vErrs.length) { setTried(true); setErr(vErrs[0]); return; }
     setSaving(true); setErr('');
     try {
       const resp = await api('/api/patients', {
@@ -5916,7 +6034,9 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
     </div>
   );
 
-  /* shared footer */
+  /* shared footer — called as a plain function (not <WizFoot/>): an inline
+     component type changes identity on every render, which remounts the
+     buttons and can swallow a click that races a re-render (e.g. field blur). */
   const WizFoot = ({ onBack, onNext, nextLabel='Continue →', saveLabel='Save & exit', showSave=true }) => (
     <div className="modal-foot" style={{marginTop:16}}>
       {onBack
@@ -5961,12 +6081,29 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
         {step === 0 && (
           <>
             <div className="form-cols">
-              <div className="field"><label>First name *</label><input value={form.first_name} onChange={e=>set({first_name:e.target.value})} placeholder="Jane" autoFocus /></div>
-              <div className="field"><label>Last name *</label><input value={form.last_name} onChange={e=>set({last_name:e.target.value})} placeholder="Smith" /></div>
+              <div className="field">
+                <label>First name *</label>
+                <input value={form.first_name} onChange={e=>set({first_name:e.target.value})} onBlur={touch('first_name')} placeholder="Jane" maxLength={50} autoFocus />
+                <FieldErr f="first_name" />
+              </div>
+              <div className="field">
+                <label>Last name *</label>
+                <input value={form.last_name} onChange={e=>set({last_name:e.target.value})} onBlur={touch('last_name')} placeholder="Smith" maxLength={50} />
+                <FieldErr f="last_name" />
+              </div>
             </div>
             <div className="form-cols" style={{marginTop:14}}>
-              <div className="field"><label>Phone</label><input value={form.phone} onChange={e=>set({phone:e.target.value.replace(/[a-zA-Z]/g,'')})} placeholder="071 000 0000" inputMode="tel" /></div>
-              <div className="field"><label>Email</label><input type="email" value={form.email} onChange={e=>set({email:e.target.value})} placeholder="jane@example.com" /></div>
+              <div className="field">
+                <label>Phone</label>
+                <input value={form.phone} onChange={e=>set({phone:sanitizePhoneInput(e.target.value)})} onBlur={touch('phone')}
+                  placeholder="0710000000" inputMode="tel" />
+                <FieldErr f="phone" />
+              </div>
+              <div className="field">
+                <label>Email</label>
+                <input type="email" value={form.email} onChange={e=>set({email:e.target.value})} onBlur={touch('email')} placeholder="jane@example.com" maxLength={254} />
+                <FieldErr f="email" />
+              </div>
             </div>
             <div className="form-cols" style={{marginTop:14}}>
               <div className="field">
@@ -5991,7 +6128,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
                       const yy = parseInt(cleaned.slice(0,2), 10);
                       const mm = cleaned.slice(2,4);
                       const dd = cleaned.slice(4,6);
-                      const year = yy <= 26 ? 2000 + yy : 1900 + yy;
+                      const year = yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy;
                       const iso = `${year}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
                       const dObj = new Date(iso);
                       if (!isNaN(dObj.getTime()) && dObj.getFullYear() === year &&
@@ -6004,23 +6141,33 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
                   placeholder={idType === 'sa_id' ? '13-digit SA ID number' : 'e.g. A12345678'}
                   maxLength={idType === 'sa_id' ? 13 : 9}
                   inputMode={idType === 'sa_id' ? 'numeric' : 'text'}
+                  onBlur={touch('id_number')}
                 />
                 {idType === 'passport' && <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>1 letter + 8 digits (e.g. A12345678)</div>}
+                <FieldErr f="id_number" />
+                {idType === 'sa_id' && form.id_number.length === 13 && !fieldErrors.id_number && (
+                  <div style={{fontSize:11,color:'var(--green)',marginTop:3}}>✓ Valid SA ID</div>
+                )}
               </div>
-              <div className="field"><label>Date of birth</label><DobPicker value={form.date_of_birth} onChange={v => set({date_of_birth: v})} /></div>
+              <div className="field">
+                <label>Date of birth *</label>
+                <DobPicker value={form.date_of_birth} onChange={v => { set({date_of_birth: v}); setTouched(t => ({...t, date_of_birth:true})); }} />
+                <FieldErr f="date_of_birth" />
+              </div>
             </div>
             <div className="field" style={{marginTop:14,maxWidth:'calc(50% - 8px)'}}>
-              <label>Gender</label>
-              <select className="kliniqdrop" value={form.gender} onChange={e=>set({gender:e.target.value})}>
+              <label>Gender *</label>
+              <select className="kliniqdrop" value={form.gender} onChange={e=>set({gender:e.target.value})} onBlur={touch('gender')}>
                 <option value="">Select…</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="non_binary">Non-binary</option>
                 <option value="prefer_not_to_say">Prefer not to say</option>
               </select>
+              <FieldErr f="gender" />
             </div>
             {err && <div className="alert alert-error" style={{marginTop:12}}>{err}</div>}
-            <WizFoot onNext={() => { const vE = validateStep0(); if (vE.length) { setErr(vE[0]); return; } setErr(''); setStep(1); }} saveLabel="Save now &amp; continue later" />
+            {WizFoot({ onNext: () => { if (!step0Valid) { setTried(true); setErr(validateStep0()[0] || ''); return; } setErr(''); setStep(1); }, saveLabel: 'Save now & continue later' })}
           </>
         )}
 
@@ -6042,7 +6189,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               <>
                 <div className="form-cols">
                   <div className="field"><label>Scheme name</label><MedicalAidSelect value={form.medical_aid_name} onChange={v => set({medical_aid_name:v})} /></div>
-                  <div className="field"><label>Membership number</label><input value={form.medical_aid_number} onChange={e=>set({medical_aid_number:e.target.value})} placeholder="e.g. 12345678" /></div>
+                  <div className="field"><label>Membership number</label><input value={form.medical_aid_number} onChange={e=>set({medical_aid_number:e.target.value.replace(/[^A-Za-z0-9\-\/ ]/g,'')})} placeholder="e.g. 12345678" maxLength={20} /></div>
                 </div>
                 <div className="form-cols" style={{marginTop:14}}>
                   <div className="field"><label>Plan / option</label><input value={form.medical_aid_plan} onChange={e=>set({medical_aid_plan:e.target.value})} placeholder="e.g. Classic Comprehensive" /></div>
@@ -6066,7 +6213,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
                   <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:10}}>
                     <div className="field" style={{maxWidth:160}}>
                       <label>Dependant code</label>
-                      <input type="text" inputMode="numeric" value={form.dependant_code} onChange={e=>set({dependant_code:e.target.value})} placeholder="02, 03…" />
+                      <input type="text" inputMode="numeric" value={form.dependant_code} onChange={e=>set({dependant_code:e.target.value.replace(/\D/g,'').slice(0,2)})} placeholder="02, 03…" />
                     </div>
                     <MainMemberSearch
                       picked={mmPick}
@@ -6083,13 +6230,13 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               </>
             )}
             {err && <div className="alert alert-error" style={{marginTop:12}}>{err}</div>}
-            <WizFoot onBack={() => setStep(0)} onNext={() => {
+            {WizFoot({ onBack: () => setStep(0), onNext: () => {
               if (form.has_medical_aid) {
                 if (!form.medical_aid_number.trim()) { setErr('Member number is required.'); return; }
                 if (!form.medical_aid_plan.trim()) { setErr('Plan / option is required.'); return; }
               }
               setErr(''); setStep(2);
-            }} />
+            } })}
           </>
         )}
 
@@ -6103,7 +6250,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               </div>
               <div className="field"><label>Suburb</label><input value={form.suburb} onChange={e=>set({suburb:e.target.value})} placeholder="e.g. Krugersdorp North" /></div>
               <div className="field"><label>City / Town</label><input value={form.city} onChange={e=>set({city:e.target.value})} placeholder="e.g. Krugersdorp" /></div>
-              <div className="field"><label>Postal code</label><input value={form.postal_code} onChange={e=>set({postal_code:e.target.value})} placeholder="e.g. 1739" /></div>
+              <div className="field"><label>Postal code</label><input value={form.postal_code} onChange={e=>set({postal_code:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="e.g. 1739" inputMode="numeric" /></div>
               <div className="field">
                 <label>Province</label>
                 <select className="kliniqdrop" value={form.province} onChange={e=>set({province:e.target.value})}>
@@ -6130,7 +6277,7 @@ function AddPatientModal({ onClose, onDone, initialForm = {}, initialMmPick = nu
               </select>
             </div>
             {err && <div className="alert alert-error" style={{marginTop:12}}>{err}</div>}
-            <WizFoot onBack={() => setStep(1)} showSave={false} />
+            {WizFoot({ onBack: () => setStep(1), showSave: false })}
           </>
         )}
 
@@ -9831,8 +9978,44 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
     return () => clearTimeout(t);
   }, [sessions, highlightSessId]);
 
+  // Inline plan editing (title / total sessions / next due / description)
+  const [planEdit,       setPlanEdit]       = useState(null);
+  const [planEditSaving, setPlanEditSaving] = useState(false);
+
+  const startPlanEdit = () => setPlanEdit({
+    title:            selected.title || '',
+    total_sessions:   selected.total_sessions || 1,
+    next_session_due: selected.next_session_due || '',
+    description:      selected.description || '',
+  });
+
+  const savePlanEdit = async () => {
+    if (!planEdit.title.trim()) { showToast('Plan title is required', 'error'); return; }
+    const total = Number(planEdit.total_sessions);
+    const minTotal = sessions.length ? Math.max(...sessions.map(s => s.session_number || 0)) : 1;
+    if (!Number.isInteger(total) || total < minTotal) {
+      showToast(`Total sessions must be at least ${minTotal}${sessions.length ? ' — sessions already exist up to that number' : ''}.`, 'error');
+      return;
+    }
+    setPlanEditSaving(true);
+    try {
+      const body = {
+        title:            planEdit.title.trim(),
+        total_sessions:   total,
+        next_session_due: planEdit.next_session_due || null,
+        description:      planEdit.description.trim() || null,
+      };
+      await api(`/api/appointments?resource=treatment_plans&id=${selected.id}`, { method:'PATCH', body: JSON.stringify(body) });
+      setSelected(p => ({ ...p, ...body }));
+      setPlans(prev => prev.map(p => p.id === selected.id ? { ...p, ...body } : p));
+      setPlanEdit(null);
+      showToast('Plan updated');
+    } catch(e) { showToast(e.message || 'Could not update plan', 'error'); }
+    finally { setPlanEditSaving(false); }
+  };
+
   const openPlan = async (plan) => {
-    setSelected(plan); setSessions([]); setSessLoading(true);
+    setSelected(plan); setSessions([]); setSessLoading(true); setPlanEdit(null);
     try {
       const sessData = await api(`/api/appointments?resource=plan_sessions&plan_id=${plan.id}`);
       setSessions(sessData.sessions || []);
@@ -9862,7 +10045,11 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
     showToast(`Plan ${PLAN_STATUS_LABEL[status].toLowerCase()}`);
   };
 
+  const [sessBusy, setSessBusy] = useState(null); // session id with an in-flight status change
+
   const updateSessionStatus = async (sessionId, status) => {
+    if (sessBusy) return; // guard double-clicks
+    setSessBusy(sessionId);
     try {
       await api(`/api/appointments?resource=plan_sessions&id=${sessionId}`, { method:'PATCH', body: JSON.stringify({ status }) });
       setSessions(prev => prev.map(s => s.id === sessionId ? {...s, status} : s));
@@ -9870,6 +10057,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
       setSelected(d.plan);
       setPlans(prev => prev.map(p => p.id === selected.id ? {...p, sessions_done: d.plan.sessions_done, status: d.plan.status} : p));
     } catch(e) { showToast(e.message, 'error'); }
+    finally { setSessBusy(null); }
   };
 
   const onSessionPaid = (updatedSession) => {
@@ -9883,6 +10071,12 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
     // Update plan's sessions_done count if new session is already completed
     if (newSession.status === 'completed') {
       setSelected(p => p ? {...p, sessions_done: (p.sessions_done || 0) + 1} : p);
+    }
+    // The modal auto-extends total_sessions when the new session exceeds the
+    // planned count — mirror that in local state so progress reads correctly.
+    if (newSession.session_number > (selected?.total_sessions || 0)) {
+      setSelected(p => p ? {...p, total_sessions: newSession.session_number} : p);
+      setPlans(prev => prev.map(p => p.id === selected?.id ? {...p, total_sessions: newSession.session_number} : p));
     }
   };
 
@@ -10006,7 +10200,12 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
           <div className="modal" style={{maxWidth:640}} onClick={e => e.stopPropagation()}>
             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:4}}>
               <h3 className="modal-title" style={{margin:0}}>{selected.title}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} aria-label="Close">✕</button>
+              <div style={{display:'flex',gap:6,flexShrink:0}}>
+                {!planEdit && ['active','paused'].includes(selected.status) && (
+                  <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={startPlanEdit}>Edit plan</button>
+                )}
+                <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} aria-label="Close">✕</button>
+              </div>
             </div>
             <p className="modal-sub">
               {selected.patients ? (
@@ -10018,7 +10217,39 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
               {' · '}<span style={{color:PLAN_STATUS_COLOR[selected.status]||'var(--muted)',fontWeight:600}}>{PLAN_STATUS_LABEL[selected.status]}</span>
             </p>
 
+            {/* Inline plan edit form */}
+            {planEdit && (
+              <div style={{background:'var(--bg-3)',borderRadius:10,padding:'14px 16px',marginBottom:16}}>
+                <div className="field" style={{marginBottom:12}}>
+                  <label>Plan title *</label>
+                  <input value={planEdit.title} onChange={e => setPlanEdit(v => ({...v, title: e.target.value}))} maxLength={120} />
+                </div>
+                <div className="form-cols" style={{gap:12,marginBottom:12}}>
+                  <div className="field">
+                    <label>Total sessions</label>
+                    <input type="number" min="1" max="50" value={planEdit.total_sessions}
+                      onChange={e => setPlanEdit(v => ({...v, total_sessions: e.target.value}))} />
+                  </div>
+                  <div className="field">
+                    <label>Next session due</label>
+                    <ApptDatePicker value={planEdit.next_session_due} onChange={v => setPlanEdit(f => ({...f, next_session_due: v}))} placeholder="Select date" disablePast={true} />
+                  </div>
+                </div>
+                <div className="field" style={{marginBottom:12}}>
+                  <label>Description</label>
+                  <textarea rows={2} value={planEdit.description} onChange={e => setPlanEdit(v => ({...v, description: e.target.value}))} />
+                </div>
+                <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setPlanEdit(null)} disabled={planEditSaving}>Cancel</button>
+                  <button className="btn btn-primary btn-sm" onClick={savePlanEdit} disabled={planEditSaving}>
+                    {planEditSaving ? 'Saving…' : 'Save changes'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Progress bar */}
+            {!planEdit && (
             <div style={{background:'var(--bg-3)',borderRadius:10,padding:'14px 16px',marginBottom:anyPayment?10:16}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                 <span style={{fontSize:12,color:'var(--muted)',fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase'}}>Progress</span>
@@ -10037,6 +10268,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                 <div style={{fontSize:13,color:'var(--ink-soft)',marginTop:8,lineHeight:1.5}}>{selected.description}</div>
               )}
             </div>
+            )}
 
             {/* Payment summary — shown once any session has a charge */}
             {anyPayment && (
@@ -10125,15 +10357,24 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
                       <div style={{display:'flex',gap:4}}>
                         {s.status !== 'completed' && s.status !== 'cancelled' && (
                           <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--green)',borderColor:'rgba(22,163,74,0.3)'}}
+                            disabled={sessBusy === s.id}
                             onClick={() => updateSessionStatus(s.id, 'completed')}>✓ Done</button>
                         )}
                         {s.status === 'scheduled' && (
                           <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
+                            disabled={sessBusy === s.id}
                             onClick={() => updateSessionStatus(s.id, 'missed')}>Missed</button>
                         )}
                         {s.status === 'scheduled' && (
                           <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--muted)',borderColor:'rgba(100,100,100,0.3)'}}
+                            disabled={sessBusy === s.id}
                             onClick={() => updateSessionStatus(s.id, 'cancelled')}>Cancel</button>
+                        )}
+                        {/* Mis-clicks happen — completed/missed/cancelled sessions can be reopened */}
+                        {['completed','missed','cancelled'].includes(s.status) && ['active','paused'].includes(selected.status) && (
+                          <button className="btn btn-ghost btn-sm" style={{fontSize:11,color:'var(--muted)'}}
+                            disabled={sessBusy === s.id} title="Set this session back to scheduled"
+                            onClick={() => updateSessionStatus(s.id, 'scheduled')}>↺ Reopen</button>
                         )}
                       </div>
                       <button className="btn btn-ghost btn-sm" style={{fontSize:11}}
@@ -10240,7 +10481,7 @@ function TreatmentPlansPage({ onNavigate, initialPatient, initialPlan, initialSe
       {addSessModal && selected && (
         <AddSessionModal
           plan={selected}
-          nextNumber={sessions.length + 1}
+          nextNumber={sessions.length ? Math.max(...sessions.map(s => s.session_number || 0)) + 1 : 1}
           existingSessions={sessions}
           onClose={() => setAddSessModal(false)}
           onSaved={onSessionAdded}
@@ -10285,16 +10526,30 @@ function AddSessionModal({ plan, nextNumber, existingSessions = [], onClose, onS
       const d = await api('/api/appointments?resource=plan_sessions', {
         method: 'POST', body: JSON.stringify(body),
       });
+      // Adding a session beyond the planned total extends the plan so the
+      // progress bar can't read e.g. "5 / 3 sessions".
+      if (nextNumber > (plan.total_sessions || 0)) {
+        await api(`/api/appointments?resource=treatment_plans&id=${plan.id}`, {
+          method: 'PATCH', body: JSON.stringify({ total_sessions: nextNumber }),
+        }).catch(() => {}); // non-fatal — session itself was created
+      }
       showToast(`Session ${nextNumber} added` + (form.session_date ? ' — appointment created' : ''));
       onSaved(d.session);
     } catch(e) { setErr(e.message || 'Could not add session.'); setSaving(false); }
   };
+
+  const exceedsPlanned = nextNumber > (plan.total_sessions || 0);
 
   return (
     <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{maxWidth:420}} onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">Add session {nextNumber}</h3>
         <p className="modal-sub">{plan.title}</p>
+        {exceedsPlanned && (
+          <div style={{fontSize:12,color:'#92400e',fontWeight:500,marginBottom:12,background:'#fef3c7',border:'1px solid #fcd34d',padding:'6px 10px',borderRadius:6}}>
+            This exceeds the planned {plan.total_sessions} session{plan.total_sessions !== 1 ? 's' : ''} — the plan will be extended to {nextNumber}.
+          </div>
+        )}
         {form.session_date && (
           <div style={{fontSize:12,color:'var(--sage)',fontWeight:500,marginBottom:12,background:'rgba(10,74,92,0.06)',padding:'6px 10px',borderRadius:6}}>
             An appointment will be auto-created for this date
@@ -10376,6 +10631,7 @@ function CreateTreatmentPlanModal({ onClose, onDone }) {
     if (!form.patient_id) { setErr('Please select a patient.'); return; }
     if (!form.title.trim()) { setErr('Plan title is required.'); return; }
     if (!form.total_sessions || Number(form.total_sessions) < 1) { setErr('Total sessions must be at least 1.'); return; }
+    if (Number(form.total_sessions) > 50) { setErr('Total sessions cannot exceed 50.'); return; }
     setSaving(true); setErr('');
     try {
       const resp = await api('/api/appointments?resource=treatment_plans', {
