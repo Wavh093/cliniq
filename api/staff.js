@@ -35,12 +35,13 @@ module.exports = async function handler(req, res) {
           .catch(() => ({ data: { user: null } }));
         if (user) {
           const db = adminClient();
+          // NB: PostgREST builders are thenable but have no .catch() method —
+          // errors are returned in the result object, never thrown.
           const { data: practice } = await db
             .from('practices')
             .select('id, name, email, phone, address_line1, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution')
             .eq('id', PRACTICE_ID)
-            .single()
-            .catch(() => ({ data: null }));
+            .maybeSingle();
           return res.status(200).json({
             supabaseUrl:  process.env.SUPABASE_URL,
             supabaseAnon: process.env.SUPABASE_ANON_KEY,

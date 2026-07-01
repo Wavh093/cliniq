@@ -19,12 +19,13 @@
  *
  * All routes require a valid staff session (Bearer token).
  */
-const { cors, parseBody, adminClient, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { cors, parseBody, adminClient, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
-  const user = await requireAuth(req, res);
+  // Clinical documents and dental charts are PII — staff only.
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();

@@ -13,10 +13,21 @@ const { rateLimit } = require('./_lib/rateLimit');
 
 const VALID_PATIENT_TYPES = ['new', 'returning'];
 
+/** Today's date in the practice timezone (SAST, UTC+2) as YYYY-MM-DD. */
+function practiceToday() {
+  return new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/** Current wall-clock time in the practice timezone as HH:MM. */
+function practiceNowHHMM() {
+  return new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(11, 16);
+}
+
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
-  // Rate limit public POST (booking creation); apply lighter limit to GET (slot checks)
+  // Rate limit public endpoints: POST (booking creation) stricter than GET (slot checks)
   if (req.method === 'POST' && rateLimit(req, res)) return;
+  if (req.method === 'GET'  && rateLimit(req, res, 30, 60_000)) return;
 
   const db = adminClient();
 
@@ -28,10 +39,16 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
     }
 
+    // Clamp duration — this is public input fed straight into the slot RPC
+    const dur = Number(duration);
+    if (isNaN(dur) || dur < 5 || dur > 240) {
+      return res.status(400).json({ error: 'duration must be between 5 and 240 minutes' });
+    }
+
     const { data, error } = await db.rpc('compute_available_slots', {
       p_practice_id: PRACTICE_ID,
       p_date:        date,
-      p_duration:    Number(duration),
+      p_duration:    dur,
     });
 
     if (error) {
@@ -106,6 +123,34 @@ module.exports = async function handler(req, res) {
 
     if (svcErr || !service) {
       return res.status(400).json({ error: 'Service not found. Please select a valid service.' });
+    }
+
+    // 1b. Validate the requested slot server-side. The client picks from
+    // GET /api/bookings, but nothing stops a stale or hand-crafted request
+    // from booking a taken slot, a blocked time, or 03:00 on a Sunday.
+    const today = practiceToday();
+    if (date < today) {
+      return res.status(400).json({ error: 'That date has already passed. Please pick an upcoming date.' });
+    }
+    if (date === today && time <= practiceNowHHMM()) {
+      return res.status(400).json({ error: 'That time has already passed today. Please pick a later time.' });
+    }
+    {
+      const { data: slotRows, error: slotErr } = await db.rpc('compute_available_slots', {
+        p_practice_id: PRACTICE_ID,
+        p_date:        date,
+        p_duration:    service.duration_minutes || 30,
+      });
+      if (slotErr) {
+        console.error('[bookings POST] slot check', slotErr);
+        return res.status(500).json({ error: 'Could not verify availability. Please try again.' });
+      }
+      const available = (slotRows || []).map(r => String(r.slot_time).slice(0, 5));
+      if (!available.includes(time)) {
+        return res.status(409).json({
+          error: 'Sorry, that time is no longer available. Please pick another slot.',
+        });
+      }
     }
 
     // 2. Find or create patient (keyed on email + practice)
@@ -239,7 +284,17 @@ module.exports = async function handler(req, res) {
 
 // ── Email templates ────────────────────────────────────────────
 
+/** Escape user input before embedding in HTML email bodies. */
+function escapeHtml(str) {
+  return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 function confirmationHtml({ firstName, service, date, time }) {
+  // All interpolated values are user- or DB-supplied — escape everything.
+  firstName = escapeHtml(firstName);
+  service   = escapeHtml(service);
+  date      = escapeHtml(date);
+  time      = escapeHtml(time);
   return `
     <div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#2A3128">
       <div style="background:#F2EDE4;padding:40px 48px;border-radius:8px">
@@ -259,6 +314,15 @@ function confirmationHtml({ firstName, service, date, time }) {
 }
 
 function practiceAlertHtml({ firstName, lastName, email, phone, service, date, time, notes }) {
+  // All interpolated values are user-supplied — escape everything.
+  firstName = escapeHtml(firstName);
+  lastName  = escapeHtml(lastName);
+  email     = escapeHtml(email);
+  phone     = escapeHtml(phone);
+  service   = escapeHtml(service);
+  date      = escapeHtml(date);
+  time      = escapeHtml(time);
+  notes     = notes ? escapeHtml(notes) : notes;
   return `
     <div style="font-family:monospace;max-width:480px;margin:0 auto;color:#1a1a1a">
       <p style="font-size:11px;color:#666;margin:0 0 16px">NEW BOOKING — OH DENTAL STUDIO</p>

@@ -13,7 +13,7 @@
  *
  * Requires Authorization: Bearer <staff-jwt>
  */
-const { adminClient, cors, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 const VIEWS = {
   monthly_bookings:   'v_monthly_bookings',
@@ -27,7 +27,8 @@ module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const user = await requireAuth(req, res);
+  // Exports and analytics expose patient PII — staff only.
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db     = adminClient();

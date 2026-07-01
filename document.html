@@ -151,8 +151,9 @@
   <div class="state-title">Loading document…</div>
 </div>
 
-<!-- Document iframe -->
-<iframe id="doc-frame" title="Document"></iframe>
+<!-- Document iframe — sandboxed: stored HTML must render but never run scripts.
+     allow-same-origin is needed so the parent can call contentWindow.print(). -->
+<iframe id="doc-frame" title="Document" sandbox="allow-same-origin allow-modals"></iframe>
 
 <script>
 (async () => {
@@ -161,12 +162,15 @@
   const titleEl  = document.getElementById('doc-title');
   const actionsEl = document.getElementById('topbar-actions');
 
+  // sub can contain server error messages — escape everything interpolated.
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
   function showState(icon, title, sub, linkText, linkHref) {
     stateEl.innerHTML = `
       <div class="state-icon">${icon}</div>
-      <div class="state-title">${title}</div>
-      ${sub ? `<div class="state-sub">${sub}</div>` : ''}
-      ${linkText ? `<a class="state-link" href="${linkHref}">${linkText}</a>` : ''}
+      <div class="state-title">${esc(title)}</div>
+      ${sub ? `<div class="state-sub">${esc(sub)}</div>` : ''}
+      ${linkText ? `<a class="state-link" href="${esc(linkHref)}">${linkText}</a>` : ''}
     `;
     stateEl.classList.remove('hidden');
     frameEl.classList.remove('visible');

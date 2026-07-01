@@ -15,7 +15,7 @@
  * POST /api/notify?action=save-token  { token: "ExponentPushToken[xxx]" }
  *
  * Saves the Expo push token for the authenticated staff member (mobile app,
- * called on login). Staff-authed via requireAuth — separate from the
+ * called on login). Staff-authed via requireStaff — separate from the
  * webhook-secret path above. Folded in here to stay under Vercel's
  * Hobby-plan 12-function cap.
  *
@@ -23,10 +23,10 @@
  * POST /api/notify?action=ai-ask  { question }      → { answer, used, limit, remaining }
  *
  * AI clinical reference assistant for the mobile app (was /api/ai-ask). Staff-authed
- * via requireAuth, rate-limited per practice. Also folded in here to stay under the
+ * via requireStaff, rate-limited per practice. Also folded in here to stay under the
  * Hobby-plan 12-function cap. Required env var: ANTHROPIC_API_KEY.
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -154,7 +154,7 @@ module.exports = async function handler(req, res) {
 
 // ── Save a staff member's Expo push token (was POST /api/push-token) ──
 async function saveToken(req, res) {
-  const user = await requireAuth(req, res);
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const { token } = await parseBody(req);
@@ -163,11 +163,13 @@ async function saveToken(req, res) {
   }
 
   const db = adminClient();
+  // Key on the staff row id resolved by requireStaff — more reliable than
+  // matching by email, which can differ in case or be changed in Auth.
   const { error } = await db
     .from('staff')
     .update({ expo_push_token: token })
     .eq('practice_id', PRACTICE_ID)
-    .eq('email', user.email);
+    .eq('id', user.staffId);
 
   if (error) {
     console.error('[notify save-token]', error);
@@ -196,7 +198,7 @@ async function aiAskUsage(db) {
 }
 
 async function aiAsk(req, res) {
-  const user = await requireAuth(req, res);
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();

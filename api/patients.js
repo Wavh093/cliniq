@@ -9,7 +9,7 @@
  * PATCH ?id=UUID { ...fields }               → 200 { success }      Auth required
  * DELETE ?id=UUID                            → 200 { success }      Auth required
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth, requireStaff } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rateLimit');
 
 module.exports = async function handler(req, res) {
@@ -86,8 +86,9 @@ module.exports = async function handler(req, res) {
     return res.status(201).json({ success: true, patient_id: pt.id });
   }
 
-  // ── All other routes require auth ─────────────────────────────
-  const user = await requireAuth(req, res);
+  // ── All other routes require verified staff membership ────────
+  // Patient records are PII — a valid Supabase session alone is not enough.
+  const user = await requireStaff(req, res);
   if (!user) return;
 
   const db = adminClient();
@@ -202,6 +203,14 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'File is too large (max 5 MB)' });
     }
 
+    // Verify the patient exists in this practice BEFORE uploading, so a bad
+    // patient_id can't leave an orphaned file in storage.
+    const { data: patient } = await db
+      .from('patients').select('consent_docs')
+      .eq('id', patient_id).eq('practice_id', PRACTICE_ID).is('deleted_at', null)
+      .maybeSingle();
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
     const { createClient: makeClient } = require('@supabase/supabase-js');
     const storageSb = makeClient(
       process.env.SUPABASE_URL,
@@ -212,7 +221,10 @@ module.exports = async function handler(req, res) {
     // Use cryptographically random bytes — Math.random() paths are guessable.
     const { randomBytes } = require('crypto');
     const docId   = `${Date.now()}-${randomBytes(8).toString('hex')}`;
-    const ext     = file_name.split('.').pop() || 'pdf';
+    // Sanitise the extension — file_name is client input and must not be able
+    // to inject path separators or other storage-key metacharacters.
+    const rawExt  = String(file_name).split('.').pop() || '';
+    const ext     = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'pdf';
     const path    = `${PRACTICE_ID}/${patient_id}/${docId}.${ext}`;
 
     // Upload to Supabase Storage (bucket created via migration 015)
@@ -239,12 +251,7 @@ module.exports = async function handler(req, res) {
       uploaded_at:  new Date().toISOString(),
     };
 
-    // Append to patient's consent_docs array
-    const { data: patient } = await db
-      .from('patients').select('consent_docs')
-      .eq('id', patient_id).eq('practice_id', PRACTICE_ID).is('deleted_at', null)
-      .single();
-
+    // Append to patient's consent_docs array (patient row fetched above)
     const existing = Array.isArray(patient?.consent_docs) ? patient.consent_docs : [];
     const { error: updateErr } = await db.from('patients')
       .update({ consent_docs: [...existing, newDoc] })
@@ -397,7 +404,7 @@ module.exports = async function handler(req, res) {
     }
 
     // SA ID number format: exactly 13 digits (allow clearing with null/'')
-    if (updates.id_number != null && updates.id_number !== '' && !/^\d{13}$/.test(updates.id_number.trim())) {
+    if (updates.id_number != null && updates.id_number !== '' && !/^\d{13}$/.test(String(updates.id_number).trim())) {
       return res.status(400).json({ error: 'SA ID number must be exactly 13 digits' });
     }
 
@@ -431,11 +438,8 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ success: true });
   }
 
-  // ── DELETE — soft-delete patient (staff-only, verified) ──────
+  // ── DELETE — soft-delete patient ──────────────────────────────
   if (req.method === 'DELETE') {
-    // Deleting a patient record is irreversible — require verified staff membership
-    const staffUser = await requireStaff(req, res);
-    if (!staffUser) return;
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: 'id is required' });
 

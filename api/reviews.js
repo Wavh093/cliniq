@@ -25,7 +25,7 @@
  *     (instead of its own /api/chat function) to stay under Vercel's Hobby-plan
  *     12-function-per-deployment limit.
  */
-const { adminClient, cors, parseBody, PRACTICE_ID, requireAuth } = require('./_lib/supabase');
+const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rateLimit');
 
 const REVIEW_PHONE = '__review__'; // sentinel that distinguishes reviews from real contact msgs
@@ -412,7 +412,7 @@ module.exports = async function handler(req, res) {
 
   // ── GET — admin reviews list ────────────────────────────────────────
   if (req.method === 'GET') {
-    const user = await requireAuth(req, res);
+    const user = await requireStaff(req, res);
     if (!user) return;
 
     const page  = Math.max(1, parseInt(req.query.page  || '1', 10));
@@ -458,7 +458,7 @@ module.exports = async function handler(req, res) {
 
   // ── PATCH — mark status ──────────────────────────────────────────────
   if (req.method === 'PATCH') {
-    const user = await requireAuth(req, res);
+    const user = await requireStaff(req, res);
     if (!user) return;
 
     const { id } = req.query;
@@ -486,7 +486,7 @@ module.exports = async function handler(req, res) {
 
   // ── POST ?action=chat — staff-only AI assistant ─────────────────────
   if (req.method === 'POST' && req.query.action === 'chat') {
-    const user = await requireAuth(req, res);
+    const user = await requireStaff(req, res);
     if (!user) return;
     // Match OpenRouter's free-tier ceiling (20 req/min) per IP.
     if (rateLimit(req, res, 20, 60_000)) return;
@@ -501,7 +501,7 @@ module.exports = async function handler(req, res) {
     const { name = null, email = null, rating, text, treatment = null, would_recommend = null } = body;
 
     const r = Number(rating);
-    if (!r || r < 1 || r > 5) {
+    if (!Number.isInteger(r) || r < 1 || r > 5) {
       return res.status(400).json({ error: 'Please select a star rating (1 to 5 stars)' });
     }
     if (!text?.trim() || text.trim().length < 5) {
