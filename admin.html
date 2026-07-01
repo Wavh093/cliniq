@@ -127,29 +127,16 @@
     border-top: 1px solid rgba(255,255,255,0.1);
     flex-shrink: 0;
   }
-  .user-chip {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 10px; border-radius: 8px;
-    background: rgba(255,255,255,0.08);
-    overflow: hidden;
+  .sidebar-foot-label {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.6); text-align: center; padding: 8px 0;
   }
-  .sidebar-collapsed .user-chip { justify-content: center; padding: 8px 0; background: none; }
-  .sidebar-collapsed .user-info,
-  .sidebar-collapsed .btn-logout { display: none; }
   .user-avatar {
     width: 30px; height: 30px; border-radius: 50%;
     background: rgba(255,255,255,0.2);
     display: flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
   }
-  .user-info { flex: 1; min-width: 0; }
-  .user-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .user-role { font-size: 10px; color: rgba(255,255,255,0.45); }
-  .btn-logout {
-    background: rgba(186,26,26,0.2); color: #ffb3b3; font-size: 11px; font-weight: 600;
-    padding: 4px 10px; border-radius: 6px; transition: background .15s, color .15s; flex-shrink: 0;
-  }
-  .btn-logout:hover { background: rgba(186,26,26,0.35); color: #ff8a8a; }
 
   .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; overflow-x: hidden; transition: margin-left 0.22s cubic-bezier(0.4,0,0.2,1); }
   .topbar {
@@ -157,7 +144,8 @@
     padding: 0 32px; gap: 16px;
     border-bottom: none;
     background: var(--sage);
-    position: sticky; top: 0; z-index: 5;
+    position: fixed; top: 0; left: var(--sidebar-w); right: 0; z-index: 8;
+    transition: left 0.22s cubic-bezier(0.4,0,0.2,1);
   }
   .topbar-title { font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.9); }
   .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
@@ -171,7 +159,7 @@
   .badge-completed{ background: rgba(21,128,61,0.10);  color:var(--green); border-color:rgba(21,128,61,0.25); }
   .badge-cancelled,.badge-no_show{ background:rgba(220,38,38,0.08);color:var(--danger);border-color:rgba(220,38,38,0.22); }
 
-  .page { padding: 32px; flex: 1; }
+  .page { padding: 32px; padding-top: calc(32px + 58px); flex: 1; }
 
   /* ── Cards ────────────────────────────────────────────────── */
   .card {
@@ -487,8 +475,8 @@
     }
     .main { margin-left: 0 !important; }
     .hamburger-btn { display: flex; }
-    .topbar { padding: 0 16px; }
-    .page { padding: 20px 16px; }
+    .topbar { padding: 0 16px; left: 0 !important; }
+    .page { padding: 20px 16px; padding-top: calc(20px + 58px); }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
     .two-col { grid-template-columns: 1fr !important; }
     .three-col { grid-template-columns: 1fr !important; }
@@ -10786,21 +10774,12 @@ function Shell({ session, supabase, onLogout }) {
           </span>
         </button>
         <div className="sidebar-foot">
-          <div className="user-chip" title={sidebarCollapsed ? 'Menu' : ''}>
-            <div className="user-avatar">{user?.email?.[0]?.toUpperCase() || 'S'}</div>
-            {!sidebarCollapsed && (
-              <div className="user-info">
-                <div className="user-name">Menu</div>
-                <div className="user-role">Practice staff</div>
-              </div>
-            )}
-            {!sidebarCollapsed && <button className="btn-logout" onClick={logout} title="Logout" aria-label="Logout" style={{fontSize:11,letterSpacing:'0.03em'}}>Logout</button>}
-          </div>
+          <div className="sidebar-foot-label">Menu</div>
         </div>
       </aside>
 
       <div className="main" style={sidebarCollapsed ? {marginLeft:62} : {}}>
-        <div className="topbar">
+        <div className="topbar" style={sidebarCollapsed ? {left:62} : {}}>
           <button className="hamburger-btn" onClick={()=>setSidebarOpen(o=>!o)} aria-label="Toggle menu">
             <span className="material-symbols-outlined" style={{fontSize:22}}>{sidebarOpen ? 'close' : 'menu'}</span>
           </button>
