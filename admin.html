@@ -10587,6 +10587,7 @@ function Shell({ session, supabase, onLogout }) {
   const [unreadMsgs,      setUnreadMsgs]      = useState(0);
   const [unreadReviews,   setUnreadReviews]   = useState(0);
   const [practiceName,    setPracticeName]    = useState('Kliniq');
+  const [doctorName,      setDoctorName]      = useState('');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem('sb_collapsed') === '1'; } catch { return false; }
   });
@@ -10608,8 +10609,12 @@ function Shell({ session, supabase, onLogout }) {
   const user = session?.user;
 
   useEffect(() => {
-    supabase.from('practices').select('name').limit(1).single()
-      .then(({ data }) => { if (data?.name) setPracticeName(data.name); })
+    supabase.from('practices').select('name, doctor_first_name, doctor_last_name, doctor_qualification').limit(1).single()
+      .then(({ data }) => {
+        if (data?.name) setPracticeName(data.name);
+        const full = [data?.doctor_first_name, data?.doctor_last_name].filter(Boolean).join(' ');
+        if (full) setDoctorName(`Dr. ${full}${data?.doctor_qualification ? ', ' + data.doctor_qualification : ''}`);
+      })
       .catch(() => {});
   }, [supabase]);
 
@@ -10781,11 +10786,11 @@ function Shell({ session, supabase, onLogout }) {
           </span>
         </button>
         <div className="sidebar-foot">
-          <div className="user-chip" title={sidebarCollapsed ? (user?.email?.split('@')[0] || 'Staff') : ''}>
+          <div className="user-chip" title={sidebarCollapsed ? 'Menu' : ''}>
             <div className="user-avatar">{user?.email?.[0]?.toUpperCase() || 'S'}</div>
             {!sidebarCollapsed && (
               <div className="user-info">
-                <div className="user-name">{user?.email?.split('@')[0] || 'Staff'}</div>
+                <div className="user-name">Menu</div>
                 <div className="user-role">Practice staff</div>
               </div>
             )}
@@ -10801,7 +10806,7 @@ function Shell({ session, supabase, onLogout }) {
           </button>
           <span className="topbar-title">{PAGE_TITLES[page]}</span>
           <div className="topbar-right" style={{display:'flex',alignItems:'center',gap:14}}>
-            <span style={{color:'rgba(255,255,255,0.75)',fontSize:13,fontWeight:500,letterSpacing:'0.04em'}}>{practiceName}</span>
+            <span style={{color:'rgba(255,255,255,0.75)',fontSize:13,fontWeight:500,letterSpacing:'0.04em'}}>{doctorName || practiceName}</span>
             <div style={{position:'relative'}}>
               <button onClick={(e)=>{e.stopPropagation();setProfileOpen(o=>!o);}} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:'50%',width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#fff',fontSize:14,fontWeight:700,transition:'background .15s'}}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.25)'}
