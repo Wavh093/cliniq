@@ -792,6 +792,32 @@ module.exports = async function handler(req, res) {
       if (new Date(end_datetime) <= new Date(start_datetime)) {
         return res.status(400).json({ error: 'end_datetime must be after start_datetime' });
       }
+      if (is_recurring) {
+        if (recurrence_day_of_week == null || Number(recurrence_day_of_week) < 0 || Number(recurrence_day_of_week) > 6) {
+          return res.status(400).json({ error: 'recurrence_day_of_week (0-6) is required for a recurring block' });
+        }
+        if (!recurrence_start_time || !recurrence_end_time) {
+          return res.status(400).json({ error: 'recurrence_start_time and recurrence_end_time are required for a recurring block' });
+        }
+        if (recurrence_start_time >= recurrence_end_time) {
+          return res.status(400).json({ error: 'recurrence_end_time must be after recurrence_start_time' });
+        }
+
+        // Avoid duplicate rows if a retry re-submits a day that already succeeded
+        // (e.g. one day in a multi-day recurring batch failed and the client retries).
+        const { data: dup } = await db
+          .from('time_blocks')
+          .select('id')
+          .eq('practice_id', PRACTICE_ID)
+          .eq('staff_id', staffId)
+          .eq('is_recurring', true)
+          .eq('recurrence_day_of_week', Number(recurrence_day_of_week))
+          .eq('recurrence_start_time', recurrence_start_time)
+          .eq('recurrence_end_time', recurrence_end_time)
+          .maybeSingle();
+
+        if (dup) return res.status(409).json({ error: 'A recurring block already exists for this day and time' });
+      }
 
       const { data, error } = await db
         .from('time_blocks')

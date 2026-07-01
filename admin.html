@@ -2785,44 +2785,167 @@ function Appointments({ onNavigate, initialPayload }) {
 }
 
 
+const DOW_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
 function TimeBlockModal({ onClose, onDone }) {
+  const [mode, setMode] = React.useState('once'); // 'once' | 'recurring'
   const [date, setDate] = React.useState('');
+  const [days, setDays] = React.useState([]);     // selected weekdays (0-6) for recurring mode
   const [startTime, setStartTime] = React.useState('');
   const [endTime, setEndTime] = React.useState('');
   const [reason, setReason] = React.useState('');
   const [saving, setSaving] = React.useState(false);
   const [err, setErr] = React.useState('');
+  const [blocks, setBlocks] = React.useState([]);
+  const [blocksLoaded, setBlocksLoaded] = React.useState(false);
+  const [removingId, setRemovingId] = React.useState(null);
+
+  React.useEffect(() => {
+    api('/api/appointments?resource=time_blocks')
+      .then(d => setBlocks(d.time_blocks || []))
+      .catch(() => {})
+      .finally(() => setBlocksLoaded(true));
+  }, []);
+
+  const toggleDay = (d) => setDays(ds => ds.includes(d) ? ds.filter(x => x !== d) : [...ds, d]);
+
+  const removeBlock = async (id) => {
+    setRemovingId(id);
+    try {
+      await api(`/api/appointments?resource=time_blocks&id=${id}`, { method: 'DELETE' });
+      setBlocks(bs => bs.filter(b => b.id !== id));
+    } catch(e) { setErr(e.message); }
+    setRemovingId(null);
+  };
 
   const submit = async () => {
-    if (!date || !startTime || !endTime) { setErr('Date, start time and end time are required'); return; }
+    setErr('');
+    if (!startTime || !endTime) { setErr('Start time and end time are required'); return; }
     if (startTime >= endTime) { setErr('End time must be after start time'); return; }
-    setSaving(true); setErr('');
+
+    setSaving(true);
     try {
-      await api('/api/appointments?resource=time_blocks', {
-        method: 'POST',
-        body: JSON.stringify({
-          start_datetime: `${date}T${startTime}:00`,
-          end_datetime: `${date}T${endTime}:00`,
-          reason: reason.trim() || null,
-        })
-      });
+      if (mode === 'once') {
+        if (!date) { setErr('Date is required'); setSaving(false); return; }
+        const { time_block } = await api('/api/appointments?resource=time_blocks', {
+          method: 'POST',
+          body: JSON.stringify({
+            start_datetime: `${date}T${startTime}:00`,
+            end_datetime: `${date}T${endTime}:00`,
+            reason: reason.trim() || null,
+          }),
+        });
+        setBlocks(bs => [...bs, time_block]);
+        setDate('');
+        showToast('Time block added');
+      } else {
+        if (!days.length) { setErr('Select at least one day of the week'); setSaving(false); return; }
+        const today = new Date();
+        let addedCount = 0;
+        for (const d of days) {
+          const anchor = new Date(today);
+          anchor.setDate(anchor.getDate() + ((d - anchor.getDay() + 7) % 7));
+          const iso = `${anchor.getFullYear()}-${String(anchor.getMonth() + 1).padStart(2, '0')}-${String(anchor.getDate()).padStart(2, '0')}`;
+          try {
+            const { time_block } = await api('/api/appointments?resource=time_blocks', {
+              method: 'POST',
+              body: JSON.stringify({
+                start_datetime: `${iso}T${startTime}:00`,
+                end_datetime: `${iso}T${endTime}:00`,
+                reason: reason.trim() || null,
+                is_recurring: true,
+                recurrence_day_of_week: d,
+                recurrence_start_time: startTime,
+                recurrence_end_time: endTime,
+              }),
+            });
+            setBlocks(bs => [...bs, time_block]);
+            addedCount++;
+          } catch(e) {
+            setErr(`${DOW_LABELS[d]}: ${e.message}`);
+            setSaving(false);
+            return;
+          }
+        }
+        setDays([]);
+        showToast(addedCount > 1 ? `${addedCount} recurring blocks added` : 'Recurring block added');
+      }
+      setStartTime(''); setEndTime(''); setReason('');
       onDone();
-    } catch(e) { setErr(e.message); setSaving(false); }
+    } catch(e) { setErr(e.message); }
+    setSaving(false);
   };
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center'}}
          onMouseDown={e => { if(e.target===e.currentTarget) onClose(); }}>
-      <div style={{background:'#fff',borderRadius:16,padding:28,width:'100%',maxWidth:420,boxShadow:'0 8px 32px rgba(0,0,0,0.15)'}}>
+      <div style={{background:'#fff',borderRadius:16,padding:28,width:'100%',maxWidth:460,maxHeight:'90vh',overflowY:'auto',boxShadow:'0 8px 32px rgba(0,0,0,0.15)'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
           <h3 style={{margin:0,fontSize:17,fontWeight:700,color:'#0f2830'}}>Block Time</h3>
           <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'#6b8f99'}}>×</button>
         </div>
-        {err && <div style={{background:'#fee2e2',color:'#b91c1c',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:13}}>{err}</div>}
-        <div style={{display:'flex',flexDirection:'column',gap:12}}>
-          <div className="field"><label>Date</label>
-            <ApptDatePicker value={date} onChange={setDate} placeholder="Select date" />
+
+        {blocksLoaded && blocks.length > 0 && (
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:11,letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--muted)',marginBottom:8,fontWeight:600}}>
+              Existing blocks
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:160,overflowY:'auto'}}>
+              {blocks.map(b => (
+                <div key={b.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,padding:'8px 10px',borderRadius:8,background:'#f4f9fa',fontSize:12.5}}>
+                  <div style={{color:'#0f2830'}}>
+                    <strong>{b.is_recurring ? `Every ${DOW_LABELS[b.recurrence_day_of_week]}` : fmtDateShort(b.start_datetime)}</strong>
+                    {', '}
+                    {(b.is_recurring ? b.recurrence_start_time : b.start_datetime.slice(11,16)).slice(0,5)}
+                    {'–'}
+                    {(b.is_recurring ? b.recurrence_end_time : b.end_datetime.slice(11,16)).slice(0,5)}
+                    {b.reason ? ` · ${b.reason}` : ''}
+                  </div>
+                  <button onClick={() => removeBlock(b.id)} disabled={removingId === b.id}
+                    style={{background:'none',border:'none',color:'#b91c1c',cursor:'pointer',fontSize:12,fontWeight:600,flexShrink:0}}>
+                    {removingId === b.id ? '…' : 'Remove'}
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+
+        {err && <div style={{background:'#fee2e2',color:'#b91c1c',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:13}}>{err}</div>}
+
+        <div style={{display:'flex',gap:8,marginBottom:16,background:'#f4f9fa',borderRadius:10,padding:4}}>
+          <button onClick={() => setMode('once')}
+            style={{flex:1,padding:'8px',borderRadius:8,border:'none',cursor:'pointer',fontSize:13,fontWeight:600,
+                     background: mode==='once' ? '#0a4a5c' : 'transparent', color: mode==='once' ? '#fff' : '#0f2830'}}>
+            One-time
+          </button>
+          <button onClick={() => setMode('recurring')}
+            style={{flex:1,padding:'8px',borderRadius:8,border:'none',cursor:'pointer',fontSize:13,fontWeight:600,
+                     background: mode==='recurring' ? '#0a4a5c' : 'transparent', color: mode==='recurring' ? '#fff' : '#0f2830'}}>
+            Repeats weekly
+          </button>
+        </div>
+
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          {mode === 'once' ? (
+            <div className="field"><label>Date</label>
+              <ApptDatePicker value={date} onChange={setDate} placeholder="Select date" />
+            </div>
+          ) : (
+            <div className="field"><label>Repeats on</label>
+              <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                {DOW_LABELS.map((label, d) => (
+                  <button key={d} onClick={() => toggleDay(d)} type="button"
+                    style={{padding:'6px 12px',borderRadius:20,fontSize:12.5,fontWeight:600,cursor:'pointer',
+                             border: days.includes(d) ? '2px solid #0a4a5c' : '2px solid #e0ecf0',
+                             background: days.includes(d) ? '#0a4a5c' : '#fff',
+                             color: days.includes(d) ? '#fff' : '#0f2830'}}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
             <div className="field"><label>Start time</label>
               <ApptTimePicker value={startTime} onChange={setStartTime} placeholder="09:00" />
