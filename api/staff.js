@@ -89,7 +89,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     const { data, error } = await db
       .from('staff')
-      .select('id, auth_user_id, name, email, role, active, created_at')
+      .select('id, user_id, first_name, last_name, email, role, active, created_at')
       .eq('practice_id', PRACTICE_ID)
       .eq('active', true)
       .order('created_at', { ascending: true });
@@ -99,7 +99,8 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Could not retrieve staff list' });
     }
 
-    return res.status(200).json({ staff: data || [] });
+    const staffList = (data || []).map(s => ({ ...s, name: [s.first_name, s.last_name].filter(Boolean).join(' ') }));
+    return res.status(200).json({ staff: staffList });
   }
 
   // ── POST — invite new staff member ────────────────────────────
@@ -112,6 +113,13 @@ module.exports = async function handler(req, res) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return res.status(400).json({ error: 'Invalid email address' });
     }
+
+    // staff.first_name/last_name are separate NOT NULL columns — split the single
+    // "full name" field the invite form collects on the first space.
+    const trimmedName = name.trim();
+    const spaceIdx = trimmedName.indexOf(' ');
+    const first_name = spaceIdx === -1 ? trimmedName : trimmedName.slice(0, spaceIdx);
+    const last_name  = spaceIdx === -1 ? '' : trimmedName.slice(spaceIdx + 1).trim();
 
     // Check if already a staff member
     const { data: existing } = await db
@@ -155,8 +163,9 @@ module.exports = async function handler(req, res) {
       .from('staff')
       .insert({
         practice_id:  PRACTICE_ID,
-        auth_user_id: invited.user?.id || null,
-        name:         name.trim(),
+        user_id:      invited.user?.id || null,
+        first_name,
+        last_name,
         email:        email.toLowerCase().trim(),
         role:         'admin',
         active:       true,
@@ -178,13 +187,13 @@ module.exports = async function handler(req, res) {
     // Prevent self-removal
     const { data: target } = await db
       .from('staff')
-      .select('auth_user_id, email')
+      .select('user_id, email')
       .eq('id', id)
       .eq('practice_id', PRACTICE_ID)
       .maybeSingle();
 
     if (!target) return res.status(404).json({ error: 'Staff member not found' });
-    if (target.auth_user_id === user.id) {
+    if (target.user_id === user.id) {
       return res.status(400).json({ error: 'You cannot remove your own account' });
     }
 
@@ -201,7 +210,7 @@ module.exports = async function handler(req, res) {
     }
 
     // Also disable in Supabase Auth if we have the auth user id
-    if (target.auth_user_id) {
+    if (target.user_id) {
       try {
         const { createClient } = require('@supabase/supabase-js');
         const adminSb = createClient(
@@ -209,7 +218,7 @@ module.exports = async function handler(req, res) {
           process.env.SUPABASE_SERVICE_ROLE_KEY,
           { auth: { autoRefreshToken: false, persistSession: false } }
         );
-        await adminSb.auth.admin.updateUserById(target.auth_user_id, { ban_duration: '876600h' });
+        await adminSb.auth.admin.updateUserById(target.user_id, { ban_duration: '876600h' });
       } catch (authErr) {
         console.error('[staff DELETE] auth ban error (non-fatal)', authErr);
       }

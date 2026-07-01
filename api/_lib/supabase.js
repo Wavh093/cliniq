@@ -127,7 +127,7 @@ async function requireStaff(req, res) {
     .from('staff')
     .select('id, role')
     .eq('practice_id', PRACTICE_ID)
-    .eq('auth_user_id', user.id)
+    .eq('user_id', user.id)
     .eq('active', true)
     .maybeSingle();
 

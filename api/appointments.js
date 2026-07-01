@@ -761,7 +761,7 @@ module.exports = async function handler(req, res) {
       .from('staff')
       .select('id')
       .eq('practice_id', PRACTICE_ID)
-      .eq('auth_user_id', user.id)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (!staffRow) return res.status(403).json({ error: 'Staff record not found' });

@@ -8912,7 +8912,7 @@ function SettingsPage({ supabase, session }) {
             <div style={{color:'var(--muted)',fontSize:13}}>No other staff members found.</div>
           ) : (
             staff.map(s => {
-              const isMe = s.auth_user_id === user?.id;
+              const isMe = s.user_id === user?.id;
               return (
                 <div key={s.id} style={{
                   display:'flex', alignItems:'center', gap:12,
@@ -9050,11 +9050,11 @@ function SettingsPage({ supabase, session }) {
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {[1,2].map(i => <div key={i} className="skel" style={{height:52,borderRadius:10}} />)}
             </div>
-          ) : staff.filter(s => s.auth_user_id !== user?.id).length === 0 ? (
+          ) : staff.filter(s => s.user_id !== user?.id).length === 0 ? (
             <div style={{fontSize:13,color:'var(--muted)'}}>No other staff members found.</div>
           ) : (
-            staff.filter(s => s.auth_user_id !== user?.id).map(s => {
-              const sig = signatures.find(x => x.user_id === s.auth_user_id);
+            staff.filter(s => s.user_id !== user?.id).map(s => {
+              const sig = signatures.find(x => x.user_id === s.user_id);
               return (
                 <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 14px',borderRadius:10,background:'var(--bg-3)',marginBottom:8}}>
                   <div className="user-avatar" style={{width:36,height:36,fontSize:14,flexShrink:0}}>
