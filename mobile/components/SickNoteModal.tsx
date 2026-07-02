@@ -10,6 +10,7 @@ import { Calendar } from 'react-native-calendars';
 import { C } from '../constants/theme';
 import type { Appointment } from '../lib/api';
 import { getPractice, saveDocument, getMySignature, API_BASE, type PracticeConfig } from '../lib/api';
+import { letterheadHeader, LETTERHEAD_CSS } from '../lib/docTemplate';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ function buildHtml(p: {
   practiceName: string;
   doctorQualification: string | null;
   practiceNumber: string | null;
+  letterhead: string | null;
 }): string {
   const today = displayDate(todayIso());
   const days  = dayCount(p.fromDate, p.toDate);
@@ -99,18 +101,12 @@ function buildHtml(p: {
   .cn{font-size:14px;font-weight:600;color:#0a4a5c;margin-top:2px;}
   .cp{font-size:12px;color:#9ca3af;margin-top:1px;}
   .ft{margin-top:44px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center;line-height:1.6;}
+  ${LETTERHEAD_CSS}
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="lh">
-    <div>
-      <div class="pn">${p.practiceName}</div>
-      <div class="ps">Professional Dental Care</div>
-      ${p.practiceNumber ? `<p style="margin:2px 0;font-size:12px;color:#6b7280">Practice No: ${p.practiceNumber}</p>` : ''}
-    </div>
-    <div class="dd">${today}</div>
-  </div>
+  ${letterheadHeader({ letterhead: p.letterhead, practiceName: p.practiceName, practiceNumber: p.practiceNumber, dateText: today })}
   <h2>Medical Certificate</h2>
   <div class="pb">
     <div class="pname">${p.patientName}</div>
@@ -232,6 +228,7 @@ export default function SickNoteModal({ visible, onClose, appointment }: Props) 
         practiceName,
         doctorQualification: practice?.doctor_qualification ?? null,
         practiceNumber:      practice?.practice_number ?? null,
+        letterhead:          practice?.letterhead_data ?? null,
       });
 
       const patId = patient?.id;

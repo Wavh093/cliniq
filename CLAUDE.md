@@ -23,7 +23,18 @@ today, multi-tenant-ready (`PRACTICE_ID` env scopes every query).
   (001–015), later migrations in `migrations/` (013+). Migrations are applied
   manually via the Supabase SQL editor — there is no migration runner.
 - **Mobile**: `mobile/` is an Expo (React Native) staff app; talks to the same
-  API with a Supabase staff JWT.
+  API with a Supabase staff JWT. Session tokens are stored in the device
+  keychain/keystore via `lib/secureStorage.ts` (chunked expo-secure-store
+  adapter; AsyncStorage fallback on web). All API calls go through
+  `authedFetch` in `lib/api.ts`, which signs the user out on a 401. The app
+  auto-locks (signs out) after 15 min backgrounded (`app/_layout.tsx`).
+  Treatment plans have full parity with web (create/edit/session
+  status+reopen/payment/notify). Clinical documents — sick notes, referral
+  letters and prescriptions — are generated on mobile
+  (`components/*Modal.tsx`), saved to `patient_documents`, and printed on web
+  via `document.html`. Their shared page header comes from
+  `lib/docTemplate.ts` (`letterheadHeader`): the practice's uploaded
+  `letterhead_data` image if set, else a text header.
 
 ## Auth model (important)
 

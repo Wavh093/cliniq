@@ -11,6 +11,18 @@ async function authHeaders(): Promise<Record<string, string>> {
   };
 }
 
+// All API calls go through this wrapper. A 401 means the session is no longer
+// valid (revoked, expired past refresh, or the staff row was deactivated) — so
+// we clear it, which trips onAuthStateChange and returns the app to the login
+// screen rather than leaving the user staring at silent failures.
+async function authedFetch(input: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(input, init);
+  if (res.status === 401) {
+    await supabase.auth.signOut().catch(() => {});
+  }
+  return res;
+}
+
 export interface Appointment {
   id: string;
   appointment_date: string;
@@ -118,7 +130,7 @@ export interface LinkedPatient {
 
 export async function getAppointments(params: Record<string, string> = {}): Promise<{ appointments: Appointment[] }> {
   const q = new URLSearchParams(params).toString();
-  const res = await fetch(`${BASE}/api/appointments${q ? `?${q}` : ''}`, {
+  const res = await authedFetch(`${BASE}/api/appointments${q ? `?${q}` : ''}`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`Appointments error: ${res.status}`);
@@ -126,13 +138,13 @@ export async function getAppointments(params: Record<string, string> = {}): Prom
 }
 
 export async function getAnalytics(): Promise<any> {
-  const res = await fetch(`${BASE}/api/analytics`, { headers: await authHeaders() });
+  const res = await authedFetch(`${BASE}/api/analytics`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Analytics error: ${res.status}`);
   return res.json();
 }
 
 export async function getPatient(id: string): Promise<{ patient: Patient }> {
-  const res = await fetch(`${BASE}/api/patients?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`${BASE}/api/patients?id=${encodeURIComponent(id)}`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`Patient error: ${res.status}`);
@@ -140,7 +152,7 @@ export async function getPatient(id: string): Promise<{ patient: Patient }> {
 }
 
 export async function getDependants(mainMemberId: string): Promise<{ patients: LinkedPatient[] }> {
-  const res = await fetch(`${BASE}/api/patients?main_member_id=${encodeURIComponent(mainMemberId)}`, {
+  const res = await authedFetch(`${BASE}/api/patients?main_member_id=${encodeURIComponent(mainMemberId)}`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`Dependants error: ${res.status}`);
@@ -149,7 +161,7 @@ export async function getDependants(mainMemberId: string): Promise<{ patients: L
 
 export async function savePushToken(token: string): Promise<void> {
   const headers = await authHeaders();
-  await fetch(`${BASE}/api/notify?action=save-token`, {
+  await authedFetch(`${BASE}/api/notify?action=save-token`, {
     method:  'POST',
     headers,
     body:    JSON.stringify({ token }),
@@ -172,7 +184,7 @@ export interface PatientSummary {
 export async function searchPatients(q = '', limit = 30): Promise<{ patients: PatientSummary[]; total: number }> {
   const params = new URLSearchParams({ limit: String(limit) });
   if (q.trim()) params.set('q', q.trim());
-  const res = await fetch(`${BASE}/api/patients?${params}`, { headers: await authHeaders() });
+  const res = await authedFetch(`${BASE}/api/patients?${params}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Patients error: ${res.status}`);
   return res.json();
 }
@@ -201,13 +213,14 @@ export interface TreatmentPlan {
 export interface TreatmentPlanSession {
   id: string;
   session_number: number;
-  status: 'scheduled' | 'completed' | 'missed' | 'rescheduled';
+  status: 'scheduled' | 'completed' | 'missed' | 'rescheduled' | 'cancelled';
   session_date: string | null;
   notes: string | null;
   service_id: string | null;
   amount_charged: number | null;
   amount_paid: number | null;
   payment_method: string | null;
+  payment_notes?: string | null;
   appointments?: {
     id: string;
     appointment_date: string;
@@ -219,13 +232,13 @@ export interface TreatmentPlanSession {
 
 export async function getTreatmentPlans(planStatus = 'active'): Promise<{ plans: TreatmentPlan[]; total: number }> {
   const params = new URLSearchParams({ resource: 'treatment_plans', status: planStatus, limit: '50' });
-  const res = await fetch(`${BASE}/api/appointments?${params}`, { headers: await authHeaders() });
+  const res = await authedFetch(`${BASE}/api/appointments?${params}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Plans error: ${res.status}`);
   return res.json();
 }
 
 export async function getTreatmentPlan(id: string): Promise<{ plan: TreatmentPlan & { treatment_plan_sessions: TreatmentPlanSession[] } }> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/appointments?resource=treatment_plans&id=${encodeURIComponent(id)}`,
     { headers: await authHeaders() },
   );
@@ -233,8 +246,95 @@ export async function getTreatmentPlan(id: string): Promise<{ plan: TreatmentPla
   return res.json();
 }
 
+export async function createTreatmentPlan(payload: {
+  patient_id: string;
+  title: string;
+  total_sessions: number;
+  description?: string | null;
+  notes?: string | null;
+  next_session_due?: string | null;
+  service_id?: string | null;
+}): Promise<{ plan: TreatmentPlan }> {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=treatment_plans`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Create failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateTreatmentPlan(
+  id: string,
+  data: Partial<{ title: string; total_sessions: number; next_session_due: string | null;
+    description: string | null; notes: string | null; status: string; last_notified_at: string }>,
+): Promise<void> {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=treatment_plans&id=${encodeURIComponent(id)}`, {
+    method:  'PATCH',
+    headers: await authHeaders(),
+    body:    JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Update failed: ${res.status}`);
+  }
+}
+
+export async function addPlanSession(payload: {
+  plan_id: string;
+  session_number: number;
+  session_date?: string | null;
+  appointment_time?: string | null;
+  notes?: string | null;
+  service_id?: string | null;
+}): Promise<{ session: TreatmentPlanSession }> {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=plan_sessions`, {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Add session failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function updateSessionStatus(
+  sessionId: string,
+  status: 'scheduled' | 'completed' | 'missed' | 'cancelled' | 'rescheduled',
+): Promise<void> {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=plan_sessions&id=${encodeURIComponent(sessionId)}`, {
+    method:  'PATCH',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Status update failed: ${res.status}`);
+  }
+}
+
+export async function saveSessionPayment(
+  sessionId: string,
+  data: { amount_charged: number | null; amount_paid: number; payment_method: string | null; payment_notes: string | null; paid_at: string | null },
+): Promise<void> {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=plan_sessions&id=${encodeURIComponent(sessionId)}`, {
+    method:  'PATCH',
+    headers: await authHeaders(),
+    body:    JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as any).error ?? `Payment save failed: ${res.status}`);
+  }
+}
+
 export async function getAppointment(id: string): Promise<{ appointment: Appointment }> {
-  const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
     headers: await authHeaders(),
   });
   if (!res.ok) {
@@ -251,7 +351,7 @@ export async function saveSessionNotes(
   id: string,
   data: { clinical_notes?: string | null; internal_notes?: string | null },
 ): Promise<void> {
-  const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
     method:  'PATCH',
     headers: await authHeaders(),
     body:    JSON.stringify(data),
@@ -263,7 +363,7 @@ export async function saveSessionNotes(
 }
 
 export async function updatePatientNotes(id: string, intake_notes: string | null): Promise<void> {
-  const res = await fetch(`${BASE}/api/patients?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`${BASE}/api/patients?id=${encodeURIComponent(id)}`, {
     method:  'PATCH',
     headers: await authHeaders(),
     body:    JSON.stringify({ intake_notes }),
@@ -278,7 +378,7 @@ export async function updatePatientNotes(id: string, intake_notes: string | null
 
 export async function getAIUsage(): Promise<{ used: number; limit: number; remaining: number }> {
   try {
-    const res = await fetch(`${BASE}/api/notify?action=ai-ask`, { headers: await authHeaders() });
+    const res = await authedFetch(`${BASE}/api/notify?action=ai-ask`, { headers: await authHeaders() });
     if (!res.ok) return { used: 0, limit: 10, remaining: 10 };
     return res.json();
   } catch {
@@ -292,7 +392,7 @@ export async function askAI(question: string): Promise<{
   limit: number;
   remaining: number;
 }> {
-  const res = await fetch(`${BASE}/api/notify?action=ai-ask`, {
+  const res = await authedFetch(`${BASE}/api/notify?action=ai-ask`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({ question }),
@@ -312,7 +412,7 @@ export async function savePayment(id: string, data: {
   patient_portion?: number;
   patient_method?: string;
 }): Promise<void> {
-  const res = await fetch(`${BASE}/api/revenue?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`${BASE}/api/revenue?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: await authHeaders(),
     body: JSON.stringify(data),
@@ -324,7 +424,7 @@ export async function savePayment(id: string, data: {
 }
 
 export async function updateAppointmentStatus(id: string, status: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
+  const res = await authedFetch(`${BASE}/api/appointments?id=${encodeURIComponent(id)}`, {
     method:  'PATCH',
     headers: await authHeaders(),
     body:    JSON.stringify({ status }),
@@ -351,11 +451,12 @@ export interface PracticeConfig {
   doctor_last_name: string | null;
   doctor_qualification: string | null;
   practice_number: string | null;
+  letterhead_data: string | null;
 }
 
 export async function getPractice(): Promise<PracticeConfig | null> {
   try {
-    const res = await fetch(`${BASE}/api/staff?resource=config`, { headers: await authHeaders() });
+    const res = await authedFetch(`${BASE}/api/staff?resource=config`, { headers: await authHeaders() });
     if (!res.ok) return null;
     const data = await res.json();
     return data.practice ?? null;
@@ -365,14 +466,14 @@ export async function getPractice(): Promise<PracticeConfig | null> {
 }
 
 export async function saveDocument(payload: {
-  type: 'sick_note' | 'referral_letter';
+  type: 'sick_note' | 'referral_letter' | 'prescription';
   appointment_id: string;
   patient_id?: string;
   title: string;
   html_content: string;
 }): Promise<{ id: string } | null> {
   try {
-    const res = await fetch(`${BASE}/api/documents`, {
+    const res = await authedFetch(`${BASE}/api/documents`, {
       method:  'POST',
       headers: await authHeaders(),
       body:    JSON.stringify(payload),
@@ -443,7 +544,7 @@ export interface DentalScan {
 export async function getDentalChart(
   patientId: string,
 ): Promise<{ records: ToothRecord[]; notes: ToothNote[] }> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/documents?resource=dental&patient_id=${encodeURIComponent(patientId)}`,
     { headers: await authHeaders() },
   );
@@ -456,7 +557,7 @@ export async function upsertToothStatus(
   toothFdi: number,
   status: ToothStatus,
 ): Promise<ToothRecord> {
-  const res = await fetch(`${BASE}/api/documents?resource=dental`, {
+  const res = await authedFetch(`${BASE}/api/documents?resource=dental`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({ patient_id: patientId, tooth_fdi: toothFdi, status }),
@@ -475,7 +576,7 @@ export async function addToothNote(
   note: string,
   appointmentId?: string | null,
 ): Promise<ToothNote> {
-  const res = await fetch(`${BASE}/api/documents?resource=dental&action=note`, {
+  const res = await authedFetch(`${BASE}/api/documents?resource=dental&action=note`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({
@@ -494,7 +595,7 @@ export async function addToothNote(
 }
 
 export async function deleteToothNote(id: string): Promise<void> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/documents?resource=dental&action=note&id=${encodeURIComponent(id)}`,
     { method: 'DELETE', headers: await authHeaders() },
   );
@@ -505,7 +606,7 @@ export async function deleteToothNote(id: string): Promise<void> {
 }
 
 export async function getDentalScans(patientId: string): Promise<DentalScan[]> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/documents?resource=dental&action=scans&patient_id=${encodeURIComponent(patientId)}`,
     { headers: await authHeaders() },
   );
@@ -523,7 +624,7 @@ export async function saveDentalScan(payload: {
   tooth_fdis?: number[];
   notes?: string | null;
 }): Promise<DentalScan> {
-  const res = await fetch(`${BASE}/api/documents?resource=dental&action=scan`, {
+  const res = await authedFetch(`${BASE}/api/documents?resource=dental&action=scan`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify(payload),
@@ -537,7 +638,7 @@ export async function saveDentalScan(payload: {
 }
 
 export async function deleteDentalScan(id: string): Promise<void> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/documents?resource=dental&action=scan&id=${encodeURIComponent(id)}`,
     { method: 'DELETE', headers: await authHeaders() },
   );
@@ -552,7 +653,7 @@ export async function deleteDentalScan(id: string): Promise<void> {
 export async function getDentalSurfaces(
   patientId: string,
 ): Promise<{ surfaces: any[] }> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/documents?resource=dental_surfaces&patient_id=${encodeURIComponent(patientId)}`,
     { headers: await authHeaders() },
   );
@@ -567,7 +668,7 @@ export async function saveDentalSurface(
   status: string,
   notes?: string | null,
 ): Promise<{ surface: any }> {
-  const res = await fetch(`${BASE}/api/documents?resource=dental_surfaces`, {
+  const res = await authedFetch(`${BASE}/api/documents?resource=dental_surfaces`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify({ patient_id: patientId, tooth_fdi: toothFdi, surface, status, notes: notes ?? null }),
@@ -582,7 +683,7 @@ export async function saveDentalSurface(
 // ── Time Blocks ──────────────────────────────────────────────────────────────
 
 export async function getTimeBlocks(): Promise<{ time_blocks: any[] }> {
-  const res = await fetch(`${BASE}/api/appointments?resource=time_blocks`, {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=time_blocks`, {
     headers: await authHeaders(),
   });
   if (!res.ok) throw new Error(`Time blocks error: ${res.status}`);
@@ -594,7 +695,7 @@ export async function createTimeBlock(data: {
   end_datetime: string;
   reason?: string;
 }): Promise<{ time_block: any }> {
-  const res = await fetch(`${BASE}/api/appointments?resource=time_blocks`, {
+  const res = await authedFetch(`${BASE}/api/appointments?resource=time_blocks`, {
     method:  'POST',
     headers: await authHeaders(),
     body:    JSON.stringify(data),
@@ -607,7 +708,7 @@ export async function createTimeBlock(data: {
 }
 
 export async function deleteTimeBlock(id: string): Promise<{ ok: boolean }> {
-  const res = await fetch(
+  const res = await authedFetch(
     `${BASE}/api/appointments?resource=time_blocks&id=${encodeURIComponent(id)}`,
     { method: 'DELETE', headers: await authHeaders() },
   );

@@ -1,11 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
+  View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, TextInput,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getTreatmentPlans, type TreatmentPlan } from '../../lib/api';
+import {
+  getTreatmentPlans, createTreatmentPlan, searchPatients,
+  type TreatmentPlan, type PatientSummary,
+} from '../../lib/api';
 import { SkeletonList } from '../../components/Skeleton';
 import { C, T } from '../../constants/theme';
 
@@ -60,6 +64,7 @@ export default function PlansScreen() {
   const [plans,   setPlans]   = useState<TreatmentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,9 +166,127 @@ export default function PlansScreen() {
           contentContainerStyle={s.list}
         />
       )}
+
+      {/* Create-plan FAB */}
+      <TouchableOpacity style={s.fab} onPress={() => setCreateOpen(true)} activeOpacity={0.85} accessibilityLabel="New treatment plan">
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+
+      {createOpen && (
+        <CreatePlanModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={(planId) => { setCreateOpen(false); load(); if (planId) router.push(`/plan/${planId}`); }}
+        />
+      )}
     </SafeAreaView>
   );
 }
+
+// ── Create plan modal ──────────────────────────────────────────────
+function CreatePlanModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id?: string) => void }) {
+  const [patient, setPatient] = useState<PatientSummary | null>(null);
+  const [query,   setQuery]   = useState('');
+  const [results, setResults] = useState<PatientSummary[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [title,   setTitle]   = useState('');
+  const [total,   setTotal]   = useState('2');
+  const [desc,    setDesc]    = useState('');
+  const [saving,  setSaving]  = useState(false);
+
+  const runSearch = useCallback((q: string) => {
+    setQuery(q);
+    if (!q.trim()) { setResults([]); return; }
+    setSearching(true);
+    searchPatients(q, 6)
+      .then(r => setResults(r.patients))
+      .catch(() => setResults([]))
+      .finally(() => setSearching(false));
+  }, []);
+
+  const save = async () => {
+    if (!patient) { Alert.alert('Select a patient', 'Please choose a patient for this plan.'); return; }
+    if (!title.trim()) { Alert.alert('Missing title', 'Please enter a plan title.'); return; }
+    const t = parseInt(total, 10);
+    if (isNaN(t) || t < 1 || t > 50) { Alert.alert('Invalid total', 'Total sessions must be between 1 and 50.'); return; }
+    setSaving(true);
+    try {
+      const { plan } = await createTreatmentPlan({
+        patient_id: patient.id, title: title.trim(), total_sessions: t, description: desc.trim() || null,
+      });
+      onCreated(plan?.id);
+    } catch (e: any) {
+      Alert.alert('Could not create plan', e.message ?? 'Please try again.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <View style={cm.header}>
+          <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="close-circle" size={28} color={C.ink} />
+          </TouchableOpacity>
+          <Text style={cm.title}>New treatment plan</Text>
+          <View style={{ width: 28 }} />
+        </View>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={cm.scroll} keyboardShouldPersistTaps="handled">
+            <Text style={cm.label}>PATIENT</Text>
+            {patient ? (
+              <View style={cm.pickedPatient}>
+                <Text style={cm.pickedName}>{patient.first_name} {patient.last_name}</Text>
+                <TouchableOpacity onPress={() => { setPatient(null); setQuery(''); setResults([]); }}>
+                  <Text style={cm.changeText}>Change</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <TextInput style={cm.input} value={query} onChangeText={runSearch} placeholder="Search by name or phone…" placeholderTextColor={C.muted} autoCapitalize="words" />
+                {searching && <ActivityIndicator size="small" color={C.sage} style={{ marginTop: 8 }} />}
+                {results.map(p => (
+                  <TouchableOpacity key={p.id} style={cm.resultRow} onPress={() => { setPatient(p); setResults([]); setQuery(''); }}>
+                    <Text style={cm.resultName}>{p.first_name} {p.last_name}</Text>
+                    <Text style={cm.resultSub}>{p.phone || p.email || ''}</Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+
+            <Text style={[cm.label, { marginTop: 18 }]}>PLAN TITLE</Text>
+            <TextInput style={cm.input} value={title} onChangeText={setTitle} placeholder="e.g. Root Canal — Tooth 16" placeholderTextColor={C.muted} />
+
+            <Text style={[cm.label, { marginTop: 18 }]}>TOTAL SESSIONS</Text>
+            <TextInput style={cm.input} value={total} onChangeText={setTotal} keyboardType="numeric" placeholder="2" placeholderTextColor={C.muted} />
+
+            <Text style={[cm.label, { marginTop: 18 }]}>DESCRIPTION</Text>
+            <TextInput style={[cm.input, { minHeight: 72, textAlignVertical: 'top' }]} value={desc} onChangeText={setDesc} multiline placeholder="Procedures, tooth numbers, notes…" placeholderTextColor={C.muted} />
+
+            <TouchableOpacity style={[cm.primaryBtn, saving && { opacity: 0.55 }]} onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={cm.primaryBtnText}>Create plan</Text>}
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+const cm = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.rule },
+  title:  { fontSize: 16, fontWeight: '700', color: C.ink },
+  scroll: { padding: 20 },
+  label:  { fontSize: 10, fontWeight: '700', letterSpacing: 0.8, color: C.muted, marginBottom: 8 },
+  input:  { backgroundColor: C.paper, borderWidth: 1, borderColor: C.rule, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: C.ink },
+  pickedPatient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.paper, borderWidth: 1, borderColor: C.rule, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  pickedName: { fontSize: 15, fontWeight: '600', color: C.ink },
+  changeText: { fontSize: 13, color: C.sage, fontWeight: '600' },
+  resultRow:  { paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: C.hair },
+  resultName: { fontSize: 15, color: C.ink, fontWeight: '500' },
+  resultSub:  { fontSize: 12, color: C.muted, marginTop: 1 },
+  primaryBtn: { backgroundColor: C.sage, borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 26 },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
+});
 
 const s = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: C.bg },
@@ -215,4 +338,10 @@ const s = StyleSheet.create({
   statusBadgeText: { fontSize: 11, fontWeight: '600' },
   pct:     { fontSize: 12, color: C.muted },
   nextDue: { fontSize: 12, color: C.sage, fontWeight: '500' },
+  fab: {
+    position: 'absolute', right: 20, bottom: 28,
+    width: 56, height: 56, borderRadius: 28, backgroundColor: C.sage,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 5,
+  },
 });
