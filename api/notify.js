@@ -30,6 +30,15 @@ const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
+// Constant-time string comparison — a plain !== leaks the matching prefix
+// length through response timing.
+const { timingSafeEqual } = require('crypto');
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a)), bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return timingSafeEqual(ba, bb);
+}
+
 // ── AI clinical assistant config (was api/ai-ask.js) ─────────────────
 const AI_RATE_LIMIT = 10;                          // requests per rolling hour
 const AI_MODEL      = 'claude-3-5-haiku-20241022'; // cheapest capable Claude model
@@ -70,10 +79,10 @@ module.exports = async function handler(req, res) {
   // ── Action: save a staff push token (mobile app, staff-authed) ──
   if (req.query.action === 'save-token') return saveToken(req, res);
 
-  // ── Auth: validate webhook secret ────────────────────────────
+  // ── Auth: validate webhook secret (constant-time comparison) ──
   const secret   = process.env.NOTIFY_SECRET;
   const incoming = req.headers['x-webhook-secret'];
-  if (!secret || incoming !== secret) {
+  if (!secret || typeof incoming !== 'string' || !safeEqual(incoming, secret)) {
     console.warn('[notify] rejected — bad or missing webhook secret');
     return res.status(401).json({ error: 'Unauthorized' });
   }

@@ -44,6 +44,7 @@ function resetState() {
   state.users = { 'staff-token': { id: 'user-1', email: 'doc@example.com' }, 'rando-token': { id: 'user-999', email: 'rando@example.com' } };
   state.storage = [];
   state.emails = [];
+  state.orCalls = [];   // every .or(<filter string>) — lets tests assert injection stripping
 }
 
 // ── Mock supabase client ───────────────────────────────────────────
@@ -64,6 +65,7 @@ function makeBuilder(table) {
     b[m] = (...args) => {
       if (m === 'select') { q.wantRows = true; if (args[1]?.head) q.head = true; }
       else q.filters.push([m, args]);
+      if (m === 'or') state.orCalls.push(String(args[0]));
       return b;
     };
   }
@@ -422,6 +424,109 @@ async function run() {
     const res4 = makeRes();
     await appointments(makeReq({ method: 'PATCH', token: 'staff-token', query: { id: apptId }, body: { duration_minutes: 'abc' } }), res4);
     check('PATCH NaN duration → 400', res4.statusCode === 400, { got: res4.statusCode });
+  }
+
+  // ══ SECURITY TESTS ══════════════════════════════════════════════
+  console.log('\nSecurity: PostgREST filter injection');
+  resetState();
+  {
+    // Injection payload trying to smuggle extra filter clauses into .or()
+    const res = makeRes();
+    await patients(makeReq({ method: 'GET', token: 'staff-token', query: { q: 'x),(deleted_at.not.is.null' } }), res);
+    check('malicious search still 200', res.statusCode === 200, { got: res.statusCode });
+    const injected = state.orCalls.filter(c => c.includes('deleted_at.not'));
+    // The user term is embedded between % wildcards — control chars ( ) , .
+    // must have been stripped from every embedded term.
+    let bad = false;
+    for (const c of state.orCalls) {
+      for (const m of c.matchAll(/%([^%]*)%/g)) {
+        if (/[(),."\\]/.test(m[1])) bad = true;
+      }
+    }
+    check('filter control chars stripped from search terms', injected.length === 0 && !bad, { orCalls: state.orCalls.slice(0, 3) });
+  }
+
+  console.log('\nSecurity: mass assignment blocked');
+  resetState();
+  {
+    const pid = state.tables.patients[0]?.id || (state.tables.patients.push({ id: 'pt-x', practice_id: PRACTICE_ID, first_name: 'A', last_name: 'B' }), 'pt-x');
+    state.tables.patients[0].id = pid; state.tables.patients[0].practice_id = PRACTICE_ID;
+    const res = makeRes();
+    await patients(makeReq({ method: 'PATCH', token: 'staff-token', query: { id: pid }, body: {
+      first_name: 'Renamed', practice_id: 'evil-practice', deleted_at: '2020-01-01T00:00:00Z', id: 'evil-id',
+    } }), res);
+    const row = state.tables.patients.find(r => r.first_name === 'Renamed');
+    check('patient PATCH applies allowlisted field', res.statusCode === 200 && !!row, { got: res.statusCode });
+    check('practice_id / deleted_at / id not writable', row && row.practice_id === PRACTICE_ID && row.deleted_at == null && row.id === pid,
+      { practice_id: row?.practice_id, deleted_at: row?.deleted_at });
+  }
+  {
+    // appointments PATCH must ignore unknown/dangerous fields too
+    state.tables.appointments = [{ id: 'ap-1', practice_id: PRACTICE_ID, status: 'pending', appointment_date: '2027-01-01', appointment_time: '09:00:00', duration_minutes: 30 }];
+    const res = makeRes();
+    await appointments(makeReq({ method: 'PATCH', token: 'staff-token', query: { id: 'ap-1' }, body: {
+      internal_notes: 'ok', practice_id: 'evil', deleted_at: '2020-01-01',
+    } }), res);
+    const row = state.tables.appointments[0];
+    check('appointment PATCH ignores practice_id/deleted_at', res.statusCode === 200 && row.practice_id === PRACTICE_ID && row.deleted_at == null,
+      { got: res.statusCode, practice_id: row.practice_id, deleted_at: row.deleted_at });
+  }
+
+  console.log('\nSecurity: CORS origin spoofing');
+  resetState();
+  for (const [origin, allowed] of [
+    ['https://ohdental.co.za', true],
+    ['https://cliniq-git-branch.vercel.app', true],           // legit preview
+    ['https://evil-cliniq.vercel.app', false],                // prefix spoof
+    ['https://cliniq.vercel.app.evil.com', false],            // suffix spoof
+    ['https://ohdental.co.za.evil.com', false],
+    ['http://ohdental.co.za', false],                         // wrong scheme
+  ]) {
+    const res = makeRes();
+    await bookings(makeReq({ method: 'OPTIONS', origin }), res);
+    const got = res.headers['access-control-allow-origin'];
+    check(`origin ${origin} ${allowed ? 'allowed' : 'blocked'}`, allowed ? got === origin : got === undefined, { got });
+  }
+
+  console.log('\nSecurity: oversize + type limits');
+  resetState();
+  {
+    const res = makeRes();
+    await bookings(makeReq({ method: 'POST', body: { ...validBooking, notes: 'x'.repeat(1001) } }), res);
+    check('booking notes >1000 chars → 400', res.statusCode === 400, { got: res.statusCode });
+    const res2 = makeRes();
+    await bookings(makeReq({ method: 'POST', body: { ...validBooking, firstName: 'x'.repeat(101) } }), res2);
+    check('booking name >100 chars → 400', res2.statusCode === 400, { got: res2.statusCode });
+    const res3 = makeRes();
+    await patients(makeReq({ method: 'POST', token: 'staff-token', query: { upload_doc: '1' }, body: {
+      patient_id: 'pt-1', file_name: 'x.exe', file_type: 'application/x-msdownload', file_base64: 'aGk=',
+    } }), res3);
+    check('upload with executable mime type → 400', res3.statusCode === 400, { got: res3.statusCode });
+  }
+
+  console.log('\nSecurity: method fuzzing');
+  for (const [name, handler] of [['bookings', bookings], ['services', services], ['reviews', reviews], ['contact', contact]]) {
+    resetState();
+    const res = makeRes();
+    await handler(makeReq({ method: 'PUT', token: 'staff-token', body: {} }), res);
+    check(`${name} PUT → 405`, res.statusCode === 405, { got: res.statusCode });
+  }
+
+  console.log('\nSecurity: webhook secret');
+  resetState();
+  {
+    delete process.env.NOTIFY_SECRET;
+    const res = makeRes();
+    await notify(makeReq({ method: 'POST', body: { type: 'new_patient' }, headers: { 'x-webhook-secret': '' } }), res);
+    check('unset NOTIFY_SECRET rejects everything', res.statusCode === 401, { got: res.statusCode });
+    process.env.NOTIFY_SECRET = 'topsecret';
+    const res2 = makeRes();
+    await notify(makeReq({ method: 'POST', body: { type: 'new_patient' }, headers: { 'x-webhook-secret': 'topsecre' } }), res2);
+    check('near-miss secret rejected', res2.statusCode === 401, { got: res2.statusCode });
+    const res3 = makeRes();
+    await notify(makeReq({ method: 'POST', body: { type: 'new_patient' }, headers: { 'x-webhook-secret': 'topsecret' } }), res3);
+    check('exact secret accepted', res3.statusCode === 200, { got: res3.statusCode });
+    delete process.env.NOTIFY_SECRET;
   }
 
   // ── Summary ──
