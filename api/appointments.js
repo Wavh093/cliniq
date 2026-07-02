@@ -40,6 +40,28 @@
  * All routes require Authorization: Bearer <staff-jwt>.
  */
 const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
+const { scrubClaim } = require('./_lib/claimScrub');
+const { getClaimSwitch } = require('./_lib/claimSwitch');
+
+/** Load tariff reference data the scrubber needs (active codes + flags + fees). */
+async function loadScrubRef(db) {
+  const { data } = await db
+    .from('dental_tariff_codes')
+    .select('code, nrpl_fee, requires_tooth, requires_auth')
+    .eq('is_active', true)
+    .limit(5000);
+  const validCodes = new Set();
+  const authCodes  = new Set();
+  const toothCodes = new Set();
+  const feeByCode  = new Map();
+  for (const r of (data || [])) {
+    validCodes.add(r.code);
+    if (r.requires_auth)  authCodes.add(r.code);
+    if (r.requires_tooth) toothCodes.add(r.code);
+    if (r.nrpl_fee != null) feeByCode.set(r.code, Number(r.nrpl_fee));
+  }
+  return { validCodes, authCodes, toothCodes, feeByCode };
+}
 
 const VALID_STATUSES = ['pending','confirmed','completed','cancelled','no_show'];
 
@@ -608,14 +630,38 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ claims: data || [] });
     }
 
+    // Dry-run scrubber — validate a draft claim without saving it.
+    if (req.method === 'POST' && req.query.action === 'scrub') {
+      const body = await parseBody(req);
+      const ref = await loadScrubRef(db);
+      const result = scrubClaim({
+        lines: body.lines || [],
+        icd10_codes: body.icd10_codes || [],
+        scheme_membership_no: body.scheme_membership_no,
+        auth_number: body.auth_number,
+        date_of_service: body.date_of_service,
+      }, ref);
+      return res.status(200).json(result);
+    }
+
     if (req.method === 'POST') {
       const body = await parseBody(req);
       const { patient_id, appointment_id, scheme_name, scheme_membership_no, dependant_code,
-              plan_name, treating_provider, date_of_service, auth_number, lines = [], notes } = body;
+              plan_name, treating_provider, date_of_service, auth_number, lines = [], notes,
+              icd10_codes = [] } = body;
       if (!patient_id)             return res.status(400).json({ error: 'patient_id is required' });
       if (!scheme_name?.trim())    return res.status(400).json({ error: 'scheme_name is required' });
       if (!scheme_membership_no?.trim()) return res.status(400).json({ error: 'scheme_membership_no is required' });
       if (!date_of_service)        return res.status(400).json({ error: 'date_of_service is required' });
+
+      // Scrub before persisting — block on hard errors unless ?force=1.
+      const scrub = scrubClaim(
+        { lines, icd10_codes, scheme_membership_no, auth_number, date_of_service },
+        await loadScrubRef(db),
+      );
+      if (!scrub.ok && req.query.force !== '1') {
+        return res.status(422).json({ error: 'Claim failed validation', errors: scrub.errors, warnings: scrub.warnings });
+      }
 
       const total_charged = lines.reduce((s, l) => s + (parseFloat(l.fee_charged) || 0) * (parseInt(l.qty) || 1), 0);
 
@@ -642,7 +688,7 @@ module.exports = async function handler(req, res) {
         }));
         await db.from('claim_lines').insert(lineRows);
       }
-      return res.status(201).json({ claim_id: claim.id });
+      return res.status(201).json({ claim_id: claim.id, warnings: scrub.warnings });
     }
 
     if (req.method === 'PATCH') {
@@ -651,10 +697,21 @@ module.exports = async function handler(req, res) {
       const body = await parseBody(req);
       const VALID_CS = ['draft','submitted','partial','paid','rejected','written_off'];
       const up = {};
+      let switchResult = null;
       if (body.status !== undefined) {
         if (!VALID_CS.includes(body.status)) return res.status(400).json({ error: 'Invalid status' });
         up.status = body.status;
-        if (body.status === 'submitted') up.submitted_at = up.submitted_at || new Date().toISOString();
+        if (body.status === 'submitted') {
+          up.submitted_at = up.submitted_at || new Date().toISOString();
+          // Route the submission through the active claim switch (manual by
+          // default). A real switch can set the scheme reference here later.
+          try {
+            const { data: full } = await db.from('claims')
+              .select('*, claim_lines(*)').eq('id', cid).eq('practice_id', PRACTICE_ID).single();
+            switchResult = await getClaimSwitch().submit(full || { id: cid });
+            if (switchResult?.reference) up.claim_reference_number = switchResult.reference;
+          } catch (e) { console.error('[claims submit switch]', e); }
+        }
         if (['paid','partial'].includes(body.status)) up.settled_at = up.settled_at || new Date().toISOString();
       }
       ['claim_reference_number','auth_number','treating_provider','notes'].forEach(f => {
@@ -665,7 +722,7 @@ module.exports = async function handler(req, res) {
       up.updated_at = new Date().toISOString();
       const { error } = await db.from('claims').update(up).eq('id', cid).eq('practice_id', PRACTICE_ID).is('deleted_at', null);
       if (error) { console.error('[claims PATCH]', error); return res.status(500).json({ error: 'Could not update claim' }); }
-      return res.status(200).json({ success: true });
+      return res.status(200).json({ success: true, ...(switchResult ? { submission: switchResult } : {}) });
     }
 
     if (req.method === 'DELETE') {

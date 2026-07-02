@@ -529,6 +529,81 @@ async function run() {
     delete process.env.NOTIFY_SECRET;
   }
 
+  const appointments2 = require('../api/appointments');
+
+  // ── Claims: scrubber gate on create + dry-run ──
+  console.log('\nClaims: scrubbing');
+  resetState();
+  state.tables.dental_tariff_codes = [
+    { code: '8101', is_active: true, nrpl_fee: 500, requires_tooth: false, requires_auth: false },
+    { code: '8341', is_active: true, nrpl_fee: 900, requires_tooth: true,  requires_auth: true  },
+  ];
+  {
+    // dry-run scrub of a broken claim
+    const dry = makeRes();
+    await appointments2(makeReq({ method: 'POST', token: 'staff-token', query: { resource: 'claims', action: 'scrub' },
+      body: { lines: [{ code: '9999', fee_charged: 0 }], icd10_codes: [], scheme_membership_no: '', date_of_service: '2027-01-01' } }), dry);
+    check('scrub dry-run returns errors', dry.statusCode === 200 && dry.body.ok === false && dry.body.errors.length > 0, { got: dry.statusCode, body: dry.body });
+
+    // create a claim that fails validation → 422
+    const bad = makeRes();
+    await appointments2(makeReq({ method: 'POST', token: 'staff-token', query: { resource: 'claims' },
+      body: { patient_id: 'pt-1', scheme_name: 'Discovery', scheme_membership_no: '123', date_of_service: '2026-07-01',
+        icd10_codes: [], lines: [{ code: '8101', fee_charged: 100, qty: 1 }] } }), bad);
+    check('claim create blocked on hard error (no ICD-10) → 422', bad.statusCode === 422, { got: bad.statusCode, body: bad.body });
+
+    // same claim with force=1 → created
+    const forced = makeRes();
+    await appointments2(makeReq({ method: 'POST', token: 'staff-token', query: { resource: 'claims', force: '1' },
+      body: { patient_id: 'pt-1', scheme_name: 'Discovery', scheme_membership_no: '123', date_of_service: '2026-07-01',
+        icd10_codes: [], lines: [{ code: '8101', fee_charged: 100, qty: 1 }] } }), forced);
+    check('claim create with force=1 → 201', forced.statusCode === 201, { got: forced.statusCode, body: forced.body });
+
+    // a valid claim → created with warnings surfaced
+    const good = makeRes();
+    await appointments2(makeReq({ method: 'POST', token: 'staff-token', query: { resource: 'claims' },
+      body: { patient_id: 'pt-1', scheme_name: 'Discovery', scheme_membership_no: '1234567890', date_of_service: '2026-07-01',
+        icd10_codes: ['K02.9'], lines: [{ code: '8341', fee_charged: 1500, qty: 1 }] } }), good);
+    check('valid claim → 201 with over-fee warning', good.statusCode === 201 && Array.isArray(good.body.warnings) && good.body.warnings.some(w => /exceeds/.test(w)), { got: good.statusCode, body: good.body });
+  }
+
+  // ── Accounts: debtor aging + patient statement ──
+  console.log('\nAccounts: aging + statement');
+  resetState();
+  {
+    const nowMs = Date.now() + 2 * 3600 * 1000;
+    const daysAgo = n => new Date(nowMs - n * 86400000).toISOString().slice(0, 10);
+    state.tables.patients = [{ id: 'pt-1', practice_id: PRACTICE_ID, first_name: 'Jane', last_name: 'Doe', phone: '0821234567', email: 'jane@example.com' }];
+    // Two completed appointments: one recent (current), one ~150 days old (120+); each with a balance.
+    state.tables.appointments = [
+      { id: 'ap-1', practice_id: PRACTICE_ID, patient_id: 'pt-1', status: 'completed', appointment_date: daysAgo(5),  amount_paid: 200, ma_amount_received: null, patient_portion: null,
+        patients: { id: 'pt-1', first_name: 'Jane', last_name: 'Doe', phone: '0821234567', email: 'jane@example.com' }, services: { name: 'Checkup', price_from: 650 } },
+      { id: 'ap-2', practice_id: PRACTICE_ID, patient_id: 'pt-1', status: 'completed', appointment_date: daysAgo(150), amount_paid: 0,   ma_amount_received: null, patient_portion: null,
+        patients: { id: 'pt-1', first_name: 'Jane', last_name: 'Doe', phone: '0821234567', email: 'jane@example.com' }, services: { name: 'Filling', price_from: 900 } },
+    ];
+
+    const noTok = makeRes();
+    await revenue(makeReq({ method: 'GET', query: { resource: 'aging' } }), noTok);
+    check('aging without token → 401', noTok.statusCode === 401, { got: noTok.statusCode });
+
+    const aging = makeRes();
+    await revenue(makeReq({ method: 'GET', token: 'staff-token', query: { resource: 'aging' } }), aging);
+    const debtor = aging.body?.debtors?.find(d => d.patient_id === 'pt-1');
+    check('aging lists the debtor', aging.statusCode === 200 && !!debtor, { got: aging.statusCode });
+    check('aging total = 450 + 900 = 1350', debtor && Math.abs(debtor.total - 1350) < 0.01, { total: debtor?.total });
+    check('aging buckets: current 450, 120+ 900', debtor && Math.abs(debtor.current - 450) < 0.01 && Math.abs(debtor.d120 - 900) < 0.01, { current: debtor?.current, d120: debtor?.d120 });
+    check('aging grand totals present', Math.abs((aging.body.totals?.total || 0) - 1350) < 0.01, { totals: aging.body.totals });
+
+    const stmt = makeRes();
+    await revenue(makeReq({ method: 'GET', token: 'staff-token', query: { resource: 'statement', patient_id: 'pt-1' } }), stmt);
+    check('statement returns 2 line items', stmt.statusCode === 200 && stmt.body.statement?.items?.length === 2, { got: stmt.statusCode, items: stmt.body.statement?.items?.length });
+    check('statement total = 1350', Math.abs((stmt.body.statement?.total || 0) - 1350) < 0.01, { total: stmt.body.statement?.total });
+
+    const noId = makeRes();
+    await revenue(makeReq({ method: 'GET', token: 'staff-token', query: { resource: 'statement' } }), noId);
+    check('statement without patient_id → 400', noId.statusCode === 400, { got: noId.statusCode });
+  }
+
   // ── Summary ──
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) { console.log('Failures:', failures); process.exit(1); }
