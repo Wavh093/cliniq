@@ -15,6 +15,83 @@
  */
 const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 
+/** SA-style debtor age bucket for a charge dated `dateStr`, relative to today. */
+function ageBucket(dateStr, today) {
+  if (!dateStr) return 'current';
+  const days = Math.floor((new Date(today) - new Date(dateStr)) / 86400000);
+  if (days <= 30)  return 'current';
+  if (days <= 60)  return 'd30';
+  if (days <= 90)  return 'd60';
+  if (days <= 120) return 'd90';
+  return 'd120';
+}
+
+/**
+ * Build the patient-receivable ledger: money the practice is directly owed by
+ * patients, from completed appointments (service price − collected) and
+ * treatment-plan sessions (charged − paid). Scheme-owed amounts have their own
+ * aging in claims_summary and are intentionally NOT included here, to avoid
+ * double-counting a visit that is also on a claim.
+ *
+ * @returns {{ items, byPatient: Map }}
+ */
+function buildLedger({ appts, sessions, today }) {
+  const items = [];
+  const round = n => Math.round(n * 100) / 100;
+
+  for (const a of (appts || [])) {
+    const billed = Number(a.services?.price_from || 0);
+    if (billed <= 0) continue;
+    const collected = (a.ma_amount_received != null || a.patient_portion != null)
+      ? (Number(a.ma_amount_received || 0) + Number(a.patient_portion || 0))
+      : Number(a.amount_paid || 0);
+    const owed = round(billed - collected);
+    if (owed <= 0.01) continue;
+    items.push({
+      type: 'appointment', ref_id: a.id, date: a.appointment_date,
+      description: a.services?.name || 'Consultation',
+      patient: a.patients, patient_id: a.patients?.id,
+      billed: round(billed), paid: round(collected), owed,
+      bucket: ageBucket(a.appointment_date, today),
+    });
+  }
+
+  for (const s of (sessions || [])) {
+    const billed = Number(s.amount_charged || 0);
+    if (billed <= 0) continue;
+    const paid = Number(s.amount_paid || 0);
+    const owed = round(billed - paid);
+    if (owed <= 0.01) continue;
+    const plan = s.treatment_plans;
+    const date = s.session_date || (s.paid_at ? String(s.paid_at).slice(0, 10) : null);
+    items.push({
+      type: 'plan_session', ref_id: s.id, date,
+      description: `${plan?.title || 'Treatment plan'} — session ${s.session_number}`,
+      patient: plan?.patients, patient_id: plan?.patients?.id,
+      billed: round(billed), paid: round(paid), owed,
+      bucket: ageBucket(date, today),
+    });
+  }
+
+  const byPatient = new Map();
+  for (const it of items) {
+    if (!it.patient_id) continue;
+    if (!byPatient.has(it.patient_id)) {
+      byPatient.set(it.patient_id, {
+        patient_id: it.patient_id, patient: it.patient,
+        current: 0, d30: 0, d60: 0, d90: 0, d120: 0, total: 0,
+        oldest: it.date, items: [],
+      });
+    }
+    const acc = byPatient.get(it.patient_id);
+    acc[it.bucket] = round(acc[it.bucket] + it.owed);
+    acc.total = round(acc.total + it.owed);
+    if (it.date && (!acc.oldest || it.date < acc.oldest)) acc.oldest = it.date;
+    acc.items.push(it);
+  }
+  return { items, byPatient };
+}
+
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
 
@@ -23,6 +100,50 @@ module.exports = async function handler(req, res) {
   if (!user) return;
 
   const db = adminClient();
+
+  // ── GET ?resource=aging — practice-wide patient debtor age analysis ──
+  // ── GET ?resource=statement&patient_id=UUID — single patient's account ──
+  if (req.method === 'GET' && (req.query.resource === 'aging' || req.query.resource === 'statement')) {
+    const today = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10); // SAST
+    const patientId = req.query.patient_id;
+
+    let apptQ = db.from('appointments')
+      .select('id, appointment_date, amount_paid, ma_amount_received, patient_portion, patients(id, first_name, last_name, phone, email), services(name, price_from)')
+      .eq('practice_id', PRACTICE_ID)
+      .eq('status', 'completed')
+      .is('deleted_at', null)
+      .limit(10000);
+    if (patientId) apptQ = apptQ.eq('patient_id', patientId);
+
+    let sessQ = db.from('treatment_plan_sessions')
+      .select('id, session_number, session_date, amount_charged, amount_paid, paid_at, treatment_plans!inner(id, title, practice_id, patient_id, patients(id, first_name, last_name, phone, email))')
+      .eq('treatment_plans.practice_id', PRACTICE_ID)
+      .gt('amount_charged', 0)
+      .limit(10000);
+    if (patientId) sessQ = sessQ.eq('treatment_plans.patient_id', patientId);
+
+    const [{ data: appts, error: aErr }, { data: sessions, error: sErr }] = await Promise.all([apptQ, sessQ]);
+    if (aErr || sErr) { console.error('[revenue ledger]', aErr || sErr); return res.status(500).json({ error: 'Could not build account data' }); }
+
+    const { items, byPatient } = buildLedger({ appts, sessions, today });
+
+    if (req.query.resource === 'statement') {
+      if (!patientId) return res.status(400).json({ error: 'patient_id is required' });
+      const acc = byPatient.get(patientId) || { patient_id: patientId, current: 0, d30: 0, d60: 0, d90: 0, d120: 0, total: 0, oldest: null, items: [] };
+      acc.items.sort((x, y) => String(y.date || '').localeCompare(String(x.date || '')));
+      return res.status(200).json({ statement: acc, as_at: today });
+    }
+
+    // aging: sorted debtor list, biggest balance first
+    const debtors = [...byPatient.values()]
+      .map(({ items: _drop, ...rest }) => rest)
+      .sort((a, b) => b.total - a.total);
+    const totals = debtors.reduce((t, d) => {
+      ['current', 'd30', 'd60', 'd90', 'd120', 'total'].forEach(k => { t[k] = Math.round((t[k] + d[k]) * 100) / 100; });
+      return t;
+    }, { current: 0, d30: 0, d60: 0, d90: 0, d120: 0, total: 0 });
+    return res.status(200).json({ debtors, totals, count: debtors.length, as_at: today });
+  }
 
   // ── GET ?resource=claims_summary — aging buckets for ClaimsPage ──
   if (req.method === 'GET' && req.query.resource === 'claims_summary') {

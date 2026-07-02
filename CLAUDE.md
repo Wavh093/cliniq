@@ -87,6 +87,12 @@ node -e "const m=require('fs').readFileSync('admin.html','utf8').match(/<script 
   plain functions `{Foo(props)}` (see the AddPatientModal footer).
 - Email HTML in API responses must escape user input (`escapeHtml` in
   bookings.js / contact.js).
+- Claims: `api/_lib/claimScrub.js` validates a claim before submit (errors block,
+  warnings advise); `api/_lib/claimSwitch.js` is the pluggable submit adapter
+  (`manual` default; `CLAIM_SWITCH` env selects). See `docs/CLAIMS_SWITCH.md`.
+  Patient debtor age-analysis + statements live in `api/revenue.js`
+  (`?resource=aging` / `?resource=statement`); scheme-claim aging is separate
+  (`?resource=claims_summary`) — don't merge them or you double-count.
 - User-facing dates use `en-GB`/`en-ZA`; practice timezone is SAST (UTC+2),
   computed as `Date.now() + 2h` server-side (no DST in SA).
 

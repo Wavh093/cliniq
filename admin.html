@@ -3570,6 +3570,7 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
   const [saving,     setSaving]     = useState(false);
   const [saveErr,    setSaveErr]    = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [showStatement, setShowStatement] = useState(false);
   const [deleting,   setDeleting]   = useState(false);
   const [dependants,   setDependants]   = useState([]);
   const [editingMa,    setEditingMa]    = useState(false);
@@ -4089,6 +4090,12 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
               ? <span style={{fontSize:12,color:'var(--muted)',fontStyle:'italic'}}>Editing patient record</span>
               : <span />}
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <button
+                title="Statement of account"
+                onClick={() => setShowStatement(true)}
+                style={{padding:'6px 10px',borderRadius:8,border:'1px solid #e0ecf0',background:'#f4f9fa',cursor:'pointer',fontSize:13,display:'flex',alignItems:'center',gap:4}}>
+                🧾 Statement
+              </button>
               <button
                 title="Print patient record"
                 onClick={() => printPatientRecord(d || patient)}
@@ -5184,6 +5191,10 @@ function PatientDrawer({ patient, onClose, onUpdate, onDelete, onNavigate }) {
             medical_aid_name: d.medical_aid_name || null,
           }}
         />
+      )}
+
+      {showStatement && (
+        <StatementModal patientId={patient.id} onClose={() => setShowStatement(false)} />
       )}
     </>
   );
@@ -7017,6 +7028,8 @@ function RevenuePage() {
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState('');
   const [payAppt, setPayAppt] = useState(null);
+  const [view,    setView]    = useState('month');   // 'month' | 'accounts'
+  const [statementFor, setStatementFor] = useState(null);
 
   const monthStr = `${year}-${String(month).padStart(2,'0')}`;
 
@@ -7054,14 +7067,35 @@ function RevenuePage() {
           <div className="eyebrow">Financials</div>
           <h2 style={{fontFamily:'Plus Jakarta Sans,sans-serif',fontSize:30,marginTop:4}}>Revenue</h2>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <button className="btn btn-ghost btn-sm" onClick={prevMonth} style={{fontSize:18,lineHeight:1,padding:'4px 10px'}}>‹</button>
-          <span style={{fontSize:14,fontWeight:500,minWidth:110,textAlign:'center'}}>
-            {MONTH_NAMES[month-1]} {year}
-          </span>
-          <button className="btn btn-ghost btn-sm" onClick={nextMonth} style={{fontSize:18,lineHeight:1,padding:'4px 10px'}}>›</button>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{display:'flex',gap:4,background:'var(--bg-3)',borderRadius:10,padding:3}}>
+            {[['month','This month'],['accounts','Accounts']].map(([v,label]) => (
+              <button key={v} className="btn btn-sm" onClick={() => setView(v)}
+                style={{fontSize:12,padding:'5px 12px',border:'none',borderRadius:8,
+                  background: view===v ? 'var(--card)' : 'transparent',
+                  color: view===v ? 'var(--ink)' : 'var(--muted)',
+                  fontWeight: view===v ? 600 : 500,
+                  boxShadow: view===v ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'}}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === 'month' && (
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <button className="btn btn-ghost btn-sm" onClick={prevMonth} style={{fontSize:18,lineHeight:1,padding:'4px 10px'}}>‹</button>
+              <span style={{fontSize:14,fontWeight:500,minWidth:110,textAlign:'center'}}>
+                {MONTH_NAMES[month-1]} {year}
+              </span>
+              <button className="btn btn-ghost btn-sm" onClick={nextMonth} style={{fontSize:18,lineHeight:1,padding:'4px 10px'}}>›</button>
+            </div>
+          )}
         </div>
       </div>
+
+      {view === 'accounts' && <AccountsView onOpenStatement={setStatementFor} />}
+      {statementFor && (
+        <StatementModal patientId={statementFor} onClose={() => setStatementFor(null)} />
+      )}
 
       {loadErr && (
         <div className="alert alert-error" style={{marginBottom:20}} role="alert">
@@ -7071,6 +7105,7 @@ function RevenuePage() {
         </div>
       )}
 
+      {view === 'month' && (<>
       {/* KPI cards */}
       <div className="stat-grid" style={{marginBottom:24}}>
         {[
@@ -7207,6 +7242,8 @@ function RevenuePage() {
         </div>
       )}
 
+      </>)}
+
       {payAppt && (
         <PaymentModal
           appt={payAppt}
@@ -7214,6 +7251,265 @@ function RevenuePage() {
           onDone={() => { setPayAppt(null); load(); }}
         />
       )}
+    </div>
+  );
+}
+
+/* ── Print an HTML string via a hidden iframe (statements, etc.) ── */
+function printHtmlDoc(html) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('sandbox', 'allow-same-origin allow-modals');
+  iframe.srcdoc = html;
+  iframe.onload = () => {
+    try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+    catch { showToast('Could not open the print dialog.', 'error'); }
+    setTimeout(() => iframe.remove(), 60000);
+  };
+  document.body.appendChild(iframe);
+}
+
+/* ── Patient statement modal (print / WhatsApp / email) ── */
+function StatementModal({ patientId, onClose }) {
+  const [stmt,     setStmt]     = useState(null);
+  const [practice, setPractice] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [err,      setErr]      = useState('');
+  useEscape(onClose);
+
+  useEffect(() => {
+    setLoading(true); setErr('');
+    Promise.all([
+      api(`/api/revenue?resource=statement&patient_id=${encodeURIComponent(patientId)}`),
+      api('/api/staff?resource=practice').catch(() => ({ practice: null })),
+    ])
+      .then(([s, p]) => { setStmt(s.statement); setPractice(p.practice || null); setLoading(false); })
+      .catch(e => { setErr(e.message || 'Could not load statement.'); setLoading(false); });
+  }, [patientId]);
+
+  const pt = stmt?.patient;
+  const asAt = stmt?.as_at;
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  const buildStatementHtml = () => {
+    const name = `${pt?.first_name || ''} ${pt?.last_name || ''}`.trim() || 'Patient';
+    const pracName = practice?.name || 'Dental Practice';
+    const header = (practice?.letterhead_data)
+      ? `<div style="border-bottom:3px solid #0a4a5c;padding-bottom:12px;margin-bottom:24px"><img src="${practice.letterhead_data}" style="width:100%;max-height:140px;object-fit:contain;display:block"></div>`
+      : (practice?.logo_data)
+        ? `<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0a4a5c;padding-bottom:14px;margin-bottom:24px"><img src="${practice.logo_data}" style="height:56px;max-width:220px;object-fit:contain"><div style="text-align:right;font-size:12px;color:#6b7280">${esc(pracName)}${practice?.practice_number?`<br>Practice No: ${esc(practice.practice_number)}`:''}</div></div>`
+        : `<div style="border-bottom:3px solid #0a4a5c;padding-bottom:14px;margin-bottom:24px"><div style="font-size:22px;font-weight:800;color:#0a4a5c">${esc(pracName)}</div>${practice?.practice_number?`<div style="font-size:12px;color:#6b7280">Practice No: ${esc(practice.practice_number)}</div>`:''}</div>`;
+    const rows = (stmt.items || []).map(it => `
+      <tr>
+        <td style="padding:8px 6px;border-bottom:1px solid #eef1f4;font-size:13px">${fmtDate(it.date)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eef1f4;font-size:13px">${esc(it.description)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eef1f4;font-size:13px;text-align:right">R ${Number(it.billed).toFixed(2)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eef1f4;font-size:13px;text-align:right;color:#065f46">R ${Number(it.paid).toFixed(2)}</td>
+        <td style="padding:8px 6px;border-bottom:1px solid #eef1f4;font-size:13px;text-align:right;font-weight:600">R ${Number(it.owed).toFixed(2)}</td>
+      </tr>`).join('');
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+      body{font-family:'Helvetica Neue',Arial,sans-serif;color:#1a2531;margin:0;padding:40px 48px;max-width:720px}
+      h1{font-size:18px;color:#0a4a5c;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 4px}
+      table{width:100%;border-collapse:collapse;margin-top:14px}
+      th{font-size:11px;text-transform:uppercase;letter-spacing:0.4px;color:#6b7280;text-align:left;padding:6px;border-bottom:2px solid #0a4a5c}
+      .tot{margin-top:18px;text-align:right;font-size:15px}
+      .age{margin-top:20px;font-size:12px;color:#4b5563}
+      .age span{display:inline-block;margin-left:14px}
+    </style></head><body>
+      ${header}
+      <h1>Statement of Account</h1>
+      <div style="font-size:13px;color:#6b7280;margin-bottom:2px">${esc(name)}</div>
+      <div style="font-size:12px;color:#9ca3af">As at ${fmtDate(asAt)}</div>
+      <table>
+        <thead><tr><th>Date</th><th>Description</th><th style="text-align:right">Charged</th><th style="text-align:right">Paid</th><th style="text-align:right">Owing</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5" style="padding:14px 6px;color:#6b7280;font-size:13px">No outstanding items.</td></tr>'}</tbody>
+      </table>
+      <div class="tot"><strong>Total outstanding: R ${Number(stmt.total||0).toFixed(2)}</strong></div>
+      <div class="age">Age analysis:
+        <span>Current R ${Number(stmt.current||0).toFixed(2)}</span>
+        <span>30d R ${Number(stmt.d30||0).toFixed(2)}</span>
+        <span>60d R ${Number(stmt.d60||0).toFixed(2)}</span>
+        <span>90d R ${Number(stmt.d90||0).toFixed(2)}</span>
+        <span>120+ R ${Number(stmt.d120||0).toFixed(2)}</span>
+      </div>
+      <div style="margin-top:40px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center">
+        ${esc(pracName)} · Statement generated ${fmtDate(asAt)}
+      </div>
+    </body></html>`;
+  };
+
+  const reminderText = () => {
+    const name = pt?.first_name || 'there';
+    const total = Number(stmt?.total || 0).toFixed(2);
+    return `Hi ${name}, this is ${practice?.name || 'your dental practice'}. Our records show an outstanding balance of R${total} on your account. Please contact us to settle or arrange payment. Thank you!`;
+  };
+
+  const waSend = () => {
+    const wa = waNumber(pt?.phone);
+    if (!wa) { showToast('No phone number on record for this patient.', 'error'); return; }
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(reminderText())}`, '_blank');
+  };
+  const emailSend = () => {
+    if (!pt?.email) { showToast('No email on record for this patient.', 'error'); return; }
+    window.open(`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(pt.email)}&su=${encodeURIComponent('Statement of account — ' + (practice?.name || ''))}&body=${encodeURIComponent(reminderText())}`, '_blank');
+  };
+
+  return (
+    <div className="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal" style={{maxWidth:640}} onClick={e => e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
+          <h3 className="modal-title" style={{margin:0}}>Statement of account</h3>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        {loading ? (
+          <div style={{padding:'24px 0'}}><div className="skel" style={{marginBottom:10}} /><div className="skel" style={{width:'70%'}} /></div>
+        ) : err ? (
+          <div className="alert alert-error">{err}</div>
+        ) : (
+          <>
+            <p className="modal-sub">{pt?.first_name} {pt?.last_name} · as at {fmtDate(asAt)}</p>
+
+            {/* Aging chips */}
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+              {[['Current',stmt.current],['30d',stmt.d30],['60d',stmt.d60],['90d',stmt.d90],['120+',stmt.d120]].map(([l,v]) => (
+                <span key={l} style={{fontSize:11,fontWeight:600,borderRadius:999,padding:'3px 10px',
+                  background:(l==='90d'||l==='120+')&&v>0?'rgba(220,38,38,0.08)':'var(--bg-3)',
+                  color:(l==='90d'||l==='120+')&&v>0?'var(--danger)':'var(--ink-soft)',
+                  border:'1px solid var(--border)'}}>{l}: {fmtMoney(v||0)}</span>
+              ))}
+            </div>
+
+            <div className="card" style={{padding:0,overflow:'hidden',marginBottom:14}}>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Date</th><th>Item</th><th style={{textAlign:'right'}}>Charged</th><th style={{textAlign:'right'}}>Paid</th><th style={{textAlign:'right'}}>Owing</th></tr></thead>
+                  <tbody>
+                    {!stmt.items?.length ? (
+                      <tr><td colSpan="5" style={{padding:'16px',textAlign:'center',color:'var(--muted)',fontSize:13}}>No outstanding items.</td></tr>
+                    ) : stmt.items.map(it => (
+                      <tr key={`${it.type}-${it.ref_id}`}>
+                        <td className="mono" style={{fontSize:12}}>{fmtDate(it.date)}</td>
+                        <td style={{fontSize:13}}>{it.description}</td>
+                        <td className="mono" style={{textAlign:'right',fontSize:12}}>{fmtMoney(it.billed)}</td>
+                        <td className="mono" style={{textAlign:'right',fontSize:12,color:'var(--green)'}}>{fmtMoney(it.paid)}</td>
+                        <td className="mono" style={{textAlign:'right',fontSize:12,fontWeight:600}}>{fmtMoney(it.owed)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+              <span style={{fontSize:13,color:'var(--muted)'}}>Total outstanding</span>
+              <span style={{fontSize:20,fontWeight:700,color:stmt.total>0?'var(--danger)':'var(--green)'}}>{fmtMoney(stmt.total||0)}</span>
+            </div>
+
+            <div className="modal-foot" style={{gap:8,flexWrap:'wrap'}}>
+              <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
+              <div style={{display:'flex',gap:8,marginLeft:'auto',flexWrap:'wrap'}}>
+                <button className="btn btn-ghost btn-sm" onClick={emailSend} disabled={!pt?.email}>✉ Email</button>
+                <button className="btn btn-ghost btn-sm" onClick={waSend} disabled={!pt?.phone}>💬 WhatsApp</button>
+                <button className="btn btn-primary btn-sm" onClick={() => printHtmlDoc(buildStatementHtml())} disabled={!stmt.items?.length}>🖨 Print statement</button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Accounts / debtor age analysis (Revenue → Accounts tab) ── */
+function AccountsView({ onOpenStatement }) {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [err,     setErr]     = useState('');
+
+  useEffect(() => {
+    setLoading(true); setErr('');
+    api('/api/revenue?resource=aging')
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { setErr(e.message || 'Could not load accounts.'); setLoading(false); });
+  }, []);
+
+  const t = data?.totals || {};
+  const BUCKETS = [['current','Current'],['d30','30 days'],['d60','60 days'],['d90','90 days'],['d120','120+ days']];
+
+  return (
+    <div>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:16}}>
+        Money owed to the practice by patients (from completed appointments and treatment-plan sessions),
+        aged from the date of service. Medical-aid claim balances are tracked separately in Claims.
+      </div>
+
+      {err && <div className="alert alert-error" style={{marginBottom:16}}>{err}</div>}
+
+      {/* Bucket summary */}
+      <div className="stat-grid" style={{marginBottom:20}}>
+        {BUCKETS.map(([k,label]) => (
+          <div className="stat-card" key={k}>
+            <div className="stat-label">{label}</div>
+            <div className="stat-value" style={{fontSize:20,fontWeight:700,color:k==='d90'||k==='d120'?'var(--danger)':k==='d60'?'var(--amber)':'var(--ink)'}}>
+              {loading ? '…' : fmtMoney(t[k] || 0)}
+            </div>
+          </div>
+        ))}
+        <div className="stat-card" style={{borderColor:'var(--sage)'}}>
+          <div className="stat-label">Total outstanding</div>
+          <div className="stat-value" style={{fontSize:20,fontWeight:700,color:'var(--sage)'}}>{loading ? '…' : fmtMoney(t.total || 0)}</div>
+          {!loading && <div className="stat-sub">{data?.count || 0} patient{(data?.count||0)!==1?'s':''}</div>}
+        </div>
+      </div>
+
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Patient</th>
+                <th style={{textAlign:'right'}}>Current</th>
+                <th style={{textAlign:'right'}} className="col-optional">30</th>
+                <th style={{textAlign:'right'}} className="col-optional">60</th>
+                <th style={{textAlign:'right'}}>90</th>
+                <th style={{textAlign:'right'}}>120+</th>
+                <th style={{textAlign:'right'}}>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? <SkeletonRows n={6} /> : !data?.debtors?.length ? (
+                <tr><td colSpan="8">
+                  <div className="empty"><div className="empty-icon">✓</div>
+                    <div className="empty-title">No outstanding patient balances</div>
+                    <div className="empty-hint">Everyone's paid up. Balances from completed visits and plan sessions will appear here.</div>
+                  </div>
+                </td></tr>
+              ) : data.debtors.map(d => (
+                <tr key={d.patient_id} style={{cursor:'pointer'}} onClick={() => onOpenStatement(d.patient_id)}>
+                  <td>
+                    <div className="td-main">{d.patient?.first_name} {d.patient?.last_name}</div>
+                    {d.oldest && <div style={{fontSize:11,color:'var(--muted)'}}>Oldest: {fmtDate(d.oldest)}</div>}
+                  </td>
+                  <td className="mono" style={{textAlign:'right'}}>{d.current>0?fmtMoney(d.current):'—'}</td>
+                  <td className="mono col-optional" style={{textAlign:'right'}}>{d.d30>0?fmtMoney(d.d30):'—'}</td>
+                  <td className="mono col-optional" style={{textAlign:'right'}}>{d.d60>0?fmtMoney(d.d60):'—'}</td>
+                  <td className="mono" style={{textAlign:'right',color:d.d90>0?'var(--danger)':'inherit'}}>{d.d90>0?fmtMoney(d.d90):'—'}</td>
+                  <td className="mono" style={{textAlign:'right',color:d.d120>0?'var(--danger)':'inherit',fontWeight:d.d120>0?600:400}}>{d.d120>0?fmtMoney(d.d120):'—'}</td>
+                  <td className="mono" style={{textAlign:'right',fontWeight:700}}>{fmtMoney(d.total)}</td>
+                  <td><button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={e=>{e.stopPropagation();onOpenStatement(d.patient_id);}}>Statement</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
