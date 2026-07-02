@@ -99,6 +99,17 @@ async function main() {
   check('patient drawer opens on Profile tab', true);
   await page.screenshot({ path: path.join(SHOTS, '1-patient-profile.png') });
 
+  // WhatsApp link must use international form (2782…), never wa.me/0…
+  const waHref = await page.locator('a[href*="wa.me"]').first().getAttribute('href');
+  check('drawer WhatsApp link uses 27… not 0…', /wa\.me\/27\d/.test(waHref || ''), { waHref });
+
+  // Escape closes the drawer (nothing being edited)
+  await page.keyboard.press('Escape');
+  await page.getByText('Personal information').waitFor({ state: 'detached', timeout: 5000 });
+  check('Escape closes patient drawer', true);
+  await page.getByText('Jane Smith').first().click();
+  await page.getByText('Personal information').waitFor({ timeout: 10000 });
+
   // ── Health tab / dental chart ──
   console.log('\nDental chart');
   await page.getByRole('tab', { name: 'Health' }).click();
@@ -157,6 +168,15 @@ async function main() {
   const phone = page.getByPlaceholder('0710000000');
   await phone.fill('08212345678999');
   check('phone input capped at 10 digits', (await phone.inputValue()) === '0821234567', { got: await phone.inputValue() });
+
+  // Dirty guard: Escape must NOT discard typed data
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  check('Escape does not close a dirty wizard', await page.getByPlaceholder('0710000000').isVisible());
+  // Outside click on the overlay must also be ignored while dirty
+  await page.mouse.click(5, 5);
+  await page.waitForTimeout(200);
+  check('overlay click does not discard typed data', await page.getByPlaceholder('0710000000').isVisible());
   await phone.fill('12345');
   check('phone error shows instantly', await page.getByText('Phone number must start with 0 or +27.').isVisible());
   await phone.fill('+27821234567');
