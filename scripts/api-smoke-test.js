@@ -37,6 +37,8 @@ function resetState() {
     appointments: [],
     contact_submissions: [],
     ai_requests: [],
+    patient_documents: [],
+    practices: [{ id: PRACTICE_ID, name: 'Test Practice', letterhead_data: null }],
   };
   state.rpc = {
     compute_available_slots: () => ({ data: [{ slot_time: '09:00:00' }, { slot_time: '09:30:00' }], error: null }),
@@ -193,6 +195,47 @@ async function run() {
   const inventory    = require('../api/inventory');
   const analytics    = require('../api/analytics');
   const documents    = require('../api/documents');
+
+  // ── Documents: type allowlist now includes 'prescription' ──
+  console.log('\nDocuments: prescription type');
+  resetState();
+  {
+    const bad = makeRes();
+    await documents(makeReq({ method: 'POST', token: 'staff-token', body: { type: 'invoice', title: 'X', html_content: '<p>x</p>' } }), bad);
+    check('unknown doc type → 400', bad.statusCode === 400, { got: bad.statusCode });
+    for (const type of ['sick_note', 'referral_letter', 'prescription']) {
+      const res = makeRes();
+      await documents(makeReq({ method: 'POST', token: 'staff-token', body: { type, appointment_id: 'ap-1', patient_id: 'pt-1', title: `${type} doc`, html_content: '<p>ok</p>' } }), res);
+      check(`${type} accepted → 201`, res.statusCode === 201, { got: res.statusCode, body: res.body });
+    }
+    const bad2 = makeRes();
+    await documents(makeReq({ method: 'POST', body: { type: 'prescription', title: 'X', html_content: '<p>x</p>' } }), bad2);
+    check('prescription without staff token → 401/403', bad2.statusCode === 401 || bad2.statusCode === 403, { got: bad2.statusCode });
+  }
+
+  // ── Practice config exposes letterhead to authed clients only ──
+  console.log('\nPractice config: letterhead');
+  resetState();
+  state.tables.practices[0].letterhead_data = 'data:image/png;base64,AAAA';
+  {
+    const anon = makeRes();
+    await staff(makeReq({ method: 'GET', query: { resource: 'config' } }), anon);
+    check('config without token → no practice/letterhead leaked', anon.statusCode === 200 && !anon.body.practice, { practice: anon.body.practice });
+    const authed = makeRes();
+    await staff(makeReq({ method: 'GET', query: { resource: 'config' }, token: 'staff-token' }), authed);
+    check('authed config includes letterhead_data', authed.statusCode === 200 && authed.body.practice?.letterhead_data === 'data:image/png;base64,AAAA', { practice: authed.body.practice });
+  }
+
+  // ── Practice PATCH: letterhead is writable, id/created_at are not ──
+  console.log('\nPractice profile: letterhead writable');
+  resetState();
+  {
+    const res = makeRes();
+    await staff(makeReq({ method: 'PATCH', token: 'staff-token', query: { resource: 'practice' }, body: { letterhead_data: 'data:image/png;base64,BBBB', id: 'evil' } }), res);
+    const row = state.tables.practices[0];
+    check('letterhead_data saved via PATCH', res.statusCode === 200 && row.letterhead_data === 'data:image/png;base64,BBBB', { got: res.statusCode, lh: row.letterhead_data });
+    check('practice id not overwritten', row.id === PRACTICE_ID, { id: row.id });
+  }
 
   // ── CORS ──
   console.log('\nCORS');

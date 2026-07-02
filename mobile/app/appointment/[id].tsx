@@ -13,6 +13,7 @@ import {
 import { C, STATUS } from '../../constants/theme';
 import SickNoteModal from '../../components/SickNoteModal';
 import ReferralLetterModal from '../../components/ReferralLetterModal';
+import PrescriptionModal from '../../components/PrescriptionModal';
 import DentalChartCard from '../../components/DentalChartCard';
 
 // Server-side state machine (mirrored)
@@ -70,6 +71,7 @@ export default function SessionScreen() {
 
   const [sickNoteVisible, setSickNoteVisible]     = useState(false);
   const [referralVisible, setReferralVisible]     = useState(false);
+  const [prescriptionVisible, setPrescriptionVisible] = useState(false);
 
   // Payment state
   const [paymentMethod,     setPaymentMethod]     = useState<string>('cash');
@@ -755,6 +757,19 @@ export default function SessionScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={C.muted} />
               </TouchableOpacity>
+              <View style={s.docDivider} />
+              <TouchableOpacity
+                style={s.docBtn}
+                onPress={() => setPrescriptionVisible(true)}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="medical-outline" size={20} color={C.sage} />
+                <View style={s.docBtnText}>
+                  <Text style={s.docBtnLabel}>Prescription</Text>
+                  <Text style={s.docBtnSub}>Prescribe medication for this patient</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.muted} />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -773,6 +788,11 @@ export default function SessionScreen() {
           <ReferralLetterModal
             visible={referralVisible}
             onClose={() => setReferralVisible(false)}
+            appointment={appt}
+          />
+          <PrescriptionModal
+            visible={prescriptionVisible}
+            onClose={() => setPrescriptionVisible(false)}
             appointment={appt}
           />
         </>

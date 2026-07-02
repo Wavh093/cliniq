@@ -13,8 +13,8 @@ const { createClient } = require('@supabase/supabase-js');
 const { adminClient, cors, parseBody, PRACTICE_ID, requireStaff } = require('./_lib/supabase');
 const { rateLimit } = require('./_lib/rateLimit');
 
-const PRACTICE_FIELDS = 'id, name, email, phone, address_line1, address_line2, city, postal_code, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution, logo_data';
-const PRACTICE_UPDATABLE = ['name','email','phone','address_line1','address_line2','city','postal_code','hpcsa_number','practice_number','doctor_first_name','doctor_last_name','doctor_qualification','institution','logo_data'];
+const PRACTICE_FIELDS = 'id, name, email, phone, address_line1, address_line2, city, postal_code, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution, logo_data, letterhead_data';
+const PRACTICE_UPDATABLE = ['name','email','phone','address_line1','address_line2','city','postal_code','hpcsa_number','practice_number','doctor_first_name','doctor_last_name','doctor_qualification','institution','logo_data','letterhead_data'];
 
 module.exports = async function handler(req, res) {
   if (cors(req, res)) return;
@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
           // errors are returned in the result object, never thrown.
           const { data: practice } = await db
             .from('practices')
-            .select('id, name, email, phone, address_line1, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution')
+            .select('id, name, email, phone, address_line1, hpcsa_number, practice_number, doctor_first_name, doctor_last_name, doctor_qualification, institution, letterhead_data')
             .eq('id', PRACTICE_ID)
             .maybeSingle();
           return res.status(200).json({

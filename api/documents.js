@@ -339,8 +339,8 @@ module.exports = async function handler(req, res) {
     const body = await parseBody(req);
     const { type, appointment_id, patient_id: pid, title, html_content } = body;
 
-    if (!type || !['sick_note', 'referral_letter'].includes(type)) {
-      return res.status(400).json({ error: 'type must be "sick_note" or "referral_letter"' });
+    if (!type || !['sick_note', 'referral_letter', 'prescription'].includes(type)) {
+      return res.status(400).json({ error: 'type must be "sick_note", "referral_letter" or "prescription"' });
     }
     if (!title || typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ error: 'title is required' });

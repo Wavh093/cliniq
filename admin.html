@@ -8829,7 +8829,7 @@ function SettingsPage({ supabase, session }) {
     name:'', email:'', phone:'', address_line1:'', address_line2:'',
     city:'', postal_code:'', hpcsa_number:'', practice_number:'',
     doctor_first_name:'', doctor_last_name:'', doctor_qualification:'',
-    institution:'', logo_data:'',
+    institution:'', logo_data:'', letterhead_data:'',
   };
   const [practiceForm,    setPracticeForm]    = useState(BLANK_PRACTICE);
   const [practiceLoaded,  setPracticeLoaded]  = useState(false);
@@ -8858,6 +8858,7 @@ function SettingsPage({ supabase, session }) {
           doctor_qualification: p.doctor_qualification || '',
           institution:          p.institution          || '',
           logo_data:            p.logo_data            || '',
+          letterhead_data:      p.letterhead_data      || '',
         });
         setPracticeLoaded(true);
       })
@@ -9165,6 +9166,43 @@ function SettingsPage({ supabase, session }) {
                   if (f.size > 1024 * 1024) { setPracticeErr('Logo must be under 1 MB.'); return; }
                   const reader = new FileReader();
                   reader.onload = ev => { setPracticeForm(p=>({...p,logo_data:ev.target.result})); setPracticeErr(''); };
+                  reader.readAsDataURL(f);
+                  e.target.value = '';
+                }} />
+              </label>
+            </div>
+
+            {/* Letterhead — full-width header printed on documents */}
+            <div className="card">
+              <div style={{fontSize:11,letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)',marginBottom:4}}>Document letterhead</div>
+              <div style={{fontSize:12,color:'var(--ink-soft)',marginBottom:16,lineHeight:1.5}}>
+                A full-width header image printed across the top of sick notes, referral letters and prescriptions.
+                Use a wide banner (roughly 1600×400px). PNG or JPG, under 2 MB.
+              </div>
+              {practiceForm.letterhead_data ? (
+                <div style={{marginBottom:12}}>
+                  <div style={{border:'1.5px solid var(--border)',borderRadius:10,padding:12,background:'#fff',marginBottom:10}}>
+                    <img src={practiceForm.letterhead_data} alt="letterhead" style={{width:'100%',maxHeight:140,objectFit:'contain',display:'block'}} />
+                  </div>
+                  <button className="btn btn-ghost btn-sm"
+                    style={{fontSize:12,color:'var(--danger)',borderColor:'rgba(186,26,26,0.3)'}}
+                    onClick={() => setPracticeForm(p=>({...p,letterhead_data:''}))}>
+                    Remove letterhead
+                  </button>
+                </div>
+              ) : (
+                <div style={{border:'1.5px dashed var(--border)',borderRadius:10,padding:'14px 20px',background:'#f8fafc',marginBottom:12,fontSize:13,color:'var(--muted)',textAlign:'center'}}>
+                  No letterhead uploaded — documents will use a text header
+                </div>
+              )}
+              <label className="btn btn-ghost btn-sm" style={{cursor:'pointer',fontSize:12,alignSelf:'flex-start',margin:0}}>
+                {practiceForm.letterhead_data ? 'Replace letterhead' : 'Upload letterhead'}
+                <input type="file" accept="image/png,image/jpeg" style={{display:'none'}} onChange={e => {
+                  const f = e.target.files[0];
+                  if (!f) return;
+                  if (f.size > 2 * 1024 * 1024) { setPracticeErr('Letterhead must be under 2 MB.'); return; }
+                  const reader = new FileReader();
+                  reader.onload = ev => { setPracticeForm(p=>({...p,letterhead_data:ev.target.result})); setPracticeErr(''); };
                   reader.readAsDataURL(f);
                   e.target.value = '';
                 }} />
